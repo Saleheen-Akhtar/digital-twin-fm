@@ -95,7 +95,7 @@ digital-twin-fm/
 │   │   ├── Dockerfile
 │   │   └── package.json
 │   │
-│   ├── api-gateway/                      # Node.js + WebSocket
+│   ├── api-gateway/                      # NestJS API + WebSocket
 │   │   ├── src/
 │   │   │   ├── domains/                  # domain-driven
 │   │   │   │   ├── buildings/

@@ -14,7 +14,8 @@ To ensure long-term scalability, flexibility, and maintainability, the system wi
 - **Monorepo Management:** Turborepo (pnpm)
 - **Frontend Framework:** Next.js (App Router, React 18+)
 - **Backend Services:**
-  - Node.js (TypeScript) for real-time data handling and API Gateway.
+  - Node.js (TypeScript, NestJS) for real-time data handling and the API Gateway.
+  - Node.js (TypeScript) for the ingestion service, with HTTP ingestion first and MQTT later.
   - Python 3.11+ for AI processing, predictive analytics, and heavy data computations.
 - **Databases:**
   - Relational: PostgreSQL (Asset metadata, user roles, system config).
@@ -61,9 +62,9 @@ The project will be initiated following a strict 9-step scaffolding protocol to 
 ### 3.1 Apps & Services Structure
 Inside the Turborepo (`apps/` directory):
 - `apps/web`: The Next.js frontend application (The Digital Twin Interface, Executive Dashboard, Incident Management).
-- `apps/api-gateway`: Node.js/Express (or NestJS) service routing frontend requests and handling WebSockets for real-time monitoring.
+- `apps/api-gateway`: NestJS service routing frontend requests and handling WebSockets for real-time monitoring.
 - `apps/ai-service`: Python FastAPI service for the AI Facility Assistant, Root Cause Analysis, and Predictive Maintenance ML models.
-- `apps/ingestion-service`: High-throughput service (Node or Python) dedicated to receiving and standardizing IoT/sensor data from the facility.
+- `apps/ingestion-service`: High-throughput Node.js TypeScript service dedicated to receiving and standardizing IoT/sensor data. MVP supports HTTP ingestion first; MQTT is added later.
 
 ### 3.2 Real-Time Monitoring & IoT Data Flow
 1. Sensors transmit data to the `ingestion-service`.

@@ -27,11 +27,19 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 
 | Document | Description |
 |---|---|
+| [MVP_SCOPE.md](./MVP_SCOPE.md) | MVP boundaries, success criteria, and first build order |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, stack decisions, services, and data flows |
+| [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Core PostgreSQL/TimescaleDB tables and seed data expectations |
+| [API_CONTRACTS.md](./API_CONTRACTS.md) | REST endpoint contracts and example payloads |
+| [REALTIME_EVENTS.md](./REALTIME_EVENTS.md) | Redis/WebSocket event names and message shapes |
+| [MAINTENANCE_MODULE_SPEC.md](./MAINTENANCE_MODULE_SPEC.md) | Maintenance domain scope, workflows, permissions, and UI/API structure |
+| [SECURITY.md](./SECURITY.md) | Authentication, RBAC, secrets, ingestion, and AI security boundaries |
 | [FILE_STRUCTURE.md](./FILE_STRUCTURE.md) | Full directory breakdown and team ownership |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, data flows, and technical decisions |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Branch strategy, code standards, PR and review process |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Local, staging, and production deployment guide |
 | [TECHNICAL_PRD.md](./TECHNICAL_PRD.md) | Full product requirements and feature specs |
+| [ROADMAP.md](./ROADMAP.md) | MVP implementation phases and near-term build order |
+| [full_product/README.md](./full_product/README.md) | Full commercial product roadmap and enterprise-grade post-MVP specifications |
 
 ---
 
@@ -39,10 +47,11 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 15 (App Router), React 19, TypeScript 5, Tailwind CSS 4 |
-| 3D Viewer | React Three Fiber + Three.js |
-| State | Zustand (UI state), React Query (server state) |
-| Backend | Node.js 20 + Express/NestJS (api-gateway), Python 3.11 + FastAPI (ai-service) |
+| Frontend | Next.js 15 (App Router), React 19, TypeScript 5, Tailwind CSS 4, shadcn/ui/Radix UI |
+| 3D Viewer | React Three Fiber + Three.js + drei; GLB/GLTF or simplified model for MVP |
+| State | Zustand (UI state only), React Query/TanStack Query (server state) |
+| Backend | Node.js 20 + NestJS (api-gateway), Python 3.11 + FastAPI (ai-service) |
+| Ingestion | Node.js 20 TypeScript; HTTP ingestion for MVP, MQTT later |
 | Realtime | WebSockets + Redis pub/sub |
 | Database | PostgreSQL 16 + TimescaleDB (time-series), Redis 7 (cache + pub/sub) |
 | ORM | Drizzle ORM |
