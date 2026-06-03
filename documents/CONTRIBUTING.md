@@ -22,8 +22,11 @@
 
 - Read the [README.md](./README.md) — setup, running services, environment variables
 - Read [ARCHITECTURE.md](./ARCHITECTURE.md) — system design and service boundaries
+- Read [MVP_SCOPE.md](./MVP_SCOPE.md) — what is included/excluded in the first version
 - Check [FILE_STRUCTURE.md](./FILE_STRUCTURE.md) — where everything lives
-- For feature scope and priorities, refer to [documents/TECHNICAL_PRD.md](./documents/TECHNICAL_PRD.md)
+- Check [API_CONTRACTS.md](./API_CONTRACTS.md), [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md), and [REALTIME_EVENTS.md](./REALTIME_EVENTS.md) before changing API/data flows
+- For security-sensitive work, read [SECURITY.md](./SECURITY.md)
+- For feature scope and priorities, refer to [TECHNICAL_PRD.md](./TECHNICAL_PRD.md)
 
 If your change touches multiple services or adds a new pattern, discuss it with the team before writing code.
 
