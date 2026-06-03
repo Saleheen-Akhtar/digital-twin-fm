@@ -120,6 +120,3 @@ The design system will live in `packages/ui` within the monorepo, allowing it to
 2. **Infrastructure as Code (IaC):** Ready for Kubernetes deployment using Helm charts.
 3. **Event-Driven Architecture:** By utilizing Redis/PubSub for real-time events early on, we can easily transition to Kafka if data volume necessitates it in the future.
 4. **LLM Agnosticism:** The AI Facility Assistant will be built with an abstraction layer over the LLM provider, allowing swapping between proprietary (OpenAI/Anthropic) and open-source models based on cost and privacy requirements.
-- **`apps/` vs. `packages/`:** Deployable applications live in `apps/`. Shared, reusable logic and components that are consumed by multiple applications live in `packages/`.
-- **`packages/db/`:** Centralizing the database schema ensures that all Node.js services interact with the database using identical types and models.
-- **`packages/ui/`:** As requested, the robust design system is isolated. This allows the Next.js `web` app to import components cleanly (e.g., `import { Button } from '@repo/ui'`) and ensures future frontends remain visually consistent.
