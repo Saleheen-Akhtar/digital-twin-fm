@@ -31,7 +31,7 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, data flows, and technical decisions |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Branch strategy, code standards, PR and review process |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Local, staging, and production deployment guide |
-| [TECHNICAL_PRD.md](./documents/TECHNICAL_PRD.md) | Full product requirements and feature specs |
+| [TECHNICAL_PRD.md](./TECHNICAL_PRD.md) | Full product requirements and feature specs |
 
 ---
 
