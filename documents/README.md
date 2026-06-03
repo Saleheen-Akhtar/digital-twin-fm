@@ -2,7 +2,7 @@
 
 A real-time digital twin platform that gives facility managers a live 3D view of their building — sensor readings, equipment health, energy consumption, and active incidents — all in one place.
 
-> **MVP target:** Singapore Expo, August 2025
+> **MVP target:** Singapore Expo, August 2026
 
 ---
 
