@@ -27,18 +27,18 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 
 | Document | Description |
 |---|---|
-| [MVP_SCOPE.md](./MVP_SCOPE.md) | MVP boundaries, success criteria, and first build order |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design, stack decisions, services, and data flows |
-| [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | Core PostgreSQL/TimescaleDB tables and seed data expectations |
-| [API_CONTRACTS.md](./API_CONTRACTS.md) | REST endpoint contracts and example payloads |
-| [REALTIME_EVENTS.md](./REALTIME_EVENTS.md) | Redis/WebSocket event names and message shapes |
-| [MAINTENANCE_MODULE_SPEC.md](./MAINTENANCE_MODULE_SPEC.md) | Maintenance domain scope, workflows, permissions, and UI/API structure |
-| [SECURITY.md](./SECURITY.md) | Authentication, RBAC, secrets, ingestion, and AI security boundaries |
-| [FILE_STRUCTURE.md](./FILE_STRUCTURE.md) | Full directory breakdown and team ownership |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Branch strategy, code standards, PR and review process |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Local, staging, and production deployment guide |
-| [TECHNICAL_PRD.md](./TECHNICAL_PRD.md) | Full product requirements and feature specs |
-| [ROADMAP.md](./ROADMAP.md) | MVP implementation phases and near-term build order |
+| [MVP_SCOPE.md](./mvp/MVP_SCOPE.md) | MVP boundaries, success criteria, and first build order |
+| [ARCHITECTURE.md](./mvp/ARCHITECTURE.md) | System design, stack decisions, services, and data flows |
+| [DATABASE_SCHEMA.md](./mvp/DATABASE_SCHEMA.md) | Core PostgreSQL/TimescaleDB tables and seed data expectations |
+| [API_CONTRACTS.md](./mvp/API_CONTRACTS.md) | REST endpoint contracts and example payloads |
+| [REALTIME_EVENTS.md](./mvp/REALTIME_EVENTS.md) | Redis/WebSocket event names and message shapes |
+| [MAINTENANCE_MODULE_SPEC.md](./mvp/MAINTENANCE_MODULE_SPEC.md) | Maintenance domain scope, workflows, permissions, and UI/API structure |
+| [SECURITY.md](./mvp/SECURITY.md) | Authentication, RBAC, secrets, ingestion, and AI security boundaries |
+| [FILE_STRUCTURE.md](./mvp/FILE_STRUCTURE.md) | Full directory breakdown and team ownership |
+| [CONTRIBUTING.md](./mvp/CONTRIBUTING.md) | Branch strategy, code standards, PR and review process |
+| [DEPLOYMENT.md](./mvp/DEPLOYMENT.md) | Local, staging, and production deployment guide |
+| [TECHNICAL_PRD.md](./mvp/TECHNICAL_PRD.md) | Full product requirements and feature specs |
+| [ROADMAP.md](./mvp/ROADMAP.md) | MVP implementation phases and near-term build order |
 | [full_product/README.md](./full_product/README.md) | Full commercial product roadmap and enterprise-grade post-MVP specifications |
 
 ---
@@ -62,7 +62,7 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 
 ## Project Structure
 
-See [FILE_STRUCTURE.md](./FILE_STRUCTURE.md) for the full directory breakdown and team ownership.
+See [FILE_STRUCTURE.md](./mvp/FILE_STRUCTURE.md) for the full directory breakdown and team ownership.
 
 ```
 digital-twin-fm/
@@ -123,7 +123,7 @@ pnpm seed
 pnpm dev
 ```
 
-> For full deployment instructions see [DEPLOYMENT.md](./DEPLOYMENT.md).
+> For full deployment instructions see [DEPLOYMENT.md](./mvp/DEPLOYMENT.md).
 
 ---
 
@@ -183,7 +183,7 @@ pnpm migrate      # run migrations
 pnpm seed         # seed demo data
 ```
 
-The `sensor_readings` table is a TimescaleDB hypertable — partitioned automatically by timestamp for fast time-series queries. See [ARCHITECTURE.md](./ARCHITECTURE.md#database-design) for the full schema and design rationale.
+The `sensor_readings` table is a TimescaleDB hypertable — partitioned automatically by timestamp for fast time-series queries. See [ARCHITECTURE.md](./mvp/ARCHITECTURE.md#database-design) for the full schema and design rationale.
 
 ---
 
@@ -219,7 +219,7 @@ Vertical feature slices under `apps/web/src/features/`. Each domain owns its com
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full guide — branch strategy, code standards, PR process, and review rules.
+See [CONTRIBUTING.md](./mvp/CONTRIBUTING.md) for the full guide — branch strategy, code standards, PR process, and review rules.
 
 Quick reference:
 
@@ -242,7 +242,7 @@ Branch off `dev`. Never commit directly to `main` or `dev`. PRs require 1 approv
 | `deploy-staging.yml` | Merge to `dev` | Full CI + Docker build + deploy to staging |
 | `deploy-prod.yml` | Manual approval | Full CI + Docker build + deploy to production |
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for the full pipeline details.
+See [DEPLOYMENT.md](./mvp/DEPLOYMENT.md) for the full pipeline details.
 
 ---
 

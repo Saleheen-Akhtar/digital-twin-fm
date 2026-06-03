@@ -34,12 +34,12 @@ Full product: run safely, securely, and reliably against real facilities.
 
 ## Relationship to MVP docs
 
-- MVP architecture: `../ARCHITECTURE.md`
-- MVP scope: `../MVP_SCOPE.md`
-- MVP database: `../DATABASE_SCHEMA.md`
-- MVP API contracts: `../API_CONTRACTS.md`
-- MVP security: `../SECURITY.md`
-- MVP roadmap: `../ROADMAP.md`
+- MVP architecture: `../mvp/ARCHITECTURE.md`
+- MVP scope: `../mvp/MVP_SCOPE.md`
+- MVP database: `../mvp/DATABASE_SCHEMA.md`
+- MVP API contracts: `../mvp/API_CONTRACTS.md`
+- MVP security: `../mvp/SECURITY.md`
+- MVP roadmap: `../mvp/ROADMAP.md`
 
 ## Full product quality bar
 
