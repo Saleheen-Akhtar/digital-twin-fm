@@ -8,7 +8,7 @@ on:
 
 env:
   # Cache pnpm store between runs
-  PNPM_VERSION: 9
+  PNPM_VERSION: 9.15.0
 
 jobs:
   build-and-test:
