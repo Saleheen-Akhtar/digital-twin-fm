@@ -4,16 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-06-04
+
+### Changed
+- Finalized PostgreSQL + TimescaleDB as the official database direction.
+- Finalized Infisical as the preferred MVP/team secrets manager.
+- Removed third-party backend-platform evaluation language from the active strategy docs.
+- Renamed MVP secrets documentation to `documents/mvp/SECRETS_MANAGEMENT.md`.
+- Renamed full-product database/secrets documentation to `documents/full_product/DATABASE_AND_SECRETS_STRATEGY.md`.
+
 ## [0.1.1] - 2026-06-04
 
 ### Added
-- Added MVP secrets and database strategy documentation in `documents/mvp/SECRETS_AND_DATABASE_STRATEGY.md`.
-- Added full-product database platform and secrets-management strategy in `documents/full_product/DATABASE_PLATFORM_AND_SECRETS.md`.
-- Documented SereniBase as a post-MVP proof-of-concept candidate rather than the default MVP backend/database foundation.
+- Added MVP secrets-management documentation in `documents/mvp/SECRETS_MANAGEMENT.md`.
+- Added full-product database and secrets-management strategy in `documents/full_product/DATABASE_AND_SECRETS_STRATEGY.md`.
 - Recommended Infisical for MVP/team secrets management and OpenBao/Vault-style evaluation for enterprise deployments.
 
 ### Updated
-- Updated documentation indexes to include the new database and secrets strategy documents.
+- Updated documentation indexes to include the database and secrets strategy documents.
 
 ## [0.1.0] - 2026-06-04
 
