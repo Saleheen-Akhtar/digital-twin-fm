@@ -263,10 +263,9 @@ How did you test this? Any manual steps the reviewer should follow?
 - Approve only when you're genuinely happy with the code
 - Use labels: `nit:` for minor style points, `blocker:` for things that must change, `question:` for clarifications
 - Focus on correctness, maintainability, and consistency — not personal preference
-
 ### Merge rules
 
-- Minimum **1 approval** required (from a code owner of the changed files)
+- Minimum **1 approval** required; merges into `main` must include approval from a code owner of the changed files
 - All CI checks must be green
 - **Squash merge** into `dev` — keep history clean
 - Delete the branch after merge
@@ -296,7 +295,7 @@ If your change touches a domain you don't own, loop in the owner as a reviewer.
 | `docker-compose.yml`, `Dockerfile*` | Sahil | Sumanth |
 | `.github/`, CI/CD workflows | Sahil | — |
 
-Changes to `packages/db`, `packages/ui`, or anything under `apps/api-gateway/` affect every service — these need extra care and at least **2 approvals**.
+Changes to `packages/db`, `packages/ui`, or anything under `apps/api-gateway/` affect every service — these need extra care and should get **2+ approvals** when possible (see `CODEOWNERS` for assigned reviewers).
 
 ### CODEOWNERS file
 
