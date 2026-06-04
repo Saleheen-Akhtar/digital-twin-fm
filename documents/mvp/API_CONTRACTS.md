@@ -95,7 +95,7 @@ Request:
 
 ### `GET /api/assets/:assetId`
 
-Returns asset detail including latest sensor readings and open work orders.
+Returns asset detail including location, status, latest sensor readings, open alerts, and asset health summary.
 
 ### `PATCH /api/assets/:assetId`
 
@@ -150,50 +150,44 @@ Request:
 { "resolutionNotes": "Issue checked and resolved." }
 ```
 
-### `POST /api/alerts/:alertId/create-work-order`
+### `POST /api/alerts/:alertId/ai-explain`
 
-Creates a work order linked to the alert.
+Returns an AI/rule-based explanation of why the alert triggered and recommended next checks.
 
-## Maintenance
+## Asset health
 
-### `GET /api/work-orders`
+### `GET /api/assets/:assetId/health`
 
-Query parameters: `buildingId`, `assetId`, `status`, `priority`, `assignedTo`.
+Returns computed MVP asset health.
 
-### `POST /api/work-orders`
-
-Request:
+Response:
 ```json
 {
-  "buildingId": "uuid",
   "assetId": "uuid",
-  "alertId": "uuid",
-  "title": "Inspect AHU-01 vibration",
-  "description": "Vibration exceeded warning threshold.",
-  "priority": "high",
-  "assignedTo": "uuid",
-  "dueDate": "2025-08-05T09:00:00Z"
+  "status": "warning",
+  "score": 82,
+  "factors": [
+    { "name": "Energy", "status": "warning", "impact": -8 },
+    { "name": "Open Alerts", "status": "warning", "impact": -5 }
+  ]
 }
 ```
 
-### `GET /api/work-orders/:workOrderId`
+### `POST /api/ai/asset-health-summary`
 
-Returns work order with maintenance logs.
+Returns a short AI-assisted asset health explanation.
 
-### `PATCH /api/work-orders/:workOrderId`
+## Maintenance / work orders — deferred
 
-Updates metadata.
+Full work-order APIs are **post-MVP** and should not block the Expo build:
 
-### `PATCH /api/work-orders/:workOrderId/status`
-
-Request:
-```json
-{ "status": "in_progress", "notes": "Technician started inspection." }
-```
-
-### `POST /api/work-orders/:workOrderId/logs`
-
-Adds comment/action log.
+- `GET /api/work-orders`
+- `POST /api/work-orders`
+- `GET /api/work-orders/:workOrderId`
+- `PATCH /api/work-orders/:workOrderId`
+- `PATCH /api/work-orders/:workOrderId/status`
+- `POST /api/work-orders/:workOrderId/logs`
+- `POST /api/alerts/:alertId/create-work-order`
 
 ## Ingestion service
 
@@ -234,7 +228,7 @@ Response:
 {
   "answer": "AHU-01 is warning because vibration readings exceeded the configured threshold for 15 minutes.",
   "citations": [],
-  "suggestedActions": ["Create a high-priority inspection work order"]
+  "suggestedActions": ["Inspect AHU schedule", "Check vibration trend", "Review cooling setpoint"]
 }
 ```
 

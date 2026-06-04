@@ -36,6 +36,7 @@ Full product: run safely, securely, and reliably against real facilities.
 ## Relationship to MVP docs
 
 - MVP architecture: `../mvp/ARCHITECTURE.md`
+- Expo execution plan: `../mvp/EXPO_EXECUTION_PLAN.md`
 - MVP scope: `../mvp/MVP_SCOPE.md`
 - MVP database: `../mvp/DATABASE_SCHEMA.md`
 - MVP API contracts: `../mvp/API_CONTRACTS.md`

@@ -28,11 +28,13 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 | Document | Description |
 |---|---|
 | [MVP_SCOPE.md](./mvp/MVP_SCOPE.md) | MVP boundaries, success criteria, and first build order |
+| [EXPO_EXECUTION_PLAN.md](./mvp/EXPO_EXECUTION_PLAN.md) | Singapore Expo build order: Digital Twin + realtime + AI first, CMMS later |
 | [ARCHITECTURE.md](./mvp/ARCHITECTURE.md) | System design, stack decisions, services, and data flows |
 | [DATABASE_SCHEMA.md](./mvp/DATABASE_SCHEMA.md) | Core PostgreSQL/TimescaleDB tables and seed data expectations |
 | [API_CONTRACTS.md](./mvp/API_CONTRACTS.md) | REST endpoint contracts and example payloads |
 | [REALTIME_EVENTS.md](./mvp/REALTIME_EVENTS.md) | Redis/WebSocket event names and message shapes |
-| [MAINTENANCE_MODULE_SPEC.md](./mvp/MAINTENANCE_MODULE_SPEC.md) | Maintenance domain scope, workflows, permissions, and UI/API structure |
+| [MAINTENANCE_MODULE_SPEC.md](./mvp/MAINTENANCE_MODULE_SPEC.md) | Asset registry MVP scope and deferred post-MVP CMMS/work-order workflows |
+| [EXPO_EXECUTION_PLAN.md](./mvp/EXPO_EXECUTION_PLAN.md) | Expo-specific demo strategy focusing on Digital Twin and AI impact |
 | [SECURITY.md](./mvp/SECURITY.md) | Authentication, RBAC, secrets, ingestion, and AI security boundaries |
 | [SECRETS_MANAGEMENT.md](./mvp/SECRETS_MANAGEMENT.md) | MVP Infisical secrets-management strategy and local fallback rules |
 | [FILE_STRUCTURE.md](./mvp/FILE_STRUCTURE.md) | Full directory breakdown and team ownership |

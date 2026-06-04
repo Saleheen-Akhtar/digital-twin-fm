@@ -4,16 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.2] - 2026-06-04
+## [0.1.3] - 2026-06-04
+
+### Added
+- Added `documents/mvp/EXPO_EXECUTION_PLAN.md` for the Singapore Expo execution strategy.
 
 ### Changed
-- Finalized PostgreSQL + TimescaleDB as the official database direction.
-- Finalized Infisical as the preferred MVP/team secrets manager.
-- Removed third-party backend-platform evaluation language from the active strategy docs.
-- Renamed MVP secrets documentation to `documents/mvp/SECRETS_MANAGEMENT.md`.
-- Renamed full-product database/secrets documentation to `documents/full_product/DATABASE_AND_SECRETS_STRATEGY.md`.
+- Revised MVP roadmap to prioritize Dashboard → Digital Twin Viewer → Realtime Sensors → Alerts → AI Copilot.
+- Deferred full CMMS/work-order workflows to post-MVP.
+- Updated MVP scope to focus on Digital Twin + live monitoring + AI insight + asset registry.
+- Updated maintenance documentation to keep asset registry in MVP and move work orders/technician workflow later.
+- Updated API contracts to mark work-order endpoints as deferred and add asset-health/AI explanation endpoints.
+- Updated full-product roadmap to put AI intelligence before full maintenance/CMMS.
 
-## [0.1.1] - 2026-06-04
+## [0.1.3] - 2026-06-04
+
+### Added
+- Created `documents/mvp/EXPO_EXECUTION_PLAN.md` to define the demo-first strategy for the Singapore Expo.
+
+### Changed
+- Revised `MVP_SCOPE.md` to deprioritize maintenance modules and focus on Digital Twin and AI as hero features for the MVP.
+- Revised `ROADMAP.md` to execute in order: Foundation -> Dashboard/Twin -> Realtime -> AI -> Maintenance.
+- Updated `AI_SERVICE_SPEC.md` to highlight AI Copilot as the core product differentiator.
+- Updated `documents/README.md` to include the Expo execution plan.
+
+## [0.1.2] - 2026-06-04
 
 ### Added
 - Added MVP secrets-management documentation in `documents/mvp/SECRETS_MANAGEMENT.md`.

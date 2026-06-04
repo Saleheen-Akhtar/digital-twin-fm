@@ -42,9 +42,11 @@ redis                    cache + pub/sub event bus
 
 - Authenticated dashboard UI.
 - Building/floor navigation.
+- Digital twin viewer as an early MVP feature.
 - Sensor charts and live cards.
-- Alerts and maintenance screens.
-- 3D or simplified digital twin viewer.
+- Alerts screens.
+- Asset registry and asset health views.
+- AI Copilot panel integrated with building/twin/alert context.
 - Uses React Query for server data.
 - Uses Zustand only for local UI state.
 
@@ -53,7 +55,8 @@ redis                    cache + pub/sub event bus
 - Public REST API for frontend.
 - WebSocket server for live updates.
 - JWT authentication and RBAC authorization.
-- Domain modules: buildings, assets, sensors, monitoring, alerts, maintenance, users, reporting.
+- Domain modules: buildings, assets, sensors, monitoring, alerts, ai-copilot, users, reporting.
+- Maintenance/work-order domain is deferred to post-MVP; MVP keeps asset registry and asset health only.
 - Calls `ai-service` for AI features.
 - Subscribes to Redis events from ingestion.
 
@@ -97,15 +100,17 @@ sensor reading
   -> web receives alert update over WebSocket
 ```
 
-### Maintenance flow
+### Asset health flow
 
 ```text
-asset issue / alert / user action
-  -> api-gateway maintenance module
-  -> work_order created/updated
-  -> assigned technician updates status
-  -> maintenance_logs record actions
+asset / latest readings / open alerts
+  -> api-gateway assets domain
+  -> compute simple asset health summary
+  -> optional ai-service explanation
+  -> web displays status in dashboard and twin viewer
 ```
+
+Full work-order and technician workflows are deferred to post-MVP.
 
 ### AI flow
 
@@ -150,6 +155,21 @@ Roles:
 - `viewer`
 
 SSO/OIDC/SAML should be designed later for enterprise customers.
+
+## MVP execution priority
+
+The MVP should be built in this priority order:
+
+```text
+Dashboard
+  -> Digital Twin Viewer
+  -> Realtime Sensors
+  -> Alerts
+  -> AI Copilot
+  -> Maintenance / CMMS later
+```
+
+Reason: the core product promise is AI-powered digital twin facility insight, not a generic work-order system.
 
 ## Scalability rules
 

@@ -2,9 +2,11 @@
 
 ## Purpose
 
-This document defines the full-product direction for the AI service. MVP AI may be simple, but the full product must be trustworthy, permission-scoped, evaluated, and useful for real facility operations.
+This document defines the full-product direction for the AI service. **AI is the hero feature** of Digital Twin FM. It must provide intelligent, trustworthy, and permission-scoped insights that differentiate the product. MVP AI may be simple, but the full product must be trustworthy, permission-scoped, evaluated, and useful for real facility operations.
 
 ## AI product goals
+
+AI is a **hero feature**, not a late add-on. The product should feel like an AI-powered digital twin, not a generic facility dashboard with chat attached.
 
 AI should help users:
 
@@ -20,10 +22,29 @@ AI must not become an unsafe autonomous operator. Human approval is required for
 
 ## MVP AI scope
 
+MVP AI should be implemented early enough to support the Expo demo narrative.
+
+Required MVP scope:
+
 - `/health` endpoint.
-- Basic copilot endpoint.
-- Rule-based anomaly explanations.
+- Basic copilot endpoint through the API gateway.
+- Building health summary.
+- Building Health Score explanation.
+- Alert explanation.
+- Energy/anomaly explanation using deterministic rules first.
+- Asset health explanation.
+- Suggested next actions.
 - Provider-ready structure without deep ML dependency.
+
+Example MVP prompts:
+
+```text
+Why is Floor 3 consuming more energy today?
+Which asset needs attention right now?
+Summarize building health in 3 bullets.
+Why did this alert trigger?
+What should the facility manager check first?
+```
 
 ## Full AI capabilities
 
