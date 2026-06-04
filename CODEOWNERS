@@ -1,0 +1,38 @@
+# CODEOWNERS — Digital Twin FM
+# This file auto-assigns reviewers and enforces required reviews based on file path.
+# Format: <pattern> <owner1> <owner2> ...
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner: the Technical Lead (Sahil) gets pinged on everything as a safety net.
+/ @Saleheen-Akhtar
+
+# Frontend domains — apps/web
+/apps/web/app/building-overview/   @Saleheen-Akhtar @Akshay
+/apps/web/app/digital-twin/        @Saleheen-Akhtar @Akshay
+/apps/web/app/monitoring/          @Saleheen-Akhtar @Sumanth
+/apps/web/app/alerts/              @Saleheen-Akhtar @Sumanth
+/apps/web/app/maintenance/         @Saleheen-Akhtar @Sumanth
+/apps/web/app/ai-copilot/          @Saleheen-Akhtar @Sudhanva
+/apps/web/app/executive-dashboard/ @Saleheen-Akhtar @Akshay
+
+# Backend services
+/apps/api-gateway/      @Saleheen-Akhtar @Sudhanva
+/apps/ingestion-service/ @Saleheen-Akhtar @Sumanth
+/apps/ai-service/       @Saleheen-Akhtar @Sudhanva
+
+# Shared packages — need 2+ eyes
+/packages/db/    @Saleheen-Akhtar @Sudhanva
+/packages/ui/    @Saleheen-Akhtar @Akshay
+/packages/types/ @Saleheen-Akhtar @Akshay @Sumanth @Sudhanva
+/packages/eslint-config/ @Saleheen-Akhtar
+
+# Infrastructure & docs
+/docker-compose.yml  @Saleheen-Akhtar @Sumanth
+/Dockerfile*         @Saleheen-Akhtar @Sumanth
+/.github/            @Saleheen-Akhtar
+/docs/               @Saleheen-Akhtar @Akshay @Sumanth @Sudhanva
+/documents/          @Saleheen-Akhtar @Akshay @Sumanth @Sudhanva
+
+# Security-sensitive paths require Sahil's explicit review
+/SECURITY.md         @Saleheen-Akhtar
+/infra/              @Saleheen-Akhtar

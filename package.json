@@ -2,6 +2,7 @@
   "name": "digital-twin-fm",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@9.15.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -10,7 +11,8 @@
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
     "turbo": "^2.0.0"
