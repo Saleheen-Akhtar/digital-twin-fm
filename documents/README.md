@@ -34,6 +34,7 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 | [REALTIME_EVENTS.md](./mvp/REALTIME_EVENTS.md) | Redis/WebSocket event names and message shapes |
 | [MAINTENANCE_MODULE_SPEC.md](./mvp/MAINTENANCE_MODULE_SPEC.md) | Maintenance domain scope, workflows, permissions, and UI/API structure |
 | [SECURITY.md](./mvp/SECURITY.md) | Authentication, RBAC, secrets, ingestion, and AI security boundaries |
+| [SECRETS_AND_DATABASE_STRATEGY.md](./mvp/SECRETS_AND_DATABASE_STRATEGY.md) | MVP secrets-manager strategy and SereniBase database/backend evaluation |
 | [FILE_STRUCTURE.md](./mvp/FILE_STRUCTURE.md) | Full directory breakdown and team ownership |
 | [CONTRIBUTING.md](./mvp/CONTRIBUTING.md) | Branch strategy, code standards, PR and review process |
 | [DEPLOYMENT.md](./mvp/DEPLOYMENT.md) | Local, staging, and production deployment guide |

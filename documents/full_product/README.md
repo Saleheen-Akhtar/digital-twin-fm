@@ -26,6 +26,7 @@ Full product: run safely, securely, and reliably against real facilities.
 | [DIGITAL_TWIN_VIEWER_SPEC.md](./DIGITAL_TWIN_VIEWER_SPEC.md) | Full 2D/3D/BIM viewer requirements and model lifecycle |
 | [AI_SERVICE_SPEC.md](./AI_SERVICE_SPEC.md) | Full AI copilot, RAG, anomaly, predictive maintenance, governance |
 | [DATA_RETENTION.md](./DATA_RETENTION.md) | Sensor data retention, aggregation, compression, backups, restore |
+| [DATABASE_PLATFORM_AND_SECRETS.md](./DATABASE_PLATFORM_AND_SECRETS.md) | Full-product database platform direction, SereniBase POC criteria, and secrets-manager strategy |
 | [OBSERVABILITY.md](./OBSERVABILITY.md) | Logs, metrics, traces, dashboards, alerting, incident response |
 | [SECURITY_EXPANSION.md](./SECURITY_EXPANSION.md) | Enterprise security beyond MVP JWT/RBAC |
 | [DEPLOYMENT_STRATEGY.md](./DEPLOYMENT_STRATEGY.md) | Cloud, single-VM, Kubernetes, on-prem, rollback, DR |
