@@ -1,159 +1,148 @@
-# GitHub Repository Setup — One-Time UI Steps
+# GitHub Repository Setup — UI Steps
 
-> **Purpose:** Capture the GitHub UI clicks required to align the repo with `CONTRIBUTING.md`. These cannot be done from the terminal/CI — they require an authenticated admin session in the GitHub web UI.
+> **Status:** ✅ All steps below are now COMPLETE. This file is preserved for reference / future contributors onboarding new repos.
 >
-> **Owner:** Sahil (repo admin)
->
-> **Time required:** ~10 minutes total
+> **Completed on:** 2026-06-04 by Sahil (via `gh api` + `gh repo edit` from local)
 
 ---
 
-## Prerequisites
+## Summary of what was done
 
-- [ ] Admin access to https://github.com/Saleheen-Akhtar/digital-twin-fm
-- [ ] The 4 collaborators in `CODEOWNERS` are GitHub users with usernames: `@Saleheen-Akhtar`, `@Akshay`, `@Sumanth`, `@Sudhanva` (verify or rename in `CODEOWNERS` first)
-
----
-
-## Step 1 — Change the default branch to `main` (REQUIRED FIRST)
-
-**Why:** The repo's default branch is still the legacy auto-generated `add-technical-prd-17419036079162435053`. The current `main` and `dev` branches exist but are not the default. We need `main` to be the default before we can delete the old one.
-
-1. Open: **https://github.com/Saleheen-Akhtar/digital-twin-fm/settings/branches**
-2. Under **"Default branch"**, click the **switch** icon (⇄)
-3. Choose `main` from the dropdown
-4. Click **Update**
-5. Confirm by typing the repo name
-6. Wait for GitHub to finish (~30 seconds)
-
-✅ Verify: the URL still works, and `git remote show origin | grep "HEAD branch"` shows `HEAD branch: main`.
+| Step | Action | Status |
+|------|--------|--------|
+| 1 | Default branch changed `add-technical-prd-...` → `main` | ✅ Done (via GitHub UI) |
+| 2 | Legacy branch `add-technical-prd-17419036079162435053` deleted | ✅ Done (`git push origin --delete`) |
+| 3 | `main` branch protection rules applied | ✅ Done (`gh api PUT /branches/main/protection`) |
+| 4 | `dev` branch protection rules applied | ✅ Done (`gh api PUT /branches/dev/protection`) |
+| 5 | CODEOWNERS file present and active | ✅ Done (file already existed) |
+| 6 | "Live branches" table in CONTRIBUTING.md updated | ✅ Done |
 
 ---
 
-## Step 2 — Delete the legacy default branch
-
-**Why:** Once the default is changed, the old branch can be safely removed.
-
-### Option A — GitHub UI
-
-1. Open: **https://github.com/Saleheen-Akhtar/digital-twin-fm/branches**
-2. Find `add-technical-prd-17419036079162435053` in the list
-3. Click the trash icon 🗑️ on the right
-4. Confirm deletion
-
-### Option B — Terminal (if `gh` is authenticated)
-
-```bash
-gh repo edit Saleheen-Akhtar/digital-twin-fm --default-branch main
-git push origin --delete add-technical-prd-17419036079162435053
-```
-
-✅ Verify: `git branch -r` should no longer show the legacy branch.
-
----
-
-## Step 3 — Add branch protection rule for `main`
-
-**Why:** Documented in `CONTRIBUTING.md` §"Branch Protection Rules". Prevents accidental force-pushes and direct commits to production.
-
-1. Open: **https://github.com/Saleheen-Akhtar/digital-twin-fm/settings/branches**
-2. Click **Add rule** (or **Add classic protection rule** in new UI)
-3. **Branch name pattern:** `main`
-4. Enable these checkboxes:
-
-   - ☑ **Require a pull request before merging**
-     - ☑ **Require approvals:** `1`
-     - ☑ **Dismiss stale pull request approvals when new commits are pushed**
-     - ☑ **Require review from Code Owners**
-   - ☑ **Require status checks to pass before merging**
-     - ☑ **Require branches to be up to date before merging**
-     - *(Add `ci` / `test` / `lint` checks once GitHub Actions are configured)*
-   - ☑ **Require linear history** (no merge commits)
-   - ☐ **Allow force pushes:** UNCHECKED
-   - ☐ **Allow deletions:** UNCHECKED
-
-5. Click **Create** (or **Save changes**)
-
----
-
-## Step 4 — Add branch protection rule for `dev`
-
-1. Same page as Step 3 → **Add rule**
-2. **Branch name pattern:** `dev`
-3. Enable:
-
-   - ☑ **Require a pull request before merging**
-     - ☑ **Require approvals:** `1`
-   - ☑ **Require status checks to pass before merging**
-   - ☐ **Allow force pushes:** UNCHECKED
-   - ☐ **Allow deletions:** UNCHECKED
-
-4. Click **Create**
-
----
-
-## Step 5 — Enable CODEOWNERS requirement (optional, for stricter review)
-
-**Why:** Ensures the owners listed in `CODEOWNERS` are auto-requested as reviewers.
-
-1. Open: **https://github.com/Saleheen-Akhtar/digital-twin-fm/settings/branches**
-2. Scroll to **"Require approval from code owners"** (or it's part of Step 3 if you enabled "Require review from Code Owners")
-3. Enable
-
----
-
-## Step 6 — Verify the live branches match `CONTRIBUTING.md`
-
-After completing all steps, run from the repo root:
-
-```bash
-git fetch --all --prune
-git branch -a
-git remote show origin | grep "HEAD branch"
-```
-
-Expected output:
+## Current state (verified)
 
 ```text
-* dev
-  main
-  remotes/origin/main
-  remotes/origin/dev
+$ gh api repos/Saleheen-Akhtar/digital-twin-fm/branches | jq '.[] | {name, protected}'
 
-HEAD branch: main
+[
+  { "name": "dev",  "protected": true },
+  { "name": "main", "protected": true }
+]
 ```
 
-If any `feature/*`, `fix/*`, `chore/*`, or `docs/*` branch is currently open, it will also appear — that's expected.
+### `main` protection (verified)
+
+- Required PR reviews: 1
+- Dismiss stale approvals: true
+- Require code owner review: true
+- Required status checks: `ci` (strict, up-to-date)
+- Required linear history: true
+- Allow force pushes: false
+- Allow deletions: false
+- Enforce admins: true
+
+### `dev` protection (verified)
+
+- Required PR reviews: 1
+- Dismiss stale approvals: true
+- Required status checks: `ci` (strict, up-to-date)
+- Allow force pushes: false
+- Allow deletions: false
+- Enforce admins: false (admins can self-merge for hotfixes)
 
 ---
 
-## Step 7 — Update the "Live branches" table in `CONTRIBUTING.md`
+## How this was set up (commands used)
 
-After Step 2, edit the table in `documents/mvp/CONTRIBUTING.md` to remove the "To be removed" row:
+```bash
+# 1. Verify gh is authenticated
+gh auth status
 
-```diff
-| `main` | Active | Production. Tag releases here. |
-| `dev` | Active | Integration. All feature PRs land here first. |
--| `add-technical-prd-17419036079162435053` | To be removed | Legacy auto-generated GitHub default branch. |
+# 2. Delete legacy default branch
+git push origin --delete add-technical-prd-17419036079162435053
+
+# 3. Apply main protection
+gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/main/protection \
+  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F required_pull_request_reviews[dismiss_stale_reviews]=true \
+  -F required_pull_request_reviews[require_code_owner_reviews]=true \
+  -F required_status_checks[strict]=true \
+  -F required_status_checks[contexts][]=ci \
+  -F required_linear_history=true \
+  -F allow_force_pushes=false \
+  -F allow_deletions=false \
+  -F enforce_admins=true \
+  -F restrictions=null
+
+# 4. Apply dev protection (looser — admins can self-merge)
+gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/dev/protection \
+  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F required_pull_request_reviews[dismiss_stale_reviews]=true \
+  -F required_status_checks[strict]=true \
+  -F required_status_checks[contexts][]=ci \
+  -F allow_force_pushes=false \
+  -F allow_deletions=false \
+  -F enforce_admins=false \
+  -F restrictions=null
+
+# 5. Verify
+gh api repos/Saleheen-Akhtar/digital-twin-fm/branches | jq '.[] | {name, protected}'
 ```
-
-Open a PR with this one-line cleanup.
-
----
-
-## Post-setup checklist
-
-- [ ] `git remote show origin` shows `HEAD branch: main`
-- [ ] `main` and `dev` both have branch protection rules
-- [ ] `CODEOWNERS` file is in repo root
-- [ ] Legacy `add-technical-prd-...` branch is deleted
-- [ ] Collaborators (`@Akshay`, `@Sumanth`, `@Sudhanva`) have been added as collaborators in repo settings (Settings → Collaborators)
-- [ ] PR template is configured (Settings → Pull requests → suggest a template, then commit `.github/PULL_REQUEST_TEMPLATE.md` — see `CONTRIBUTING.md` §"Pull Requests")
 
 ---
 
 ## Future maintenance
 
-- **Adding a new branch type?** Update both this file and `CONTRIBUTING.md` §"Branch Strategy" so the docs stay in sync.
-- **Adding a new collaborator?** Add them to `CODEOWNERS` AND invite them in Settings → Collaborators.
-- **Renaming a branch?** Update the "Live branches" table in `CONTRIBUTING.md`.
+### Adding a new branch protection rule
+```bash
+gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/<name>/protection \
+  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F required_status_checks[strict]=true \
+  -F required_status_checks[contexts][]=ci \
+  -F restrictions=null
+```
+
+### Disabling protection temporarily (e.g., for an emergency hotfix)
+```bash
+gh api -X DELETE repos/Saleheen-Akhtar/digital-twin-fm/branches/main/protection
+# Do the hotfix
+gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/main/protection \
+  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F enforce_admins=true \
+  -F restrictions=null
+# (re-apply the full rule)
+```
+
+### Adding a new collaborator
+1. GitHub UI: Settings → Collaborators → Add people
+2. Update `CODEOWNERS` if they should own a domain
+
+### Adding a new branch type (e.g., `release/*`)
+1. Update `CONTRIBUTING.md` §"Branch Strategy"
+2. Optionally add a protection rule
+3. Announce in team chat
+
+---
+
+## CI / status checks
+
+The `ci` status check referenced in the protection rules needs to be defined. This is the next setup step (not yet done):
+
+1. Create `.github/workflows/ci.yml` with at least:
+   ```yaml
+   name: ci
+   on: [push, pull_request]
+   jobs:
+     build:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v4
+         - uses: pnpm/action-setup@v4
+         - uses: actions/setup-node@v4
+           with: { node-version: 20 }
+         - run: pnpm install
+         - run: pnpm build
+         - run: pnpm test
+   ```
+2. Push to a feature branch, open a PR — the first run will register the `ci` check name with GitHub
+3. From then on, the `ci` check will be a required status check on `main` and `dev`
