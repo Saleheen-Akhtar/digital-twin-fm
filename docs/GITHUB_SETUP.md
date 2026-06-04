@@ -14,7 +14,7 @@
 | 2 | Legacy branch `add-technical-prd-17419036079162435053` deleted | ✅ Done (`git push origin --delete`) |
 | 3 | `main` branch protection rules applied | ✅ Done (`gh api PUT /branches/main/protection`) |
 | 4 | `dev` branch protection rules applied | ✅ Done (`gh api PUT /branches/dev/protection`) |
-| 5 | CODEOWNERS file present and active | ✅ Done (file already existed) |
+| 5 | CODEOWNERS file added and active | ✅ Done (created in this PR at `CODEOWNERS`) |
 | 6 | "Live branches" table in CONTRIBUTING.md updated | ✅ Done |
 
 ---
@@ -45,7 +45,7 @@ $ gh api repos/Saleheen-Akhtar/digital-twin-fm/branches | jq '.[] | {name, prote
 
 ### `dev` protection (verified)
 
-- Required PR reviews: 1
+- Required PR reviews: **0** (same solo-dev MVP mode as `main`)
 - Dismiss stale approvals: true
 - Required status checks: `ci` (strict, up-to-date)
 - Allow force pushes: false
@@ -63,11 +63,11 @@ gh auth status
 # 2. Delete legacy default branch
 git push origin --delete add-technical-prd-17419036079162435053
 
-# 3. Apply main protection
+# 3. Apply main protection (current state: solo-dev mode, 0 approvals, 1 ci check)
 gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/main/protection \
-  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F required_pull_request_reviews[required_approving_review_count]=0 \
   -F required_pull_request_reviews[dismiss_stale_reviews]=true \
-  -F required_pull_request_reviews[require_code_owner_reviews]=true \
+  -F required_pull_request_reviews[require_code_owner_reviews]=false \
   -F required_status_checks[strict]=true \
   -F required_status_checks[contexts][]=ci \
   -F required_linear_history=true \
@@ -76,10 +76,11 @@ gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/main/protection \
   -F enforce_admins=true \
   -F restrictions=null
 
-# 4. Apply dev protection (looser — admins can self-merge)
+# 4. Apply dev protection (current state: solo-dev mode, 0 approvals, 1 ci check, admins can self-merge)
 gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/dev/protection \
-  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F required_pull_request_reviews[required_approving_review_count]=0 \
   -F required_pull_request_reviews[dismiss_stale_reviews]=true \
+  -F required_pull_request_reviews[require_code_owner_reviews]=false \
   -F required_status_checks[strict]=true \
   -F required_status_checks[contexts][]=ci \
   -F allow_force_pushes=false \
@@ -98,7 +99,7 @@ gh api repos/Saleheen-Akhtar/digital-twin-fm/branches | jq '.[] | {name, protect
 ### Adding a new branch protection rule
 ```bash
 gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/<name>/protection \
-  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F required_pull_request_reviews[required_approving_review_count]=0 \
   -F required_status_checks[strict]=true \
   -F required_status_checks[contexts][]=ci \
   -F restrictions=null
@@ -109,7 +110,9 @@ gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/<name>/protection \
 gh api -X DELETE repos/Saleheen-Akhtar/digital-twin-fm/branches/main/protection
 # Do the hotfix
 gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/main/protection \
-  -F required_pull_request_reviews[required_approving_review_count]=1 \
+  -F required_pull_request_reviews[required_approving_review_count]=0 \
+  -F required_status_checks[strict]=true \
+  -F required_status_checks[contexts][]=ci \
   -F enforce_admins=true \
   -F restrictions=null
 # (re-apply the full rule)
@@ -128,23 +131,23 @@ gh api -X PUT repos/Saleheen-Akhtar/digital-twin-fm/branches/main/protection \
 
 ## CI / status checks
 
-The `ci` status check referenced in the protection rules needs to be defined. This is the next setup step (not yet done):
+✅ **Done.** The `ci` workflow is defined at `.github/workflows/ci.yml` and runs `pnpm install → pnpm build → pnpm test` on every push and PR. It was first registered on `dev` via PR #1 (squash-merged on 2026-06-04) and re-registered on `main` via PR #3 (the baseline run). It is now a required status check on both `main` and `dev`.
 
-1. Create `.github/workflows/ci.yml` with at least:
-   ```yaml
-   name: ci
-   on: [push, pull_request]
-   jobs:
-     build:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - uses: pnpm/action-setup@v4
-         - uses: actions/setup-node@v4
-           with: { node-version: 20 }
-         - run: pnpm install
-         - run: pnpm build
-         - run: pnpm test
-   ```
-2. Push to a feature branch, open a PR — the first run will register the `ci` check name with GitHub
-3. From then on, the `ci` check will be a required status check on `main` and `dev`
+### What `ci` runs
+
+- `pnpm install --frozen-lockfile`
+- `pnpm build` (turborepo)
+- `pnpm lint` (non-blocking, until ESLint config is finalized)
+- `pnpm test`
+- `pnpm --filter @digital-twin-fm/api-gateway exec tsc --noEmit` (typecheck; will expand to all workspaces as they're added)
+
+### Modifying the CI workflow
+
+1. Edit `.github/workflows/ci.yml` on a feature branch
+2. Open a PR against `dev`
+3. The PR will trigger a new `ci` run with your changes
+4. Once green and merged, the new workflow is live
+
+### Bumping the workflow
+
+If you add new `jobs:` or change step names, GitHub may re-evaluate the `ci` context. If PRs start failing with "Required status check not found", push an empty commit to `main` to register a fresh `ci` run with the new workflow.
