@@ -251,3 +251,21 @@ Secrets manager: Infisical
 AWS option: Parameter Store / Secrets Manager if deployed on AWS
 Enterprise option: OpenBao/Vault-style workflow if needed later
 ```
+
+## Infisical integration pattern in NestJS (MVP reference)
+
+The `apps/api-gateway` service implements the canonical Infisical wiring pattern that all other services should follow. The pattern lives in `apps/api-gateway/src/config/`:
+
+- **`infisical.loader.ts`** exports `loadInfisicalOrEnvSync()`, a synchronous function that:
+  - In `development` and `test`, reads a local `.env` file from `process.cwd()` and returns parsed key/value pairs.
+  - In `staging` / `production`, returns an empty object — the Infisical CLI is expected to have already injected secrets into `process.env` (via a sidecar / init container / machine identity).
+- **`config.module.ts`** is a `@Global()` NestJS module that wraps `@nestjs/config` and exposes a typed `database`, `redis`, and `jwt` namespace derived from environment variables.
+
+### How to use the same pattern in a new service
+
+1. Copy `apps/api-gateway/src/config/` into `apps/<new-service>/src/config/`.
+2. In the new service's `main.ts`, do **not** change anything — the loader runs at module init.
+3. The service reads secrets via `@nestjs/config`'s `ConfigService` (e.g. `config.get<string>('jwt.accessSecret')`).
+4. In dev, the new service will pick up a local `.env`. In production, run the Infisical CLI on the host or sidecar before starting the process so secrets are present in `process.env`.
+
+This same pattern will be reused for `apps/ingestion-service` and `apps/ai-service` in subsequent plans.
