@@ -1,0 +1,15 @@
+{
+  "name": "@digital-twin-fm/db",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "MIT",
+  "dependencies": {
+    "drizzle-orm": "^0.30.0",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.20.0",
+    "tsx": "^4.0.0"
+  }
+}
