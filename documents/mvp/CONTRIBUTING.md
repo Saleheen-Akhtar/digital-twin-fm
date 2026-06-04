@@ -8,6 +8,7 @@
 
 - [Before You Start](#before-you-start)
 - [Branch Strategy](#branch-strategy)
+- [Branch Protection Rules](#branch-protection-rules)
 - [Workflow](#workflow)
 - [Commit Messages](#commit-messages)
 - [Code Standards](#code-standards)
@@ -35,14 +36,22 @@ If your change touches multiple services or adds a new pattern, discuss it with 
 ## Branch Strategy
 
 ```
-main        ← production only, protected
-dev         ← integration branch, auto-deploys to staging
+main        ← production, protected, deploys to prod
+dev         ← integration, protected, auto-deploys to staging
 feature/*   ← all new work branches off dev
 fix/*       ← bug fixes branch off dev
 chore/*     ← tooling, deps, config
+docs/*      ← documentation-only changes
 ```
 
 **Never commit directly to `main` or `dev`.**
+
+### Live branches (current state)
+
+| Branch | Status | Purpose |
+|--------|--------|---------|
+| `main` | Active, protected | Production. Tag releases here. |
+| `dev` | Active, protected | Integration. All feature PRs land here first. |
 
 ### Branch naming
 
@@ -50,17 +59,50 @@ chore/*     ← tooling, deps, config
 feature/<domain>/<short-description>    # feature/alerts/push-notifications
 fix/<domain>/<short-description>        # fix/monitoring/chart-flicker
 chore/<short-description>               # chore/upgrade-drizzle
+docs/<short-description>                # docs/update-api-contracts
 ```
+
+Keep names lowercase, hyphen-separated, and descriptive.
+
+---
+
+## Branch Protection Rules
+
+These rules are enforced at the GitHub repository level (Settings → Branches → Branch protection rules).
+
+### `main` protection
+
+- Require pull request before merging
+- Require approvals: **1**
+- Dismiss stale pull request approvals when new commits are pushed
+- Require review from Code Owners
+- Require status checks to pass before merging
+- Require branches to be up to date before merging
+- Require linear history (no merge commits)
+- Allow force pushes: **disabled**
+- Allow deletions: **disabled**
+
+### `dev` protection
+
+- Require pull request before merging
+- Require approvals: **1**
+- Require status checks to pass before merging
+- Allow force pushes: **disabled**
+- Allow deletions: **disabled**
+
+### CODEOWNERS
+
+A `CODEOWNERS` file at the repo root auto-assigns reviewers based on the files a PR touches. See the [Domain Ownership](#domain-ownership) section for the current owners. At least one code owner must approve before merge.
 
 ---
 
 ## Workflow
 
-```
+```text
 1. Pull latest dev
    git checkout dev && git pull
 
-2. Create your branch
+2. Create your branch from dev
    git checkout -b feature/alerts/push-notifications
 
 3. Make changes + write tests
@@ -72,11 +114,23 @@ chore/<short-description>               # chore/upgrade-drizzle
    pnpm build
 
 5. Push and open a PR against dev
+   git push -u origin feature/alerts/push-notifications
 
 6. Address review comments
 
 7. Squash merge into dev once approved
+
+8. Periodically, dev is merged into main via a release PR
 ```
+
+### Release flow (dev → main)
+
+When `dev` is stable and ready for production:
+
+1. Open a PR titled `release: v0.X.0` from `dev` → `main`
+2. Get 1 approval from a code owner of the merged code
+3. After merge, tag the release: `git tag -a v0.X.0 -m "Release v0.X.0"`
+4. Push the tag: `git push origin v0.X.0`
 
 ---
 
@@ -84,7 +138,7 @@ chore/<short-description>               # chore/upgrade-drizzle
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 <type>(<scope>): <short description>
 
 feat(alerts):     add push notification on critical alert
@@ -177,7 +231,7 @@ No hard coverage threshold enforced yet, but every new feature should ship with 
 
 ### PR template
 
-```
+```markdown
 ## What
 Brief description of what this PR does.
 
@@ -200,7 +254,7 @@ How did you test this? Any manual steps the reviewer should follow?
 ### As an author
 
 - Respond to all comments before re-requesting review
-- If you disagree with feedback, discuss — don't silently ignore it
+- If you disagree with feedback, discuss — don't silently ignore
 - Keep the PR up to date with `dev` (rebase, don't merge)
 
 ### As a reviewer
@@ -212,7 +266,7 @@ How did you test this? Any manual steps the reviewer should follow?
 
 ### Merge rules
 
-- Minimum **1 approval** required
+- Minimum **1 approval** required (from a code owner of the changed files)
 - All CI checks must be green
 - **Squash merge** into `dev` — keep history clean
 - Delete the branch after merge
@@ -223,17 +277,27 @@ How did you test this? Any manual steps the reviewer should follow?
 
 If your change touches a domain you don't own, loop in the owner as a reviewer.
 
-| Domain | Owner |
-|---|---|
-| `building-overview/` | Akshay |
-| `digital-twin/` | Akshay |
-| `monitoring/` | Sumanth |
-| `alerts/` | Sumanth |
-| `maintenance/` | Sahil |
-| `ai-copilot/` | Sudhanva |
-| `executive-dashboard/` | Shared |
-| `api-gateway/` | Shared |
-| `packages/db` | Shared |
-| `packages/ui` | Shared |
+| Domain / Path | Primary Owner | Secondary Owner |
+|---|---|---|
+| `apps/web/app/building-overview/` | Akshay | Sahil |
+| `apps/web/app/digital-twin/` | Akshay | Sahil |
+| `apps/web/app/monitoring/` | Sumanth | Akshay |
+| `apps/web/app/alerts/` | Sumanth | Akshay |
+| `apps/web/app/maintenance/` | Sahil | Sumanth |
+| `apps/web/app/ai-copilot/` | Sudhanva | Sahil |
+| `apps/web/app/executive-dashboard/` | Sahil | Akshay |
+| `apps/api-gateway/` | Sahil | Sudhanva |
+| `apps/ingestion-service/` | Sumanth | Sahil |
+| `apps/ai-service/` | Sudhanva | Sumanth |
+| `packages/db/` | Sahil | Sudhanva |
+| `packages/ui/` | Akshay | Sahil |
+| `packages/types/` | Sahil | All |
+| `docs/`, `documents/` | Sahil | All |
+| `docker-compose.yml`, `Dockerfile*` | Sahil | Sumanth |
+| `.github/`, CI/CD workflows | Sahil | — |
 
-Changes to `packages/db` or `packages/ui` affect every service — these need extra care and at least 2 approvals.
+Changes to `packages/db`, `packages/ui`, or anything under `apps/api-gateway/` affect every service — these need extra care and at least **2 approvals**.
+
+### CODEOWNERS file
+
+These ownership rules are encoded in the repo-root `CODEOWNERS` file. GitHub uses it to auto-assign reviewers and to enforce required reviews. If your team changes, update both this table and the `CODEOWNERS` file.
