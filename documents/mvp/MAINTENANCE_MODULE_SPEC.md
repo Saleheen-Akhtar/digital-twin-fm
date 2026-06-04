@@ -6,20 +6,168 @@ Primary domain owner: Sahil.
 
 ## Purpose
 
-The maintenance module manages assets, work orders, and maintenance activity. It connects facility issues from alerts/sensors to actionable technician work.
+The maintenance domain connects assets, alerts, and facility actions. However, the full maintenance module is **not part of the Expo MVP**.
 
-## MVP capabilities
+The product should first prove:
+
+```text
+Digital Twin + Live Sensors + AI Insight
+```
+
+Then add deeper CMMS/work-order workflows after the core value proposition is validated.
+
+## Scope decision
+
+### Expo MVP scope
+
+Keep only:
+
+- asset registry,
+- asset detail,
+- asset status,
+- latest sensor readings,
+- linked open alerts,
+- AI maintenance recommendation text,
+- asset health summary.
+
+### Post-MVP / Phase 7 scope
+
+Move these later:
+
+- work orders,
+- technician assignment,
+- work order lifecycle,
+- maintenance history,
+- maintenance logs,
+- comments/attachments,
+- create work order from alert,
+- technician workflow.
+
+## Why full maintenance is deferred
+
+A full maintenance module is effectively a mini-CMMS system. It includes workflow state, permissions, assignments, activity logs, notifications, and technician UX.
+
+That is valuable, but it should not block the Expo demo.
+
+For Expo, customers are more likely to remember:
+
+```text
+3D/spatial building view
++ live sensors
++ AI explanation
++ building health score
+```
+
+than a work-order form.
+
+## MVP asset registry capabilities
 
 - View asset registry.
-- View asset detail with status, location, latest sensor readings, open alerts, and work orders.
-- Create work order manually.
-- Create work order from an alert.
-- Assign work order to technician.
-- Update work order status.
-- Add maintenance log notes.
-- Track priority and due date.
+- View asset detail with:
+  - status,
+  - type/category,
+  - location,
+  - latest readings,
+  - open alerts,
+  - health score/status,
+  - AI maintenance suggestion.
+- Filter assets by building/floor/zone/type/status.
+- Link an asset to a digital twin marker.
+- Show alert status on asset cards and twin markers.
 
-## Work order lifecycle
+## MVP frontend structure
+
+```text
+apps/web/src/features/assets/
+  components/
+    AssetTable.tsx
+    AssetDetailPanel.tsx
+    AssetStatusBadge.tsx
+    AssetHealthSummary.tsx
+    AssetTwinMarker.tsx
+  hooks/
+    useAssets.ts
+    useAsset.ts
+  services/
+    assets.api.ts
+  store/
+    asset-ui.store.ts
+  types/
+    asset.types.ts
+  index.ts
+```
+
+Optional placeholder for future maintenance navigation:
+
+```text
+apps/web/src/features/maintenance/
+  README.md              # explains deferred post-MVP scope
+```
+
+Do not build full work-order screens for Expo unless the core digital twin + AI demo is already complete.
+
+## MVP backend structure
+
+```text
+apps/api-gateway/src/domains/assets/
+  assets.module.ts
+  assets.controller.ts
+  assets.service.ts
+  assets.dto.ts
+  assets.repository.ts
+```
+
+Optional future placeholder:
+
+```text
+apps/api-gateway/src/domains/maintenance/
+  README.md              # deferred Phase 7 scope
+```
+
+## MVP API endpoints
+
+Asset registry endpoints:
+
+- `GET /api/assets`
+- `GET /api/assets/:assetId`
+- `GET /api/assets/:assetId/readings/latest`
+- `GET /api/assets/:assetId/alerts`
+- `GET /api/assets/:assetId/health`
+
+AI-assisted asset insight:
+
+- `POST /api/ai/asset-health-summary`
+
+Example request:
+
+```json
+{
+  "assetId": "uuid",
+  "timeRange": "24h"
+}
+```
+
+Example response:
+
+```json
+{
+  "assetId": "uuid",
+  "healthStatus": "warning",
+  "summary": "AHU-03 has elevated energy usage and longer runtime than expected.",
+  "evidence": [
+    { "metric": "energy_kw", "change": "+22%", "period": "last_24h" }
+  ],
+  "suggestedActions": [
+    "Check AHU schedule",
+    "Inspect cooling setpoint",
+    "Review occupancy pattern"
+  ]
+}
+```
+
+## Deferred work-order lifecycle
+
+The future work-order lifecycle remains:
 
 ```text
 open -> assigned -> in_progress -> completed
@@ -29,6 +177,7 @@ in_progress -> blocked -> in_progress
 ```
 
 Allowed statuses:
+
 - `open`
 - `assigned`
 - `in_progress`
@@ -36,48 +185,11 @@ Allowed statuses:
 - `completed`
 - `cancelled`
 
-Priorities:
-- `low`
-- `medium`
-- `high`
-- `critical`
+This lifecycle belongs to Phase 7/post-MVP, not Expo MVP.
 
-## Frontend structure
+## Deferred work-order endpoints
 
-```text
-apps/web/src/features/maintenance/
-  components/
-    WorkOrderTable.tsx
-    WorkOrderDetail.tsx
-    WorkOrderForm.tsx
-    WorkOrderStatusBadge.tsx
-    AssetMaintenanceSummary.tsx
-  hooks/
-    useWorkOrders.ts
-    useWorkOrder.ts
-    useCreateWorkOrder.ts
-    useUpdateWorkOrderStatus.ts
-  services/
-    maintenance.api.ts
-  store/
-    maintenance-ui.store.ts
-  types/
-    maintenance.types.ts
-  index.ts
-```
-
-## Backend structure
-
-```text
-apps/api-gateway/src/domains/maintenance/
-  maintenance.module.ts
-  maintenance.controller.ts
-  maintenance.service.ts
-  maintenance.dto.ts
-  maintenance.repository.ts
-```
-
-## API endpoints
+Do not implement these for Expo unless explicitly re-scoped:
 
 - `GET /api/work-orders`
 - `POST /api/work-orders`
@@ -87,7 +199,9 @@ apps/api-gateway/src/domains/maintenance/
 - `POST /api/work-orders/:workOrderId/logs`
 - `POST /api/alerts/:alertId/create-work-order`
 
-## Permissions
+## Future permissions
+
+Future CMMS permissions:
 
 | Action | admin | facility_manager | technician | viewer |
 |---|---|---|---|---|
@@ -98,48 +212,26 @@ apps/api-gateway/src/domains/maintenance/
 | Add log | yes | yes | assigned only | no |
 | Cancel work order | yes | yes | no | no |
 
-## UI pages
+MVP asset registry permissions should remain simpler:
 
-### Work orders list
+| Action | admin | facility_manager | technician | viewer |
+|---|---|---|---|---|
+| View assets | yes | yes | yes | yes |
+| View asset health | yes | yes | yes | yes |
+| Edit asset metadata | yes | yes | no | no |
 
-Path:
-```text
-/maintenance/work-orders
-```
+## MVP acceptance criteria
 
-Features:
-- Filter by status, priority, assignee, asset.
-- Sort by due date and priority.
-- Quick status badge.
-- Create button for managers/admins.
+- Facility manager can view the asset registry.
+- Facility manager can open asset detail.
+- Asset detail shows location, status, latest readings, and open alerts.
+- Asset appears as a marker in the digital twin viewer.
+- Alert state can change the asset marker/status color.
+- AI can produce a short asset-health explanation with evidence.
 
-### Work order detail
+## Post-MVP acceptance criteria
 
-Path:
-```text
-/maintenance/work-orders/[id]
-```
-
-Features:
-- Work order summary.
-- Linked asset and alert.
-- Status transition buttons.
-- Maintenance log timeline.
-- Assigned technician.
-
-### Asset maintenance view
-
-Path:
-```text
-/assets/[id]
-```
-
-Maintenance section:
-- Open work orders.
-- Past completed work.
-- Latest related alerts.
-
-## Acceptance criteria
+When Phase 7 begins:
 
 - Facility manager can create a work order for an asset.
 - Facility manager can assign a technician.

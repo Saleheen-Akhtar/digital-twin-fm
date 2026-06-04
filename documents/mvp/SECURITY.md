@@ -2,7 +2,7 @@
 
 ## Security goals
 
-Digital Twin FM manages facility operations data, sensor readings, alerts, assets, and maintenance work. Security must ensure that users can only access and change data appropriate to their role.
+Digital Twin FM manages facility operations data, sensor readings, alerts, assets, and AI-generated operational recommendations. Security must ensure that users can only access and change data appropriate to their role.
 
 ## MVP security model
 
@@ -28,9 +28,10 @@ All protected API routes must check user role and resource access.
 
 Minimum rules:
 - Viewers are read-only.
-- Technicians can update only assigned work orders.
-- Facility managers can manage assets, alerts, and work orders.
+- Technicians can view assets, alerts, and assigned operational context in MVP.
+- Facility managers can manage assets and alerts.
 - Admins can manage users and all resources.
+- Full work-order/technician update permissions are post-MVP.
 
 ## Permissions matrix
 
@@ -41,9 +42,7 @@ Minimum rules:
 | Create/update assets | yes | yes | no | no |
 | View alerts | yes | yes | yes | yes |
 | Acknowledge/resolve alerts | yes | yes | limited | no |
-| Create work orders | yes | yes | no | no |
-| Assign work orders | yes | yes | no | no |
-| Update assigned work orders | yes | yes | yes | no |
+| Request AI explanation | yes | yes | yes | yes |
 | Manage users | yes | no | no | no |
 
 ## API protection rules
@@ -51,7 +50,7 @@ Minimum rules:
 - All `/api/*` business endpoints require authentication by default.
 - `GET /health` and `GET /api/health` may be public.
 - Role checks must happen server-side, never only in the frontend.
-- Resource checks must verify that the user can access the building/asset/work order involved.
+- Resource checks must verify that the user can access the building/asset/alert involved.
 
 ## Ingestion security
 
@@ -107,7 +106,7 @@ OPENAI_API_KEY=
 
 ## Audit trail
 
-For MVP, maintenance logs act as an audit trail for work order status changes.
+For MVP, audit-relevant events should include alert acknowledgement/resolution, critical asset updates, and AI-generated recommendations that lead to operational action.
 
 Later add dedicated audit logs for:
 - user login,

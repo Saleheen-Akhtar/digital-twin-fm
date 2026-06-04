@@ -1,92 +1,40 @@
 # MVP Scope — Digital Twin FM
 
-## MVP objective
+## Purpose
 
-Build a demo-ready facility management platform that shows a live operational view of a facility using seeded/simulated data.
-
-The MVP should prove:
-- the monorepo works,
-- core services run locally,
-- facility data is modeled correctly,
-- sensor readings can stream live,
-- alerts and work orders can be managed,
-- the UI is usable for facility managers.
+Define strict boundaries for the Singapore Expo MVP. Focus on Digital Twin and AI demo impact.
 
 ## Included in MVP
 
-### Core platform
-
-- Turborepo + pnpm workspace scaffold.
+### Core Platform
+- Turborepo + pnpm workspace.
 - Next.js web app.
 - NestJS API gateway.
-- Node.js ingestion service.
-- Python FastAPI AI service skeleton.
-- PostgreSQL + TimescaleDB + Redis using Docker Compose.
-- GitHub Actions CI.
+- Python FastAPI AI service.
+- PostgreSQL + TimescaleDB + Redis.
+- Infisical for secrets.
 
-### Web UI
+### Domain Features
+- Building Hierarchy (Site/Building/Floor/Zone/Asset)
+- Basic Digital Twin Viewer (GLB/GLTF)
+- Dashboard (Executive KPI view + Building Health Score)
+- Realtime Sensor Monitoring (via Redis/WebSocket)
+- Asset Registry
+- Alert Engine
+- AI Copilot (Core features: health summary, energy explanation, root-cause insights)
 
-- Login screen or mock-auth flow.
-- Dashboard overview.
-- Building/floor selector.
-- Asset list and asset detail page.
-- Live sensor monitoring page.
-- Alerts list and alert detail/acknowledge flow.
-- Maintenance work orders list/detail/create/update flow.
-- Basic digital twin view using simplified model or placeholder GLB/GLTF.
+### Ingestion Strategy (Software-First)
+- Sensor simulator script for development and Expo reliability.
+- Dual-mode ingestion service supporting `simulate` (internal timer) and `live` (MQTT/REST) modes.
+- This allows seamless swap to real IoT gateway (e.g., Node-RED, Industrial PC) post-MVP without backend changes.
 
-### Backend
+## Deferred to Phase 2/3
 
-- REST API for buildings, floors, rooms, assets, sensors, alerts, work orders, users.
-- WebSocket channel for live sensor and alert updates.
-- JWT + role-based access control.
-- Drizzle migrations.
-- Seed data for a demo facility.
+- Full Maintenance/CMMS (Work Orders, Technicians, Assignments, Logs)
+- Multi-building/Multi-site management
+- Mobile app / PWA offline support
+- BACnet/Modbus/OPC-UA direct connectors
+- Predictive maintenance deep-learning models
+- Audit logging (full enterprise)
+- SSO/SAML integration (Phase 3+)
 
-### Ingestion
-
-- HTTP endpoint for simulated sensor readings.
-- Validation and normalization.
-- Store readings in TimescaleDB hypertable.
-- Publish realtime events through Redis.
-
-### AI service
-
-- Health endpoint.
-- Basic copilot endpoint with stubbed/provider-ready implementation.
-- Basic anomaly explanation using deterministic rules.
-
-## Excluded from MVP
-
-- Full BIM/IFC model ingestion.
-- Real physical IoT integration.
-- Kafka/Redpanda/NATS.
-- Kubernetes/Helm production deployment.
-- Complex predictive maintenance ML.
-- Enterprise SSO/SAML/OIDC.
-- Mobile app.
-- Multi-tenant billing.
-- Advanced permissions matrix.
-
-## MVP success criteria
-
-- `pnpm install` completes.
-- `docker compose up` starts Postgres/TimescaleDB and Redis.
-- `pnpm dev` starts web/api/ingestion services.
-- Seed data creates at least one building, floors, rooms, assets, sensors, alerts, and work orders.
-- A simulated sensor reading appears in the frontend without page refresh.
-- Creating a work order from the UI persists to the database.
-- CI runs lint, typecheck, tests, and build.
-
-## Recommended first build order
-
-1. Monorepo scaffold.
-2. Shared config/types/ui/db packages.
-3. Docker Compose database and Redis.
-4. Drizzle schema and seed data.
-5. API gateway core modules.
-6. Web dashboard shell.
-7. Ingestion service and realtime WebSocket.
-8. Alerts and maintenance flows.
-9. Basic digital twin view.
-10. AI service skeleton.
