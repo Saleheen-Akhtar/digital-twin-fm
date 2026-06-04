@@ -32,14 +32,16 @@ $ gh api repos/Saleheen-Akhtar/digital-twin-fm/branches | jq '.[] | {name, prote
 
 ### `main` protection (verified)
 
-- Required PR reviews: 1
+- Required PR reviews: **0** (solo-dev MVP mode — change to 1+ when adding collaborators)
 - Dismiss stale approvals: true
-- Require code owner review: true
+- Require code owner review: false (auto-enabled when collaborators are added)
 - Required status checks: `ci` (strict, up-to-date)
 - Required linear history: true
 - Allow force pushes: false
 - Allow deletions: false
 - Enforce admins: true
+
+> **Note for solo dev mode:** With `required_approving_review_count: 0`, the author can merge their own PR after CI passes. This is the right setting for a one-person MVP. When you add collaborators (`@Akshay`, `@Sumanth`, `@Sudhanva`), bump this back to `1` so the team has a real review step.
 
 ### `dev` protection (verified)
 
