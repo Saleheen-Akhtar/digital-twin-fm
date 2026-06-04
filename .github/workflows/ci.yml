@@ -38,10 +38,10 @@ jobs:
         run: pnpm build
 
       - name: Lint
-        run: pnpm lint || true   # Lint is non-blocking until ESLint config is finalized
+        run: pnpm lint
 
       - name: Test
         run: pnpm test
 
       - name: Typecheck
-        run: pnpm --filter @digital-twin-fm/api-gateway exec tsc --noEmit || true   # Will expand to all workspaces as they're added
+        run: pnpm typecheck
