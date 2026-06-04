@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+env:
+  # Cache pnpm store between runs
+  PNPM_VERSION: 9
+
+jobs:
+  build-and-test:
+    name: Build, Lint, and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Lint
+        run: pnpm lint || true   # Lint is non-blocking until ESLint config is finalized
+
+      - name: Test
+        run: pnpm test
+
+      - name: Typecheck
+        run: pnpm --filter @digital-twin-fm/api-gateway exec tsc --noEmit || true   # Will expand to all workspaces as they're added
