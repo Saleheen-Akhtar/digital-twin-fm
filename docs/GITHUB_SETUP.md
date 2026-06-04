@@ -14,7 +14,7 @@
 | 2 | Legacy branch `add-technical-prd-17419036079162435053` deleted | ✅ Done (`git push origin --delete`) |
 | 3 | `main` branch protection rules applied | ✅ Done (`gh api PUT /branches/main/protection`) |
 | 4 | `dev` branch protection rules applied | ✅ Done (`gh api PUT /branches/dev/protection`) |
-| 5 | CODEOWNERS file present and active | ✅ Done (file already existed) |
+| 5 | CODEOWNERS file added and active | ✅ Done (created in this PR at `CODEOWNERS`) |
 | 6 | "Live branches" table in CONTRIBUTING.md updated | ✅ Done |
 
 ---
