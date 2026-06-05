@@ -1,75 +1,30 @@
-"use client";
+// Server component: requires a valid session, fetches assets with the
+// access token, then hands off to a small client wrapper for the
+// interactive bits (selection state, click → detail panel).
+import { getServerEnv } from '@/env';
+import { createApiClient, type Asset } from '@/lib/api-client';
+import { requireSession } from '@/lib/session';
+import { DigitalTwinClient } from './client';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { DigitalTwinPanel } from "@/features/digital-twin/panel";
-import { AssetDetailPanel } from "@/features/digital-twin/asset-detail-panel";
-import { createApiClient, type Asset } from "@/lib/api-client";
+export const metadata = { title: 'Digital Twin — Digital Twin FM' };
+export const dynamic = 'force-dynamic';
 
-export default function DigitalTwinPage() {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+export default async function DigitalTwinPage() {
+  // Per Finding 4: verify session before any data fetch. If invalid, the
+  // user is redirected to /login (defense-in-depth; the middleware does
+  // the same at the edge).
+  const session = await requireSession();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        // Browser-side: gateway is on the same host but different port
-        const apiUrl = window.location.origin.replace(/:3000$/, ":4000");
-        const api = createApiClient({ baseUrl: apiUrl });
-        const data = await api.findAssets();
-        setAssets(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load assets");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const { apiGatewayUrl } = getServerEnv();
+  const api = createApiClient({ baseUrl: apiGatewayUrl, token: session.accessToken });
 
-  const selectedAsset = selectedId ? assets.find((a) => a.id === selectedId) ?? null : null;
+  let assets: Asset[] = [];
+  let loadError: string | null = null;
+  try {
+    assets = await api.findAssets();
+  } catch (err) {
+    loadError = err instanceof Error ? err.message : 'Failed to load assets';
+  }
 
-  return (
-    <main className="min-h-screen p-8 max-w-7xl mx-auto">
-      <header className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Digital Twin Viewer</h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            Live 3D facility model. Markers colored by status, sized by type.
-          </p>
-        </div>
-        <Link
-          href="/dashboard"
-          className="text-sm text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded px-3 py-1.5"
-        >
-          ← Dashboard
-        </Link>
-      </header>
-
-      {loading ? (
-        <div className="border border-neutral-800 rounded-lg p-8 text-center text-neutral-500">
-          Loading assets from API…
-        </div>
-      ) : error ? (
-        <div className="border border-red-800 bg-red-950/30 rounded-lg p-4 text-red-300">
-          <strong>Could not load assets:</strong> {error}
-        </div>
-      ) : assets.length === 0 ? (
-        <div className="border border-neutral-800 rounded-lg p-8 text-center text-neutral-500">
-          No assets found. Run <code className="bg-neutral-800 px-1 rounded">pnpm --filter @digital-twin-fm/db seed</code> to populate the database.
-        </div>
-      ) : (
-        <DigitalTwinPanel
-          assets={assets}
-          selectedId={selectedId}
-          onSelectAsset={setSelectedId}
-        />
-      )}
-
-      {selectedAsset && (
-        <AssetDetailPanel asset={selectedAsset} onClose={() => setSelectedId(null)} />
-      )}
-    </main>
-  );
+  return <DigitalTwinClient initialAssets={assets} initialError={loadError} />;
 }

@@ -53,10 +53,23 @@ export class AuthService {
     if (email !== this.mvpUser.email || incomingHash !== this.mvpUser.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.jwt.signAsync({
-      sub: this.mvpUser.id,
-      email: this.mvpUser.email,
-      role: this.mvpUser.role,
-    });
+    // NOTE: SHA-256 + nonce-less comparison is intentionally not fixed in this
+    // commit. It is a separate Critical finding (Finding 1, audit doc
+    // documents/mvp/SECURITY_AUDIT.md) and is the next item on the queue.
+    // This commit only wires up the JWT verification guards (Finding 4).
+    return this.jwt.signAsync(
+      {
+        sub: this.mvpUser.id,
+        email: this.mvpUser.email,
+        role: this.mvpUser.role,
+      },
+      {
+        // Per Finding 4: tokens are now scoped via aud/iss so a JWT minted
+        // by this gateway cannot be replayed against any other service that
+        // happens to share the same secret. The JwtStrategy verifies these.
+        audience: 'digital-twin-fm.web',
+        issuer: 'digital-twin-fm.api-gateway',
+      },
+    );
   }
 }
