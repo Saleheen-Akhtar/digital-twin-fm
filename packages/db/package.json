@@ -1,15 +1,31 @@
 {
   "name": "@digital-twin-fm/db",
   "version": "0.1.0",
+  "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
   "license": "MIT",
+  "scripts": {
+    "generate": "drizzle-kit generate:pg",
+    "migrate": "node migrate.mjs",
+    "push": "drizzle-kit push:pg",
+    "studio": "drizzle-kit studio",
+    "seed": "tsx src/seed.ts",
+    "lint": "echo 'db: lint noop (SQL is linted by drizzle-kit)' && exit 0",
+    "typecheck": "tsc --noEmit",
+    "build": "echo 'db: build noop (consumed as source via workspace:*)' && exit 0",
+    "test": "echo 'db: no tests yet' && exit 0"
+  },
   "dependencies": {
+    "@digital-twin-fm/types": "workspace:*",
     "drizzle-orm": "^0.30.0",
     "pg": "^8.11.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "^9.0.0",
+    "@types/pg": "^8.10.9",
     "drizzle-kit": "^0.20.0",
-    "tsx": "^4.0.0"
+    "tsx": "^4.0.0",
+    "typescript": "^5.3.3"
   }
 }
