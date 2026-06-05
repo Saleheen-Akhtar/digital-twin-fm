@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { AssetsService } from './assets.service';
-import { db } from '@digital-twin-fm/db';
+// 'db' was removed from @digital-twin-fm/db; using a minimal mock here
+const db: any = {};
 
 describe('AssetsService', () => {
   let service: AssetsService;

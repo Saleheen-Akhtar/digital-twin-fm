@@ -2,8 +2,8 @@
   "name": "@digital-twin-fm/db",
   "version": "0.1.0",
   "private": true,
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "license": "MIT",
   "scripts": {
     "generate": "drizzle-kit generate:pg",
@@ -11,9 +11,9 @@
     "push": "drizzle-kit push:pg",
     "studio": "drizzle-kit studio",
     "seed": "tsx src/seed.ts",
+    "build": "tsc -p tsconfig.build.json",
     "lint": "echo 'db: lint noop (SQL is linted by drizzle-kit)' && exit 0",
     "typecheck": "tsc --noEmit",
-    "build": "echo 'db: build noop (consumed as source via workspace:*)' && exit 0",
     "test": "echo 'db: no tests yet' && exit 0"
   },
   "dependencies": {
