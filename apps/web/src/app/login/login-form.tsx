@@ -1,30 +1,18 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useActionState } from 'react';
+import { loginAction, type LoginState } from './actions';
 
-export function LoginForm({ error }: { error: string | null }) {
-  const [pending, setPending] = useState(false);
+const initial: LoginState = { error: null };
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setPending(true);
-    const fd = new FormData(e.currentTarget);
-    const body = new URLSearchParams();
-    body.set('email', String(fd.get('email') ?? ''));
-    body.set('password', String(fd.get('password') ?? ''));
-    const res = await fetch('/login', { method: 'POST', body });
-    if (res.redirected) {
-      window.location.href = res.url;
-      return;
-    }
-    setPending(false);
-  }
+export function LoginForm() {
+  const [state, formAction, pending] = useActionState(loginAction, initial);
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4 max-w-sm w-full">
-      {error && (
+    <form action={formAction} className="flex flex-col gap-4 max-w-sm w-full">
+      {state.error && (
         <div role="alert" className="text-red-400 text-sm">
-          {error}
+          {state.error}
         </div>
       )}
       <label className="flex flex-col gap-1">
