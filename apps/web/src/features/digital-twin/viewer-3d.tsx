@@ -3,26 +3,31 @@
 /**
  * Digital Twin FM — Three.js viewer
  *
- * A raw Three.js implementation (no @react-three/fiber) that mounts
- * a WebGL canvas into a div, builds a 4-floor curtain-wall building
- * with concrete slabs, glass facade, structural columns, mullion grids,
- * suspended ceilings, duct runs, and rooftop RTU units, then places
- * 20 typed asset markers (Air Handler / Chiller / Boiler / Pump / Fan)
- * with per-type geometry, status rings, fault glows, and CanvasTexture
- * sprite labels.
- *
- * Interaction:
- *   - OrbitControls for drag-rotate + scroll-zoom
- *   - Raycaster for hover (cursor + float) and click (inspect panel)
- *   - ResizeObserver for responsive canvas sizing
+ * Raw Three.js (no @react-three/fiber) component that:
+ *   - Mounts a WebGL canvas into a div (next/dynamic ssr:false in panel.tsx)
+ *   - Builds a 4-floor curtain-wall glass office tower (concrete slabs,
+ *     glass facade, mullion grid, structural columns, suspended ceilings,
+ *     duct runs, rooftop RTU units)
+ *   - Places 20 typed asset markers with per-type geometry:
+ *       Air Handler → BoxGeometry cabinet + grille detail meshes
+ *       Chiller     → CylinderGeometry vessel + flanged caps
+ *       Boiler      → tapered CylinderGeometry + flue pipe
+ *       Pump        → SphereGeometry body + inlet/outlet pipes
+ *       Fan         → CylinderGeometry disc + 4 BoxGeometry blades
+ *     Each marker: TorusGeometry status ring (emissive), transparent
+ *     SphereGeometry fault glow (pulsed in RAF), CanvasTexture Sprite
+ *     name label above.
+ *   - OrbitControls: full vertical orbit, damping 0.05
+ *   - Raycaster: hover (float + cursor + emissive), click (inspect panel)
  *   - Floor + type filters toggle group.visible
+ *   - Optional homepage mode (showMarkers=false, autoRotate=true)
  *
- * Cleanup:
- *   - renderer.dispose(), controls.dispose(), cancelAnimationFrame,
- *     ResizeObserver.disconnect(), all material/geometries freed
+ * Cleanup: renderer.dispose, controls.dispose, cancelAnimationFrame,
+ * ResizeObserver.disconnect, all geometries/materials/CanvasTextures
+ * freed, DOM canvas removed.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useViewerStore } from "./viewer-store";
@@ -32,124 +37,323 @@ import {
   type AssetType,
   SEED_ASSETS,
   floorLabel,
+  METRIC_LABEL,
+  DETAIL_LABEL,
+  STATUS_DISPLAY,
 } from "./viewer-data";
 import type { FloorFilter, TypeFilter } from "./viewer-store";
+import {
+  colors,
+  shadow,
+  building as B,
+  camera as CAM,
+  light as LIGHT,
+  fog as FOG,
+} from "@/design-system/tokens";
 
-// ─── Status colors (emissive rings + glow + panel swatches) ─────────
-const STATUS_COLOR: Record<AssetStatus, number> = {
-  operational: 0x22c55e,
-  warning: 0xeab308,
-  fault: 0xef4444,
-};
-const STATUS_HEX: Record<AssetStatus, string> = {
-  operational: "#22c55e",
-  warning: "#eab308",
-  fault: "#ef4444",
-};
-
-// ─── Type colors (legend rows + marker body tint) ──────────────────
-const TYPE_COLOR: Record<AssetType, number> = {
+const STATUS_HEX = colors.status;
+const TYPE_HEX = colors.type;
+const STATUS_HEX_INT = colors.statusHex;
+const TYPE_HEX_INT: Record<AssetType, number> = {
   "Air Handler": 0x3b82f6,
   Chiller: 0x06b6d4,
   Boiler: 0xf97316,
   Pump: 0xa855f7,
   Fan: 0x10b981,
 };
-const TYPE_HEX: Record<AssetType, string> = {
-  "Air Handler": "#3b82f6",
-  Chiller: "#06b6d4",
-  Boiler: "#f97316",
-  Pump: "#a855f7",
-  Fan: "#10b981",
-};
 
-// ─── Building dimensions ───────────────────────────────────────────
-const TOWER_W = 18;
-const TOWER_D = 14;
-const FLOOR_H = 3.6;
-const FLOOR_COUNT = 4; // GF + F1 + F2 + F3
-const SLAB_T = 0.3;
-const WALL_T = 0.25;
-const MULLION_COLS = 6;
-const MULLION_ROWS = 2;
+// ─── CanvasTexture Sprite name label ──────────────────────────────
+function makeNameLabelSprite(name: string, type: AssetType): THREE.Sprite {
+  const FONT_SIZE = 36;
+  const tmp = document.createElement("canvas");
+  const tmpCtx = tmp.getContext("2d")!;
+  tmpCtx.font = `600 ${FONT_SIZE}px system-ui, -apple-system, sans-serif`;
+  const textW = tmpCtx.measureText(name).width;
+  const PAD = 24;
+  const W = Math.max(256, Math.ceil(textW + PAD * 2));
+  const H = 64;
 
-// ─── CanvasTexture label sprite helper ──────────────────────────────
-function makeLabelSprite(
-  text: string,
-  subtext: string,
-  color: string,
-): THREE.Sprite {
-  const W = 256;
-  const H = 96;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d")!;
 
-  // Background pill
-  ctx.fillStyle = "rgba(10, 14, 26, 0.92)";
-  roundRect(ctx, 4, 4, W - 8, H - 8, 14);
+  // Rounded-pill background (light theme, matches dashboard cards)
+  const r = H / 2;
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(W - r, 0);
+  ctx.quadraticCurveTo(W, 0, W, r);
+  ctx.lineTo(W, H - r);
+  ctx.quadraticCurveTo(W, H, W - r, H);
+  ctx.lineTo(r, H);
+  ctx.quadraticCurveTo(0, H, 0, H - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+  ctx.fillStyle = colors.bg.surface;
   ctx.fill();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
-  roundRect(ctx, 4, 4, W - 8, H - 8, 14);
+  ctx.strokeStyle = colors.border.light;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Name
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 28px system-ui, -apple-system, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, W / 2, 36);
+  // Small type-color dot at the left
+  ctx.beginPath();
+  ctx.arc(22, H / 2, 5, 0, Math.PI * 2);
+  ctx.fillStyle = TYPE_HEX[type];
+  ctx.fill();
 
-  // Subtext
-  ctx.fillStyle = color;
-  ctx.font = "600 18px system-ui, -apple-system, sans-serif";
-  ctx.fillText(subtext, W / 2, 68);
+  // Name
+  ctx.fillStyle = colors.text.primary;
+  ctx.font = `600 ${FONT_SIZE}px system-ui, -apple-system, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(name, 38, H / 2 + 2);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-  const sprite = new THREE.Sprite(material);
-  sprite.scale.set(2.4, 0.9, 1);
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: texture, transparent: true }),
+  );
+  sprite.scale.set(4, 1.2, 1);
   return sprite;
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
+// ─── Marker handles ────────────────────────────────────────────────
+interface MarkerHandles {
+  group: THREE.Group;        // root group (positioned, visible toggled)
+  body: THREE.Mesh;          // main body mesh (emissive highlight on select)
+  ring: THREE.Mesh;          // TorusGeometry status ring
+  glow: THREE.Mesh;          // transparent SphereGeometry fault glow
+  label: THREE.Sprite;       // CanvasTexture name label above
+  blades?: THREE.Group;      // Fan only — animated blades
+  isFault: boolean;
+  baseY: number;
 }
 
-// ─── Building construction ─────────────────────────────────────────
+// ─── Per-type marker body geometry ────────────────────────────────
+function buildMarkerBody(asset: Asset): {
+  body: THREE.Mesh;
+  blades?: THREE.Group;
+} {
+  const typeColor = TYPE_HEX_INT[asset.type];
+  const isFan = asset.type === "Fan";
+
+  if (asset.type === "Air Handler") {
+    // BoxGeometry cabinet + 3 grille slats
+    const cabinet = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 1.2, 1.0),
+      new THREE.MeshStandardMaterial({
+        color: typeColor,
+        roughness: 0.5,
+        metalness: 0.4,
+      }),
+    );
+    cabinet.castShadow = true;
+    // Grille slats
+    for (let i = 0; i < 3; i++) {
+      const slat = new THREE.Mesh(
+        new THREE.BoxGeometry(1.0, 0.06, 0.04),
+        new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          metalness: 0.6,
+          roughness: 0.3,
+        }),
+      );
+      slat.position.set(0, -0.25 + i * 0.25, 0.52);
+      cabinet.add(slat);
+    }
+    return { body: cabinet };
+  }
+
+  if (asset.type === "Chiller") {
+    // CylinderGeometry vessel + 2 flanged caps
+    const vessel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.55, 1.6, 24),
+      new THREE.MeshStandardMaterial({
+        color: typeColor,
+        roughness: 0.4,
+        metalness: 0.6,
+      }),
+    );
+    vessel.castShadow = true;
+    [-0.8, 0.8].forEach((y) => {
+      const cap = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.7, 0.7, 0.1, 24),
+        new THREE.MeshStandardMaterial({
+          color: 0x64748b,
+          metalness: 0.7,
+          roughness: 0.3,
+        }),
+      );
+      cap.position.y = y;
+      vessel.add(cap);
+    });
+    return { body: vessel };
+  }
+
+  if (asset.type === "Boiler") {
+    // Tapered CylinderGeometry + flue pipe
+    const tapered = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.55, 1.4, 16),
+      new THREE.MeshStandardMaterial({
+        color: typeColor,
+        roughness: 0.5,
+        metalness: 0.4,
+      }),
+    );
+    tapered.castShadow = true;
+    const flue = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.12, 1.0, 12),
+      new THREE.MeshStandardMaterial({
+        color: 0x475569,
+        metalness: 0.8,
+        roughness: 0.2,
+      }),
+    );
+    flue.position.y = 1.2;
+    tapered.add(flue);
+    return { body: tapered };
+  }
+
+  if (asset.type === "Pump") {
+    // SphereGeometry body + 2 inlet/outlet CylinderGeometry pipes
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.55, 20, 16),
+      new THREE.MeshStandardMaterial({
+        color: typeColor,
+        roughness: 0.3,
+        metalness: 0.7,
+      }),
+    );
+    sphere.castShadow = true;
+    [-1, 1].forEach((side) => {
+      const pipe = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.15, 0.6, 12),
+        new THREE.MeshStandardMaterial({
+          color: 0x94a3b8,
+          metalness: 0.7,
+          roughness: 0.3,
+        }),
+      );
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(side * 0.7, 0, 0);
+      sphere.add(pipe);
+    });
+    return { body: sphere };
+  }
+
+  // Fan: CylinderGeometry disc + 4 BoxGeometry blades (animated)
+  const disc = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.7, 0.7, 0.15, 24),
+    new THREE.MeshStandardMaterial({
+      color: typeColor,
+      roughness: 0.4,
+      metalness: 0.5,
+    }),
+  );
+  disc.castShadow = true;
+  const blades = new THREE.Group();
+  for (let i = 0; i < 4; i++) {
+    const blade = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 0.05, 0.15),
+      new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        roughness: 0.5,
+        metalness: 0.3,
+      }),
+    );
+    blade.position.set(
+      Math.cos((i * Math.PI) / 2) * 0.35,
+      0,
+      Math.sin((i * Math.PI) / 2) * 0.35,
+    );
+    blade.rotation.y = (i * Math.PI) / 2;
+    blades.add(blade);
+  }
+  return { body: disc, blades };
+}
+
+// ─── Marker factory ───────────────────────────────────────────────
+function buildMarker(asset: Asset): MarkerHandles {
+  const group = new THREE.Group();
+  group.name = `Asset-${asset.id}`;
+  const baseY = asset.floor * B.floorH + B.podiumH + 1.0;
+  group.position.set(asset.x, baseY, asset.z);
+  group.userData = { assetId: asset.id, asset };
+
+  const { body, blades } = buildMarkerBody(asset);
+  group.add(body);
+
+  // Status ring (TorusGeometry, emissive)
+  const statusColor = STATUS_HEX_INT[asset.status];
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.9, 0.04, 8, 32),
+    new THREE.MeshStandardMaterial({
+      color: statusColor,
+      emissive: statusColor,
+      emissiveIntensity: 1.2,
+      toneMapped: false,
+    }),
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = -0.7;
+  group.add(ring);
+
+  // Fault glow (transparent SphereGeometry)
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(1.1, 16, 12),
+    new THREE.MeshBasicMaterial({
+      color: statusColor,
+      transparent: true,
+      opacity: asset.status === "fault" ? 0.18 : 0.0,
+      depthWrite: false,
+    }),
+  );
+  group.add(glow);
+
+  // Name label sprite above
+  const label = makeNameLabelSprite(asset.name, asset.type);
+  label.position.set(0, 1.6, 0);
+  group.add(label);
+
+  // Fan blades (animated)
+  if (blades) {
+    blades.position.y = 0;
+    group.add(blades);
+  }
+
+  return {
+    group,
+    body,
+    ring,
+    glow,
+    label,
+    blades,
+    isFault: asset.status === "fault",
+    baseY,
+  };
+}
+
+// ─── Building construction — glass office tower on light theme ────
 function buildBuilding(): THREE.Group {
   const group = new THREE.Group();
   group.name = "Building";
 
-  const halfW = TOWER_W / 2;
-  const halfD = TOWER_D / 2;
+  const halfW = B.towerW / 2;
+  const halfD = B.towerD / 2;
+  const podiumW = B.towerW + 3;
+  const podiumD = B.towerD + 3;
+  const halfPodiumW = podiumW / 2;
+  const halfPodiumD = podiumD / 2;
+  const totalH = B.floorH * B.floorCount;
 
-  // Ground plane
+  // Ground plane (light, matches dashboard bg)
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(120, 120),
     new THREE.MeshStandardMaterial({
-      color: 0x1f2937,
+      color: colors.building.ground,
       roughness: 0.95,
       metalness: 0,
     }),
@@ -158,18 +362,76 @@ function buildBuilding(): THREE.Group {
   ground.receiveShadow = true;
   group.add(ground);
 
-  // Per-floor construction
-  for (let floor = 0; floor < FLOOR_COUNT; floor++) {
-    const yBase = floor * FLOOR_H;
-    const yCenter = yBase + FLOOR_H / 2;
+  // Subtle architectural grid
+  const grid = new THREE.GridHelper(
+    120,
+    60,
+    colors.building.gridSection,
+    colors.building.gridCell,
+  );
+  grid.position.y = 0.01;
+  group.add(grid);
+
+  // Podium (base, slightly wider than tower)
+  const podium = new THREE.Mesh(
+    new THREE.BoxGeometry(podiumW, B.podiumH, podiumD),
+    new THREE.MeshStandardMaterial({
+      color: colors.building.podium,
+      roughness: 0.7,
+      metalness: 0.1,
+    }),
+  );
+  podium.position.set(0, B.podiumH / 2, 0);
+  podium.castShadow = true;
+  podium.receiveShadow = true;
+  group.add(podium);
+
+  // Recessed entrance panel
+  const entrancePanel = new THREE.Mesh(
+    new THREE.BoxGeometry(6, 1.6, 0.1),
+    new THREE.MeshStandardMaterial({
+      color: colors.building.entrancePanel,
+      roughness: 0.4,
+      metalness: 0.3,
+    }),
+  );
+  entrancePanel.position.set(0, B.podiumH / 2, halfPodiumD - 0.05);
+  group.add(entrancePanel);
+
+  // Entrance canopy + 2 support columns
+  const canopy = new THREE.Mesh(
+    new THREE.BoxGeometry(7, 0.15, 2.5),
+    new THREE.MeshStandardMaterial({
+      color: colors.building.canopy,
+      roughness: 0.5,
+      metalness: 0.2,
+    }),
+  );
+  canopy.position.set(0, B.podiumH - 0.15, halfPodiumD + 1.5);
+  canopy.castShadow = true;
+  group.add(canopy);
+  [-3, 3].forEach((x) => {
+    const col = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, B.podiumH - 0.3, 0.2),
+      new THREE.MeshStandardMaterial({ color: colors.building.entrancePanel }),
+    );
+    col.position.set(x, B.podiumH / 2 - 0.15, halfPodiumD + 1.5);
+    col.castShadow = true;
+    group.add(col);
+  });
+
+  // ─── Per-floor construction ───
+  for (let floor = 0; floor < B.floorCount; floor++) {
+    const yBase = B.podiumH + floor * B.floorH;
+    const yCenter = yBase + B.floorH / 2;
     const floorGroup = new THREE.Group();
     floorGroup.name = `Floor-${floor}`;
 
-    // ─── Concrete slab (floor + ceiling of this level) ───
+    // Concrete slab (floor)
     const slab = new THREE.Mesh(
-      new THREE.BoxGeometry(TOWER_W + 0.4, SLAB_T, TOWER_D + 0.4),
+      new THREE.BoxGeometry(B.towerW + 0.3, B.slabT, B.towerD + 0.3),
       new THREE.MeshStandardMaterial({
-        color: 0xcbd5e1,
+        color: colors.building.slab,
         roughness: 0.85,
         metalness: 0.05,
       }),
@@ -179,34 +441,51 @@ function buildBuilding(): THREE.Group {
     slab.receiveShadow = true;
     floorGroup.add(slab);
 
-    // ─── Suspended ceiling (slightly below slab, thin) ───
+    // Suspended ceiling (thin band below the slab)
     const ceiling = new THREE.Mesh(
-      new THREE.BoxGeometry(TOWER_W - 0.2, 0.08, TOWER_D - 0.2),
+      new THREE.BoxGeometry(B.towerW - 0.2, 0.08, B.towerD - 0.2),
       new THREE.MeshStandardMaterial({
         color: 0xe2e8f0,
         roughness: 0.6,
         metalness: 0.1,
       }),
     );
-    ceiling.position.set(0, yBase + FLOOR_H - 0.3, 0);
+    ceiling.position.set(0, yBase + B.floorH - 0.3, 0);
     floorGroup.add(ceiling);
 
-    // ─── Glass facade panels (4 sides) ───
-    const panelH = (FLOOR_H - SLAB_T) / MULLION_ROWS;
-    const panelW = TOWER_W / MULLION_COLS;
+    // Duct runs (cylindrical, silver, along the ceiling)
+    const ductMat = new THREE.MeshStandardMaterial({
+      color: 0xcbd5e1,
+      metalness: 0.6,
+      roughness: 0.4,
+    });
+    [-B.towerW / 4, B.towerW / 4].forEach((x) => {
+      const duct = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.25, B.towerD - 2, 12),
+        ductMat,
+      );
+      duct.rotation.x = Math.PI / 2;
+      duct.position.set(x, yBase + B.floorH - 0.6, 0);
+      duct.castShadow = true;
+      floorGroup.add(duct);
+    });
+
+    // Glass facade — 5 cols × 3 rows on all 4 sides
+    const panelH = (B.floorH - B.slabT) / B.mullionRows;
+    const panelW = B.towerW / B.mullionCols;
     const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0x5b8fd9,
+      color: colors.building.glass,
       metalness: 0.1,
       roughness: 0.05,
-      transmission: 0.6,
+      transmission: B.glassTransmission,
       transparent: true,
-      opacity: 0.55,
+      opacity: B.glassOpacity,
       ior: 1.5,
     });
-    for (let row = 0; row < MULLION_ROWS; row++) {
-      for (let col = 0; col < MULLION_COLS; col++) {
+    for (let row = 0; row < B.mullionRows; row++) {
+      for (let col = 0; col < B.mullionCols; col++) {
         const x = -halfW + panelW * (col + 0.5);
-        const y = yBase + SLAB_T / 2 + panelH * (row + 0.5);
+        const y = yBase + B.slabT / 2 + panelH * (row + 0.5);
         // Front
         const gf = new THREE.Mesh(
           new THREE.BoxGeometry(panelW * 0.92, panelH * 0.88, 0.08),
@@ -238,19 +517,17 @@ function buildBuilding(): THREE.Group {
       }
     }
 
-    // ─── Mullion grid (vertical + horizontal frames) ───
+    // Mullion grid — vertical + horizontal
     const mullionMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8,
+      color: colors.building.mullion,
       metalness: 0.7,
       roughness: 0.3,
     });
-    // Vertical mullions on all 4 sides
-    for (let i = 0; i <= MULLION_COLS; i++) {
+    for (let i = 0; i <= B.mullionCols; i++) {
       const x = -halfW + panelW * i;
-      // Front + Back
       [-halfD, halfD].forEach((z) => {
         const m = new THREE.Mesh(
-          new THREE.BoxGeometry(0.12, FLOOR_H - SLAB_T, 0.12),
+          new THREE.BoxGeometry(B.mullionT, B.floorH - B.slabT, B.mullionT),
           mullionMat,
         );
         m.position.set(x, yCenter, z);
@@ -259,29 +536,26 @@ function buildBuilding(): THREE.Group {
       const z = -halfD + panelW * i;
       [-halfW, halfW].forEach((xSide) => {
         const m = new THREE.Mesh(
-          new THREE.BoxGeometry(0.12, FLOOR_H - SLAB_T, 0.12),
+          new THREE.BoxGeometry(B.mullionT, B.floorH - B.slabT, B.mullionT),
           mullionMat,
         );
         m.position.set(xSide, yCenter, z);
         floorGroup.add(m);
       });
     }
-    // Horizontal mullions
-    for (let row = 1; row < MULLION_ROWS; row++) {
-      const y = yBase + SLAB_T / 2 + panelH * row;
-      // Front + Back (full width)
+    for (let row = 1; row < B.mullionRows; row++) {
+      const y = yBase + B.slabT / 2 + panelH * row;
       [-halfD, halfD].forEach((z) => {
         const m = new THREE.Mesh(
-          new THREE.BoxGeometry(TOWER_W, 0.1, 0.1),
+          new THREE.BoxGeometry(B.towerW, B.mullionT * 0.8, B.mullionT),
           mullionMat,
         );
         m.position.set(0, y, z);
         floorGroup.add(m);
       });
-      // Left + Right (full depth)
       [-halfW, halfW].forEach((xSide) => {
         const m = new THREE.Mesh(
-          new THREE.BoxGeometry(0.1, 0.1, TOWER_D),
+          new THREE.BoxGeometry(B.mullionT, B.mullionT * 0.8, B.towerD),
           mullionMat,
         );
         m.position.set(xSide, y, 0);
@@ -289,9 +563,9 @@ function buildBuilding(): THREE.Group {
       });
     }
 
-    // ─── Structural corner columns ───
+    // Structural corner columns
     const colMat = new THREE.MeshStandardMaterial({
-      color: 0x64748b,
+      color: colors.building.column,
       metalness: 0.5,
       roughness: 0.4,
     });
@@ -302,7 +576,7 @@ function buildBuilding(): THREE.Group {
       [halfW, halfD],
     ].forEach(([x, z]) => {
       const col = new THREE.Mesh(
-        new THREE.BoxGeometry(0.4, FLOOR_H, 0.4),
+        new THREE.BoxGeometry(B.columnSize, B.floorH, B.columnSize),
         colMat,
       );
       col.position.set(x, yCenter, z);
@@ -310,275 +584,74 @@ function buildBuilding(): THREE.Group {
       floorGroup.add(col);
     });
 
-    // ─── Duct runs (cylindrical, silver, along the ceiling) ───
-    const ductMat = new THREE.MeshStandardMaterial({
-      color: 0xcbd5e1,
-      metalness: 0.6,
-      roughness: 0.4,
-    });
-    for (let duct = 0; duct < 2; duct++) {
-      const ductMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.25, 0.25, TOWER_D - 2, 12),
-        ductMat,
-      );
-      ductMesh.rotation.x = Math.PI / 2;
-      ductMesh.position.set(
-        duct === 0 ? -TOWER_W / 4 : TOWER_W / 4,
-        yBase + FLOOR_H - 0.6,
-        0,
-      );
-      ductMesh.castShadow = true;
-      floorGroup.add(ductMesh);
-    }
-
     group.add(floorGroup);
   }
 
-  // ─── Rooftop RTU units ───
+  // Rooftop penthouse
+  const penthouse = new THREE.Mesh(
+    new THREE.BoxGeometry(B.towerW + 1, 1.2, B.towerD + 1),
+    new THREE.MeshStandardMaterial({
+      color: colors.building.penthouse,
+      roughness: 0.7,
+      metalness: 0.1,
+    }),
+  );
+  penthouse.position.set(0, B.podiumH + totalH + 0.6, 0);
+  penthouse.castShadow = true;
+  group.add(penthouse);
+
+  // Rooftop RTU units (4 boxes + fan cowls)
   const rtuMat = new THREE.MeshStandardMaterial({
-    color: 0x94a3b8,
-    metalness: 0.5,
+    color: colors.building.mechanical,
     roughness: 0.5,
+    metalness: 0.4,
   });
-  const rtuPositions: [number, number][] = [
+  [
     [-5, -3],
     [5, -3],
     [-5, 3],
     [5, 3],
-  ];
-  rtuPositions.forEach(([x, z]) => {
+  ].forEach(([x, z]) => {
     const rtu = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 2), rtuMat);
-    rtu.position.set(x, FLOOR_COUNT * FLOOR_H + 0.6, z);
+    rtu.position.set(x, B.podiumH + totalH + 0.6, z);
     rtu.castShadow = true;
     group.add(rtu);
-    // Fan cowl on top
     const cowl = new THREE.Mesh(
       new THREE.CylinderGeometry(0.6, 0.6, 0.4, 16),
       rtuMat,
     );
-    cowl.position.set(x, FLOOR_COUNT * FLOOR_H + 1.4, z);
+    cowl.position.set(x, B.podiumH + totalH + 1.4, z);
     group.add(cowl);
   });
+
+  // Antenna
+  const antenna = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.05, 3, 8),
+    new THREE.MeshStandardMaterial({
+      color: colors.building.antenna,
+      metalness: 0.8,
+      roughness: 0.2,
+    }),
+  );
+  antenna.position.set(0, B.podiumH + totalH + 3.5, 0);
+  antenna.castShadow = true;
+  group.add(antenna);
 
   return group;
 }
 
-// ─── Marker factory: returns a Group with the typed geometry + ring + glow + label ─
-interface MarkerHandles {
-  group: THREE.Group;
-  body: THREE.Mesh;           // main body mesh (for emissive highlight on select)
-  ring: THREE.Mesh;           // TorusGeometry status ring
-  glow: THREE.Mesh;           // transparent SphereGeometry fault glow
-  blades?: THREE.Group;       // Fan only — animated blades group
-}
-
-function buildMarker(asset: Asset): MarkerHandles {
-  const group = new THREE.Group();
-  group.name = `Asset-${asset.id}`;
-  group.position.set(asset.x, asset.floor * FLOOR_H + 0.6, asset.z);
-  group.userData = { assetId: asset.id, asset };
-
-  const bodyColor = TYPE_COLOR[asset.type];
-  const statusColor = STATUS_COLOR[asset.status];
-
-  let body: THREE.Mesh;
-  let blades: THREE.Group | undefined;
-
-  // ─── Per-type body geometry ───
-  if (asset.type === "Air Handler") {
-    // BoxGeometry cabinet + grille detail meshes
-    const cabinet = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 1.2, 1.0),
-      new THREE.MeshStandardMaterial({
-        color: bodyColor,
-        roughness: 0.5,
-        metalness: 0.4,
-      }),
-    );
-    cabinet.castShadow = true;
-    group.add(cabinet);
-    // Grille slats (3 thin boxes on the front)
-    for (let i = 0; i < 3; i++) {
-      const slat = new THREE.Mesh(
-        new THREE.BoxGeometry(1.0, 0.06, 0.04),
-        new THREE.MeshStandardMaterial({
-          color: 0x1e293b,
-          metalness: 0.6,
-          roughness: 0.3,
-        }),
-      );
-      slat.position.set(0, -0.25 + i * 0.25, 0.52);
-      group.add(slat);
-    }
-    body = cabinet;
-  } else if (asset.type === "Chiller") {
-    // CylinderGeometry vessel + flanged caps
-    const vessel = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.55, 0.55, 1.6, 24),
-      new THREE.MeshStandardMaterial({
-        color: bodyColor,
-        roughness: 0.4,
-        metalness: 0.6,
-      }),
-    );
-    vessel.castShadow = true;
-    group.add(vessel);
-    // Flanged caps (top + bottom discs, wider)
-    [-0.8, 0.8].forEach((y) => {
-      const cap = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.7, 0.7, 0.1, 24),
-        new THREE.MeshStandardMaterial({
-          color: 0x64748b,
-          metalness: 0.7,
-          roughness: 0.3,
-        }),
-      );
-      cap.position.y = y;
-      group.add(cap);
-    });
-    body = vessel;
-  } else if (asset.type === "Boiler") {
-    // Tapered CylinderGeometry + flue pipe
-    const body3 = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.35, 0.55, 1.4, 16),
-      new THREE.MeshStandardMaterial({
-        color: bodyColor,
-        roughness: 0.5,
-        metalness: 0.4,
-      }),
-    );
-    body3.castShadow = true;
-    group.add(body3);
-    // Flue pipe (thin cylinder rising from the top)
-    const flue = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.12, 1.0, 12),
-      new THREE.MeshStandardMaterial({
-        color: 0x475569,
-        metalness: 0.8,
-        roughness: 0.2,
-      }),
-    );
-    flue.position.y = 1.2;
-    group.add(flue);
-    body = body3;
-  } else if (asset.type === "Pump") {
-    // SphereGeometry body + inlet/outlet CylinderGeometry pipes
-    const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.55, 20, 16),
-      new THREE.MeshStandardMaterial({
-        color: bodyColor,
-        roughness: 0.3,
-        metalness: 0.7,
-      }),
-    );
-    sphere.castShadow = true;
-    group.add(sphere);
-    // Inlet (left) + outlet (right) pipes
-    [-1, 1].forEach((side) => {
-      const pipe = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.15, 0.6, 12),
-        new THREE.MeshStandardMaterial({
-          color: 0x94a3b8,
-          metalness: 0.7,
-          roughness: 0.3,
-        }),
-      );
-      pipe.rotation.z = Math.PI / 2;
-      pipe.position.set(side * 0.7, 0, 0);
-      group.add(pipe);
-    });
-    body = sphere;
-  } else {
-    // Fan: CylinderGeometry disc + 4 BoxGeometry blades (animated)
-    const disc = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.7, 0.7, 0.15, 24),
-      new THREE.MeshStandardMaterial({
-        color: bodyColor,
-        roughness: 0.4,
-        metalness: 0.5,
-      }),
-    );
-    disc.castShadow = true;
-    group.add(disc);
-    blades = new THREE.Group();
-    for (let i = 0; i < 4; i++) {
-      const blade = new THREE.Mesh(
-        new THREE.BoxGeometry(0.6, 0.05, 0.15),
-        new THREE.MeshStandardMaterial({
-          color: 0xe2e8f0,
-          roughness: 0.5,
-          metalness: 0.3,
-        }),
-      );
-      blade.position.set(
-        Math.cos((i * Math.PI) / 2) * 0.35,
-        0,
-        Math.sin((i * Math.PI) / 2) * 0.35,
-      );
-      blade.rotation.y = (i * Math.PI) / 2;
-      blades.add(blade);
-    }
-    group.add(blades);
-    body = disc;
-  }
-
-  // ─── Status ring (TorusGeometry, emissive) ───
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.9, 0.04, 8, 32),
-    new THREE.MeshStandardMaterial({
-      color: statusColor,
-      emissive: statusColor,
-      emissiveIntensity: 1.2,
-      toneMapped: false,
-    }),
-  );
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = -0.7;
-  group.add(ring);
-
-  // ─── Fault glow (transparent SphereGeometry) ───
-  const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(1.1, 16, 12),
-    new THREE.MeshBasicMaterial({
-      color: statusColor,
-      transparent: true,
-      opacity: asset.status === "fault" ? 0.18 : 0.0,
-      depthWrite: false,
-    }),
-  );
-  group.add(glow);
-
-  // ─── CanvasTexture label sprite ───
-  const label = makeLabelSprite(
-    asset.name,
-    asset.status.toUpperCase(),
-    STATUS_HEX[asset.status],
-  );
-  label.position.set(0, 1.5, 0);
-  group.add(label);
-
-  return { group, body, ring, glow, blades };
-}
-
-// ─── Camera positions per floor ────────────────────────────────────
-const CAMERA_BY_FLOOR: Record<FloorFilter, [number, number, number]> = {
-  ALL: [26, 18, 26],
-  0: [22, 6, 22],
-  1: [22, 10, 22],
-  2: [22, 14, 22],
-  3: [22, 18, 22],
-};
-
-const LOOKAT_BY_FLOOR: Record<FloorFilter, [number, number, number]> = {
-  ALL: [0, 6, 0],
-  0: [0, 2, 0],
-  1: [0, 5, 0],
-  2: [0, 9, 0],
-  3: [0, 13, 0],
-};
-
 // ─── Component ────────────────────────────────────────────────────
-export function DigitalTwinViewer3D() {
+export interface DigitalTwinViewer3DProps {
+  /** When false, the viewer hides all asset markers (used on the homepage). */
+  showMarkers?: boolean;
+  /** When true, the camera slowly orbits the building. */
+  autoRotate?: boolean;
+}
+
+export function DigitalTwinViewer3D({
+  showMarkers = true,
+  autoRotate = false,
+}: DigitalTwinViewer3DProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneStateRef = useRef<{
     renderer?: THREE.WebGLRenderer;
@@ -594,8 +667,6 @@ export function DigitalTwinViewer3D() {
     clock?: THREE.Clock;
   }>({});
 
-  // Local state (re-renders only the UI overlays, not the canvas)
-  const [tick, setTick] = useState(0);
   const [hoveredAsset, setHoveredAsset] = useState<Asset | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(
     null,
@@ -624,64 +695,68 @@ export function DigitalTwinViewer3D() {
     renderer.setSize(W, H);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.setClearColor(0x000000, 0);
+    renderer.setClearColor(FOG.color, 1);
     mount.appendChild(renderer.domElement);
     renderer.domElement.style.cursor = "grab";
 
-    // Scene
+    // Scene (light theme — matches dashboard bg)
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0e1a);
-    scene.fog = new THREE.Fog(0x0a0e1a, 30, 90);
+    scene.background = new THREE.Color(FOG.color);
+    scene.fog = new THREE.Fog(FOG.color, FOG.near, FOG.far);
 
     // Camera
-    const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 200);
-    camera.position.set(26, 18, 26);
-    camera.lookAt(0, 6, 0);
+    const camera = new THREE.PerspectiveCamera(CAM.fov, W / H, CAM.near, CAM.far);
+    camera.position.set(...CAM.defaultPosition);
+    camera.lookAt(...CAM.defaultTarget);
 
-    // Controls
+    // OrbitControls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2.2;
-    controls.minDistance = 8;
-    controls.maxDistance = 60;
-    controls.target.set(0, 6, 0);
+    controls.dampingFactor = CAM.dampingFactor;
+    controls.minPolarAngle = CAM.minPolarAngle;
+    controls.maxPolarAngle = CAM.maxPolarAngle;
+    controls.minDistance = CAM.minDistance;
+    controls.maxDistance = CAM.maxDistance;
+    controls.target.set(...CAM.defaultTarget);
+    controls.autoRotate = autoRotate;
+    controls.autoRotateSpeed = CAM.autoRotateSpeed;
 
-    // ─── Lights ───
-    const ambient = new THREE.AmbientLight(0xc8d4ff, 0.4);
-    scene.add(ambient);
-
-    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-    sun.position.set(15, 25, 10);
+    // Lights
+    scene.add(
+      new THREE.AmbientLight(LIGHT.ambient.color, LIGHT.ambient.intensity),
+    );
+    const sun = new THREE.DirectionalLight(LIGHT.sun.color, LIGHT.sun.intensity);
+    sun.position.set(...LIGHT.sun.position);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -25;
-    sun.shadow.camera.right = 25;
-    sun.shadow.camera.top = 25;
-    sun.shadow.camera.bottom = -25;
-    sun.shadow.camera.near = 1;
-    sun.shadow.camera.far = 60;
+    sun.shadow.mapSize.set(LIGHT.shadow.mapSize, LIGHT.shadow.mapSize);
+    sun.shadow.camera.left = -LIGHT.shadow.bounds;
+    sun.shadow.camera.right = LIGHT.shadow.bounds;
+    sun.shadow.camera.top = LIGHT.shadow.bounds;
+    sun.shadow.camera.bottom = -LIGHT.shadow.bounds;
+    sun.shadow.camera.near = LIGHT.shadow.near;
+    sun.shadow.camera.far = LIGHT.shadow.far;
     scene.add(sun);
-
-    // Fill light (cooler, opposite side)
-    const fill = new THREE.DirectionalLight(0x6688ff, 0.4);
-    fill.position.set(-10, 15, -10);
+    const fill = new THREE.DirectionalLight(
+      LIGHT.fill.color,
+      LIGHT.fill.intensity,
+    );
+    fill.position.set(...LIGHT.fill.position);
     scene.add(fill);
 
-    // ─── Building ───
+    // Building
     const building = buildBuilding();
     scene.add(building);
 
-    // ─── Markers ───
-    const handles = SEED_ASSETS.map(buildMarker);
+    // Markers (only when showMarkers=true)
+    const handles = showMarkers ? SEED_ASSETS.map(buildMarker) : [];
     handles.forEach((h) => scene.add(h.group));
 
-    // ─── Raycaster ───
+    // Raycaster
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const clock = new THREE.Clock();
 
-    // ─── ResizeObserver ───
+    // ResizeObserver
     const resizeObserver = new ResizeObserver(() => {
       const w = mount.clientWidth;
       const h = mount.clientHeight;
@@ -692,7 +767,7 @@ export function DigitalTwinViewer3D() {
     });
     resizeObserver.observe(mount);
 
-    // ─── Pointer handlers ───
+    // Pointer handlers
     const onPointerMove = (e: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -700,12 +775,21 @@ export function DigitalTwinViewer3D() {
       setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     };
     const onClick = () => {
+      if (!showMarkers || handles.length === 0) return;
       raycaster.setFromCamera(pointer, camera);
       const intersects: { handle: MarkerHandles; distance: number }[] = [];
       handles.forEach((h) => {
+        // Skip invisible markers
+        if (!h.group.visible) return;
         const hits = raycaster.intersectObject(h.group, true);
-        if (hits.length > 0) {
-          intersects.push({ handle: h, distance: hits[0].distance });
+        // Filter out label sprite + glow sphere hits (we want body/ring)
+        const bodyHit = hits.find(
+          (hit) =>
+            hit.object !== h.label &&
+            hit.object !== h.glow,
+        );
+        if (bodyHit) {
+          intersects.push({ handle: h, distance: bodyHit.distance });
         }
       });
       if (intersects.length > 0) {
@@ -728,69 +812,74 @@ export function DigitalTwinViewer3D() {
     renderer.domElement.addEventListener("pointerup", onPointerUp);
     renderer.domElement.addEventListener("click", onClick);
 
-    // ─── Animation loop ───
+    // Animation loop
     let rafId = 0;
     const animate = () => {
       rafId = requestAnimationFrame(animate);
       const dt = clock.getDelta();
       const t = clock.getElapsedTime();
 
-      // Raycast for hover
-      raycaster.setFromCamera(pointer, camera);
-      let closestId: string | null = null;
-      let closestDist = Infinity;
-      handles.forEach((h) => {
-        const hits = raycaster.intersectObject(h.group, true);
-        if (hits.length > 0 && hits[0].distance < closestDist) {
-          closestDist = hits[0].distance;
-          closestId = h.group.userData.assetId as string;
+      if (showMarkers && handles.length > 0) {
+        // Raycast for hover
+        raycaster.setFromCamera(pointer, camera);
+        let closestId: string | null = null;
+        let closestDist = Infinity;
+        handles.forEach((h) => {
+          if (!h.group.visible) return;
+          const hits = raycaster.intersectObject(h.group, true);
+          const bodyHit = hits.find(
+            (hit) => hit.object !== h.label && hit.object !== h.glow,
+          );
+          if (bodyHit && bodyHit.distance < closestDist) {
+            closestDist = bodyHit.distance;
+            closestId = h.group.userData.assetId as string;
+          }
+        });
+        if (closestId !== sceneStateRef.current.hoverId) {
+          sceneStateRef.current.hoverId = closestId;
+          const hovered = closestId
+            ? (handles.find((h) => h.group.userData.assetId === closestId)?.group
+                .userData.asset as Asset | undefined) ?? null
+            : null;
+          setHoveredAsset(hovered);
+          renderer.domElement.style.cursor = hovered ? "pointer" : "grab";
         }
-      });
 
-      // Update hover state
-      if (closestId !== sceneStateRef.current.hoverId) {
-        sceneStateRef.current.hoverId = closestId;
-        const hovered = closestId
-          ? (handles.find((h) => h.group.userData.assetId === closestId)?.group
-              .userData.asset as Asset | undefined) ?? null
-          : null;
-        setHoveredAsset(hovered);
-        renderer.domElement.style.cursor = hovered ? "pointer" : "grab";
+        // Animate each marker
+        handles.forEach((h) => {
+          const asset = h.group.userData.asset as Asset;
+          const isHovered = closestId === asset.id;
+
+          // Float (Y position) on hover
+          const targetY = h.baseY + (isHovered ? 0.2 : 0);
+          h.group.position.y += (targetY - h.group.position.y) * 0.15;
+
+          // Fan blade rotation (RAF)
+          if (h.blades) {
+            h.blades.rotation.y += dt * 4;
+          }
+
+          // Fault glow pulse (sin wave)
+          if (h.isFault) {
+            const pulse = 0.15 + Math.sin(t * 3) * 0.08;
+            (h.glow.material as THREE.MeshBasicMaterial).opacity = pulse;
+            h.glow.scale.setScalar(1 + Math.sin(t * 3) * 0.1);
+          }
+
+          // Emissive highlight: selected > hover > none
+          const bodyMat = h.body.material as THREE.MeshStandardMaterial;
+          if (selectedAsset && selectedAsset.id === asset.id) {
+            bodyMat.emissive.setHex(STATUS_HEX_INT[asset.status]);
+            bodyMat.emissiveIntensity = 0.6;
+          } else if (isHovered) {
+            bodyMat.emissive.setHex(TYPE_HEX_INT[asset.type]);
+            bodyMat.emissiveIntensity = 0.25;
+          } else {
+            bodyMat.emissive.setHex(0x000000);
+            bodyMat.emissiveIntensity = 0;
+          }
+        });
       }
-
-      // Float animation + fault glow pulse
-      handles.forEach((h) => {
-        const asset = h.group.userData.asset as Asset;
-        const isHovered = closestId === asset.id;
-        const baseY = asset.floor * FLOOR_H + 0.6;
-        const targetY = isHovered ? baseY + 0.15 : baseY;
-        h.group.position.y += (targetY - h.group.position.y) * 0.15;
-        // Fan blade rotation
-        if (h.blades) {
-          h.blades.rotation.y += dt * 4;
-        }
-        // Fault glow pulse
-        if (asset.status === "fault") {
-          const pulse = 0.15 + Math.sin(t * 3) * 0.08;
-          (h.glow.material as THREE.MeshBasicMaterial).opacity = pulse;
-          h.glow.scale.setScalar(1 + Math.sin(t * 3) * 0.1);
-        }
-        // Emissive highlight on selected
-        if (selectedAsset && selectedAsset.id === asset.id) {
-          (h.body.material as THREE.MeshStandardMaterial).emissive.setHex(
-            STATUS_COLOR[asset.status],
-          );
-          (h.body.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.6;
-        } else if (!isHovered) {
-          (h.body.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
-          (h.body.material as THREE.MeshStandardMaterial).emissiveIntensity = 0;
-        } else {
-          (h.body.material as THREE.MeshStandardMaterial).emissive.setHex(
-            TYPE_COLOR[asset.type],
-          );
-          (h.body.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.25;
-        }
-      });
 
       controls.update();
       renderer.render(scene, camera);
@@ -810,7 +899,6 @@ export function DigitalTwinViewer3D() {
       clock,
     };
 
-    // ─── Cleanup ───
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
@@ -819,7 +907,6 @@ export function DigitalTwinViewer3D() {
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       renderer.domElement.removeEventListener("click", onClick);
       controls.dispose();
-      // Free geometries + materials
       scene.traverse((obj) => {
         const mesh = obj as THREE.Mesh;
         if (mesh.geometry) mesh.geometry.dispose();
@@ -833,6 +920,12 @@ export function DigitalTwinViewer3D() {
             m.dispose();
           });
         }
+        // Sprites carry a CanvasTexture on their material
+        if ((obj as THREE.Sprite).isSprite) {
+          const sp = obj as THREE.Sprite;
+          const mat = sp.material as THREE.SpriteMaterial;
+          if (mat.map) mat.map.dispose();
+        }
       });
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) {
@@ -840,30 +933,31 @@ export function DigitalTwinViewer3D() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [showMarkers, autoRotate]);
 
-  // ─── Apply floor + type filters (visibility + camera re-center) ───
+  // Reset emissive on selectedAsset clear
   useEffect(() => {
     const s = sceneStateRef.current;
-    if (!s.handles || !s.camera || !s.controls) return;
+    if (!s.handles) return;
+    if (selectedAsset) return; // animate loop handles it
+    s.handles.forEach((h) => {
+      const mat = h.body.material as THREE.MeshStandardMaterial;
+      mat.emissive.setHex(0x000000);
+      mat.emissiveIntensity = 0;
+    });
+  }, [selectedAsset]);
+
+  // ─── Apply floor + type filters (group.visible = false) ───
+  useEffect(() => {
+    const s = sceneStateRef.current;
+    if (!s.handles) return;
     s.handles.forEach((h) => {
       const asset = h.group.userData.asset as Asset;
       const floorOk = selectedFloor === "ALL" || asset.floor === selectedFloor;
       const typeOk = selectedType === "ALL" || asset.type === selectedType;
       h.group.visible = floorOk && typeOk;
     });
-    // Re-center camera
-    const [cx, cy, cz] = CAMERA_BY_FLOOR[selectedFloor];
-    s.camera.position.set(cx, cy, cz);
-    const [lx, ly, lz] = LOOKAT_BY_FLOOR[selectedFloor];
-    s.controls.target.set(lx, ly, lz);
-    s.controls.update();
-  }, [selectedFloor, selectedType]);
-
-  // ─── Apply selected asset highlight (re-render frame) ───
-  useEffect(() => {
-    setTick((t) => t + 1);
-  }, [selectedAsset]);
+  }, [selectedFloor, selectedType, showMarkers]);
 
   // ─── Filtered assets for status panel ───
   const visibleAssets = SEED_ASSETS.filter((a) => {
@@ -881,14 +975,28 @@ export function DigitalTwinViewer3D() {
     (a) => a.status === "warning" || a.status === "fault",
   );
 
+  // ─── Homepage: assets per floor (for building info panel) ───
+  const assetsByFloor: Record<number, Asset[]> = {};
+  for (let f = 0; f < B.floorCount; f++) {
+    assetsByFloor[f] = SEED_ASSETS.filter((a) => a.floor === f);
+  }
+  function firstMetricValue(asset: Asset): string {
+    const entries = Object.entries(asset.metrics);
+    return entries[0]?.[1] ?? "—";
+  }
+  function firstMetricKey(asset: Asset): string {
+    const entries = Object.entries(asset.metrics);
+    return entries[0]?.[0] ?? "";
+  }
+
   return (
     <div
       ref={mountRef}
-      className="w-full h-[640px] rounded-lg overflow-hidden relative"
-      style={{ background: "#0a0e1a" }}
+      className="w-full h-[640px] overflow-hidden relative"
+      style={{ background: colors.bg.canvas, borderRadius: "1rem" }}
       data-testid="digital-twin-viewer-3d"
     >
-      {/* ─── Floor selector (top-left) ─── */}
+      {/* ─── Floor selector (top-left, always visible) ─── */}
       <div
         className="absolute top-3 left-3 z-10 flex flex-col gap-1"
         data-testid="floor-selector"
@@ -900,16 +1008,15 @@ export function DigitalTwinViewer3D() {
               key={f}
               type="button"
               onClick={() => setSelectedFloor(f)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors backdrop-blur ${
-                active
-                  ? "bg-white text-slate-900"
-                  : "text-white/80 hover:text-white"
-              }`}
+              className="px-3 py-1.5 text-xs font-semibold transition-colors"
               style={{
-                background: active ? "white" : "rgba(10,14,26,0.92)",
-                border: `1px solid ${active ? "white" : "rgba(255,255,255,0.12)"}`,
+                background: active ? colors.text.accent : colors.bg.surface,
+                color: active ? "#ffffff" : colors.text.primary,
+                border: `1px solid ${active ? colors.text.accent : colors.border.light}`,
+                borderRadius: "1rem",
                 backdropFilter: "blur(8px)",
                 minWidth: "52px",
+                boxShadow: shadow.sm,
               }}
             >
               {f === "ALL" ? "ALL" : floorLabel(f)}
@@ -918,225 +1025,414 @@ export function DigitalTwinViewer3D() {
         })}
       </div>
 
-      {/* ─── Type legend (top-right) ─── */}
-      <div
-        className="absolute top-3 right-3 z-10 flex flex-col gap-1 p-2 rounded"
-        style={{
-          background: "rgba(10,14,26,0.92)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(8px)",
-        }}
-        data-testid="type-legend"
-      >
-        {(
-          [
-            "ALL",
-            "Air Handler",
-            "Chiller",
-            "Boiler",
-            "Pump",
-            "Fan",
-          ] as TypeFilter[]
-        ).map((t) => {
-          const active = selectedType === t;
-          const color = t === "ALL" ? "#ffffff" : TYPE_HEX[t];
-          return (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setSelectedType(t)}
-              className="flex items-center gap-2 px-2 py-1 rounded text-xs font-medium transition-colors"
-              style={{
-                background: active ? `${color}22` : "transparent",
-                color: active ? color : "rgba(255,255,255,0.6)",
-                minWidth: "110px",
-                textAlign: "left",
-              }}
-            >
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ background: color }}
-              />
-              {t === "ALL" ? "All Types" : t}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ─── Status panel (bottom-left) ─── */}
-      <div
-        className="absolute bottom-3 left-3 z-10 p-3 rounded-lg w-[260px]"
-        style={{
-          background: "rgba(10,14,26,0.92)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          backdropFilter: "blur(8px)",
-        }}
-        data-testid="status-panel"
-      >
-        <div className="text-[10px] uppercase tracking-[0.16em] text-white/50 mb-2">
-          Status
-        </div>
-        <div className="grid grid-cols-4 gap-2 mb-3">
-          <StatPill label="OK" value={counts.operational} color="#22c55e" />
-          <StatPill label="Warn" value={counts.warning} color="#eab308" />
-          <StatPill label="Fault" value={counts.fault} color="#ef4444" />
-          <StatPill label="Total" value={counts.total} color="#94a3b8" />
-        </div>
-        <div className="text-[10px] uppercase tracking-[0.16em] text-white/50 mb-1">
-          Alerts
-        </div>
+      {/* ─── Type legend (top-right, only when markers shown) ─── */}
+      {showMarkers && (
         <div
-          className="flex flex-col gap-1 overflow-y-auto pr-1"
-          style={{ maxHeight: "160px" }}
+          className="absolute top-3 right-3 z-10 flex flex-col gap-1 p-2"
+          style={{
+            background: colors.bg.surfaceTranslucent,
+            border: colors.border.card,
+            borderRadius: "1rem",
+            backdropFilter: "blur(8px)",
+            boxShadow: shadow.md,
+          }}
+          data-testid="type-legend"
         >
-          {alerts.length === 0 ? (
-            <div className="text-xs text-white/40 py-2 text-center">
-              No active alerts
-            </div>
-          ) : (
-            alerts.map((a) => (
+          {(
+            ["ALL", "Air Handler", "Chiller", "Boiler", "Pump", "Fan"] as TypeFilter[]
+          ).map((t) => {
+            const active = selectedType === t;
+            const color = t === "ALL" ? colors.text.primary : TYPE_HEX[t];
+            return (
               <button
-                key={a.id}
+                key={t}
                 type="button"
-                onClick={() => setSelectedAsset(a)}
-                className="flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-white/5 transition-colors"
+                onClick={() => setSelectedType(t)}
+                className="flex items-center gap-2 px-2 py-1 text-xs font-medium transition-colors"
                 style={{
-                  border: `1px solid ${STATUS_HEX[a.status]}33`,
-                  background: `${STATUS_HEX[a.status]}0a`,
+                  background: active ? `${color}22` : "transparent",
+                  color: active ? color : colors.text.secondary,
+                  borderRadius: "0.5rem",
+                  minWidth: "110px",
+                  textAlign: "left",
                 }}
               >
                 <span
-                  className="inline-block h-1.5 w-1.5 rounded-full"
-                  style={{ background: STATUS_HEX[a.status] }}
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ background: color }}
                 />
-                <span className="text-xs font-medium text-white/90 flex-1 truncate">
-                  {a.name}
-                </span>
-                <span className="text-[10px] text-white/50">
-                  {floorLabel(a.floor)}
-                </span>
+                {t === "ALL" ? "All Types" : t}
               </button>
-            ))
-          )}
+            );
+          })}
         </div>
-      </div>
+      )}
+
+      {/* ─── Homepage: Building info panel (left, below floor selector) ─── */}
+      {!showMarkers && (
+        <div
+          className="absolute top-3 left-24 z-10 p-4 w-[300px]"
+          style={{
+            background: colors.bg.surfaceTranslucent,
+            border: colors.border.card,
+            borderRadius: "1rem",
+            backdropFilter: "blur(8px)",
+            maxHeight: "calc(100% - 24px)",
+            overflowY: "auto",
+            boxShadow: shadow.md,
+          }}
+          data-testid="building-info-panel"
+        >
+          <h2
+            className="text-lg font-semibold mb-3"
+            style={{ color: colors.text.primary }}
+          >
+            Singapore Expo — Hall 7
+          </h2>
+          <div
+            className="text-[10px] uppercase tracking-[0.16em] mb-2"
+            style={{ color: colors.text.secondary }}
+          >
+            Floors
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {[...Array.from({ length: B.floorCount }, (_, i) => i), -1].map(
+              (f) => {
+                const isRoof = f === -1;
+                const fNum = isRoof ? B.floorCount : (f as 0 | 1 | 2 | 3);
+                const assets = isRoof ? [] : assetsByFloor[f as 0 | 1 | 2 | 3] ?? [];
+                const count = assets.length;
+                const isActive = !isRoof && selectedFloor === f;
+                return (
+                  <div key={f}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        !isRoof &&
+                        setSelectedFloor(
+                          isActive ? "ALL" : (f as FloorFilter),
+                        )
+                      }
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs transition-colors"
+                      style={{
+                        background: isActive
+                          ? colors.bg.subtle
+                          : "transparent",
+                        color: colors.text.primary,
+                        border: colors.border.card,
+                        borderRadius: "0.75rem",
+                        textAlign: "left",
+                        cursor: isRoof ? "default" : "pointer",
+                      }}
+                    >
+                      <span className="font-medium">
+                        {isRoof ? "Roof" : `Level ${fNum + 1}`}
+                      </span>
+                      <span
+                        style={{
+                          color: colors.text.secondary,
+                          fontSize: "10px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.1em",
+                        }}
+                      >
+                        {isRoof ? "RTUs" : `${count} asset${count === 1 ? "" : "s"}`}
+                      </span>
+                    </button>
+                    {isActive && !isRoof && assets.length > 0 && (
+                      <div
+                        className="mt-1 mb-1 pl-2"
+                        style={{
+                          color: colors.text.secondary,
+                          fontSize: "10px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.1em",
+                        }}
+                      >
+                        Assets on floor: {assets.length}
+                      </div>
+                    )}
+                    {isActive && !isRoof && (
+                      <div className="flex flex-col gap-1 pl-2 mb-2">
+                        {assets.map((a) => {
+                          const metricKey = firstMetricKey(a);
+                          const label = METRIC_LABEL[metricKey] ?? metricKey;
+                          return (
+                            <div
+                              key={a.id}
+                              className="flex items-center justify-between text-[11px]"
+                              style={{ color: colors.text.primary }}
+                            >
+                              <span>
+                                <span style={{ marginRight: "4px" }}>
+                                  {a.emoji}
+                                </span>
+                                {a.name}
+                              </span>
+                              <span
+                                style={{
+                                  color: colors.text.secondary,
+                                  fontFamily: "monospace",
+                                }}
+                              >
+                                {label} · {firstMetricValue(a)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              },
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── Status panel (bottom-left, only when markers shown) ─── */}
+      {showMarkers && (
+        <div
+          className="absolute bottom-3 left-3 z-10 p-3 w-[260px]"
+          style={{
+            background: colors.bg.surfaceTranslucent,
+            border: colors.border.card,
+            borderRadius: "1rem",
+            backdropFilter: "blur(8px)",
+            boxShadow: shadow.md,
+          }}
+          data-testid="status-panel"
+        >
+          <div
+            className="text-[10px] uppercase tracking-[0.16em] mb-2"
+            style={{ color: colors.text.secondary }}
+          >
+            Status
+          </div>
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            <StatPill label="OK" value={counts.operational} color={colors.status.operational} />
+            <StatPill label="Warn" value={counts.warning} color={colors.status.warning} />
+            <StatPill label="Fault" value={counts.fault} color={colors.status.fault} />
+            <StatPill label="Total" value={counts.total} color={colors.text.secondary} />
+          </div>
+          <div
+            className="text-[10px] uppercase tracking-[0.16em] mb-1"
+            style={{ color: colors.text.secondary }}
+          >
+            Alerts
+          </div>
+          <div
+            className="flex flex-col gap-1 overflow-y-auto pr-1"
+            style={{ maxHeight: "160px" }}
+          >
+            {alerts.length === 0 ? (
+              <div
+                className="text-xs py-2 text-center"
+                style={{ color: colors.text.muted }}
+              >
+                No active alerts
+              </div>
+            ) : (
+              alerts.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setSelectedAsset(a)}
+                  className="flex items-center gap-2 px-2 py-1.5 text-left transition-colors"
+                  style={{
+                    border: `1px solid ${STATUS_HEX[a.status]}33`,
+                    background: `${STATUS_HEX[a.status]}0a`,
+                    borderRadius: "0.5rem",
+                  }}
+                >
+                  <span
+                    className="inline-block h-1.5 w-1.5 rounded-full"
+                    style={{ background: STATUS_HEX[a.status] }}
+                  />
+                  <span
+                    className="text-xs font-medium flex-1 truncate"
+                    style={{ color: colors.text.primary }}
+                  >
+                    {a.name}
+                  </span>
+                  <span
+                    className="text-[10px]"
+                    style={{ color: colors.text.secondary }}
+                  >
+                    {floorLabel(a.floor)}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ─── Inspect panel (bottom-right, slides in) ─── */}
-      <div
-        className="absolute bottom-3 right-3 z-10 rounded-lg transition-all duration-300"
-        style={{
-          width: "300px",
-          maxHeight: selectedAsset ? "480px" : "0",
-          opacity: selectedAsset ? 1 : 0,
-          transform: selectedAsset ? "translateY(0)" : "translateY(20px)",
-          background: "rgba(10,14,26,0.92)",
-          border: selectedAsset ? "1px solid rgba(255,255,255,0.08)" : "none",
-          backdropFilter: "blur(8px)",
-          overflow: "hidden",
-        }}
-        data-testid="inspect-panel"
-      >
-        {selectedAsset && (
-          <div className="p-3">
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ background: TYPE_HEX[selectedAsset.type] }}
-                  />
-                  <span className="text-[10px] uppercase tracking-[0.12em] text-white/50">
-                    {selectedAsset.type}
-                  </span>
+      {showMarkers && (
+        <div
+          className="absolute bottom-3 right-3 z-10 transition-all duration-300"
+          style={{
+            width: "300px",
+            maxHeight: selectedAsset ? "520px" : "0",
+            opacity: selectedAsset ? 1 : 0,
+            transform: selectedAsset ? "translateY(0)" : "translateY(20px)",
+            background: colors.bg.surfaceTranslucent,
+            border: selectedAsset ? colors.border.card : "none",
+            borderRadius: "1rem",
+            backdropFilter: "blur(8px)",
+            overflow: "hidden",
+            boxShadow: shadow.lg,
+          }}
+          data-testid="inspect-panel"
+        >
+          {selectedAsset && (
+            <div className="p-3 overflow-y-auto" style={{ maxHeight: "520px" }}>
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ background: TYPE_HEX[selectedAsset.type] }}
+                    />
+                    <span
+                      className="text-[10px] uppercase tracking-[0.12em]"
+                      style={{ color: colors.text.secondary }}
+                    >
+                      {selectedAsset.type}
+                    </span>
+                  </div>
+                  <div
+                    className="text-sm font-semibold"
+                    style={{ color: colors.text.primary }}
+                  >
+                    {selectedAsset.name}
+                  </div>
+                  <div
+                    className="text-[11px]"
+                    style={{ color: colors.text.secondary }}
+                  >
+                    {floorLabel(selectedAsset.floor)}
+                  </div>
                 </div>
-                <div className="text-sm font-semibold text-white">
-                  {selectedAsset.name}
-                </div>
-                <div className="text-[11px] text-white/50">
-                  {floorLabel(selectedAsset.floor)}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAsset(null)}
+                  className="text-sm leading-none px-1"
+                  style={{ color: colors.text.secondary }}
+                  aria-label="Close inspect panel"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedAsset(null)}
-                className="text-white/50 hover:text-white text-sm leading-none px-1"
-                aria-label="Close inspect panel"
+
+              <div
+                className="inline-block px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider mb-3"
+                style={{
+                  background: `${STATUS_HEX[selectedAsset.status]}22`,
+                  color: STATUS_HEX[selectedAsset.status],
+                  border: `1px solid ${STATUS_HEX[selectedAsset.status]}44`,
+                  borderRadius: "0.5rem",
+                }}
               >
-                ✕
-              </button>
-            </div>
+                {STATUS_DISPLAY[selectedAsset.status]}
+              </div>
 
-            <div
-              className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider mb-3"
-              style={{
-                background: `${STATUS_HEX[selectedAsset.status]}22`,
-                color: STATUS_HEX[selectedAsset.status],
-                border: `1px solid ${STATUS_HEX[selectedAsset.status]}44`,
-              }}
-            >
-              {selectedAsset.status}
-            </div>
+              <div
+                className="text-[10px] uppercase tracking-[0.16em] mb-1"
+                style={{ color: colors.text.secondary }}
+              >
+                Metrics
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-3">
+                {Object.entries(selectedAsset.metrics).map(([k, v]) => {
+                  const label = METRIC_LABEL[k] ?? k;
+                  return (
+                    <div key={k} className="text-[11px]">
+                      <div style={{ color: colors.text.secondary }}>{label}</div>
+                      <div
+                        className="font-mono"
+                        style={{ color: colors.text.primary }}
+                      >
+                        {v}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-            <div className="text-[10px] uppercase tracking-[0.16em] text-white/50 mb-1">
-              Metrics
+              <div
+                className="text-[10px] uppercase tracking-[0.16em] mb-1"
+                style={{ color: colors.text.secondary }}
+              >
+                Service Details
+              </div>
+              <div className="flex flex-col gap-1">
+                {Object.entries(selectedAsset.details).map(([k, v]) => {
+                  const label = DETAIL_LABEL[k] ?? k;
+                  return (
+                    <div
+                      key={k}
+                      className="flex justify-between text-[11px]"
+                    >
+                      <span style={{ color: colors.text.secondary }}>
+                        {label}
+                      </span>
+                      <span
+                        className="font-mono"
+                        style={{ color: colors.text.primary }}
+                      >
+                        {v}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-3">
-              {Object.entries(selectedAsset.metrics).map(([k, v]) => (
-                <div key={k} className="text-[11px]">
-                  <div className="text-white/50">{k}</div>
-                  <div className="text-white font-mono">{v}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="text-[10px] uppercase tracking-[0.16em] text-white/50 mb-1">
-              Service Details
-            </div>
-            <div className="flex flex-col gap-1">
-              {Object.entries(selectedAsset.details).map(([k, v]) => (
-                <div key={k} className="flex justify-between text-[11px]">
-                  <span className="text-white/50">{k}</span>
-                  <span className="text-white/90 font-mono">{v}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* ─── Hover tooltip ─── */}
-      {hoveredAsset && tooltipPos && !selectedAsset && (
+      {showMarkers && hoveredAsset && tooltipPos && !selectedAsset && (
         <div
-          className="absolute z-20 pointer-events-none px-2 py-1 rounded text-[11px] font-medium"
+          className="absolute z-20 pointer-events-none px-2 py-1 text-[11px] font-medium"
           style={{
             left: tooltipPos.x + 12,
             top: tooltipPos.y + 12,
-            background: "rgba(10,14,26,0.95)",
+            background: colors.bg.surface,
             border: `1px solid ${STATUS_HEX[hoveredAsset.status]}`,
-            color: "white",
+            color: colors.text.primary,
+            borderRadius: "0.5rem",
             backdropFilter: "blur(8px)",
+            boxShadow: shadow.md,
             whiteSpace: "nowrap",
           }}
         >
           <div className="flex items-center gap-1.5">
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full"
-              style={{ background: STATUS_HEX[hoveredAsset.status] }}
-            />
-            {hoveredAsset.name} · {hoveredAsset.status}
+            <span>{hoveredAsset.name}</span>
+            <span style={{ color: STATUS_HEX[hoveredAsset.status] }}>
+              · {STATUS_DISPLAY[hoveredAsset.status]}
+            </span>
           </div>
         </div>
       )}
 
       {/* ─── Controls hint (bottom-center) ─── */}
       <div
-        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded text-[10px] text-white/50"
+        className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 text-[10px]"
         style={{
-          background: "rgba(10,14,26,0.7)",
+          background: "rgba(255,255,255,0.85)",
+          color: colors.text.secondary,
+          border: colors.border.card,
+          borderRadius: "1rem",
           backdropFilter: "blur(8px)",
+          boxShadow: shadow.sm,
         }}
       >
-        Drag to rotate · Scroll to zoom · Click marker to inspect
+        {showMarkers
+          ? "Drag to rotate · Scroll to zoom · Click marker to inspect"
+          : "Drag to rotate · Scroll to zoom"}
       </div>
     </div>
   );
@@ -1153,13 +1449,13 @@ function StatPill({
 }) {
   return (
     <div className="flex flex-col items-center">
-      <div
-        className="text-base font-bold font-mono"
-        style={{ color }}
-      >
+      <div className="text-base font-bold font-mono" style={{ color }}>
         {value}
       </div>
-      <div className="text-[9px] uppercase tracking-wider text-white/40">
+      <div
+        className="text-[9px] uppercase tracking-wider"
+        style={{ color: colors.text.muted }}
+      >
         {label}
       </div>
     </div>
