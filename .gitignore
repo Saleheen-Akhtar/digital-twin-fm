@@ -49,5 +49,12 @@ pnpm-debug.log*
 .tmp/
 tmp/
 
+# Python
+__pycache__/
+*.pyc
+
+# Graphify / code analysis output
+graphify-out/
+
 # TypeScript
 *.tsbuildinfo
