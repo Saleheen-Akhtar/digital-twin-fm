@@ -3,7 +3,7 @@ import { defineConfig } from "drizzle-kit";
 export default defineConfig({
   schema: "./src/schema.ts",
   out: "./drizzle",
-  dialect: "postgresql",
+  driver: "pg",
   dbCredentials: {
     host: process.env.POSTGRES_HOST || "localhost",
     port: Number(process.env.POSTGRES_PORT) || 5432,

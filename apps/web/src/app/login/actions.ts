@@ -22,12 +22,22 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
   try {
     const accessToken = await api.login({ email, password });
+    // Per Finding 10 (High): the access token TTL is 15m. The cookie TTL
+    // must match — otherwise the cookie outlives the JWT it carries and
+    // the user is silently "logged in" with a token that the api-gateway
+    // will reject on the next request.
+    //
+    // Per Finding 18 (Medium): `secure` must be on in any non-dev
+    // environment, not just `production`. The pre-existing code used
+    // `process.env.NODE_ENV === 'production'`, which would leak the
+    // access token in cleartext over HTTP on any staging/preview env.
+    const isDev = process.env.NODE_ENV === 'development';
     (await cookies()).set('dtfm_token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: !isDev,
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 8, // 8 hours
+      maxAge: 15 * 60, // 15 minutes — match the access token TTL
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Login failed';

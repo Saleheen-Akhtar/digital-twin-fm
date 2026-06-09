@@ -19,6 +19,17 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type {
+  UserRole,
+  AssetType,
+  AssetStatus,
+  SensorType,
+  AlertSeverity,
+  AlertStatus,
+  WorkOrderType,
+  WorkOrderPriority,
+  WorkOrderStatus
+} from "@digital-twin-fm/types";
 
 // ─────────────────────── Users ───────────────────────
 export const users = pgTable("users", {
@@ -26,7 +37,7 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 255 }).notNull(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   fullName: varchar("full_name", { length: 255 }),
-  role: varchar("role", { length: 32 }).notNull().default("viewer"), // admin | facility_manager | technician | viewer
+  role: varchar("role", { length: 32 }).$type<UserRole>().notNull().default("viewer"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
@@ -66,8 +77,8 @@ export const assets = pgTable("assets", {
   floorId: uuid("floor_id").references(() => floors.id, { onDelete: "set null" }),
   roomId: uuid("room_id").references(() => rooms.id, { onDelete: "set null" }),
   name: varchar("name", { length: 255 }).notNull(),
-  type: varchar("type", { length: 64 }).notNull(), // ahu | chiller | boiler | pump | fan | elevator | lighting | sensor_only | other
-  status: varchar("status", { length: 32 }).notNull().default("ok"), // ok | warning | critical | offline | info
+  type: varchar("type", { length: 64 }).$type<AssetType>().notNull(),
+  status: varchar("status", { length: 32 }).$type<AssetStatus>().notNull().default("ok"),
   manufacturer: varchar("manufacturer", { length: 255 }),
   model: varchar("model", { length: 255 }),
   serialNumber: varchar("serial_number", { length: 255 }),
@@ -87,9 +98,9 @@ export const assets = pgTable("assets", {
 export const sensors = pgTable("sensors", {
   id: uuid("id").primaryKey().defaultRandom(),
   assetId: uuid("asset_id").notNull().references(() => assets.id, { onDelete: "cascade" }),
-  type: varchar("type", { length: 64 }).notNull(), // temperature | humidity | power | vibration | co2 | occupancy | pressure | flow
+  type: varchar("type", { length: 64 }).$type<SensorType>().notNull(),
   unit: varchar("unit", { length: 16 }).notNull(),
-  status: varchar("status", { length: 32 }).notNull().default("ok"),
+  status: varchar("status", { length: 32 }).$type<AssetStatus>().notNull().default("ok"),
   thresholdLow: doublePrecision("threshold_low"),
   thresholdHigh: doublePrecision("threshold_high"),
   lastValue: doublePrecision("last_value"),
@@ -120,8 +131,8 @@ export const alerts = pgTable("alerts", {
   id: uuid("id").primaryKey().defaultRandom(),
   sensorId: uuid("sensor_id").references(() => sensors.id, { onDelete: "set null" }),
   assetId: uuid("asset_id").references(() => assets.id, { onDelete: "set null" }),
-  severity: varchar("severity", { length: 16 }).notNull(), // low | medium | high | critical
-  status: varchar("status", { length: 32 }).notNull().default("open"), // open | acknowledged | in_progress | resolved | cancelled
+  severity: varchar("severity", { length: 16 }).$type<AlertSeverity>().notNull(),
+  status: varchar("status", { length: 32 }).$type<AlertStatus>().notNull().default("open"),
   message: text("message").notNull(),
   acknowledgedBy: uuid("acknowledged_by").references(() => users.id, { onDelete: "set null" }),
   acknowledgedAt: timestamp("acknowledged_at", { mode: "string" }),
@@ -139,9 +150,9 @@ export const workOrders = pgTable("work_orders", {
   alertId: uuid("alert_id").references(() => alerts.id, { onDelete: "set null" }),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-  type: varchar("type", { length: 32 }).notNull().default("corrective"), // preventive | corrective | predictive | inspection
-  priority: varchar("priority", { length: 16 }).notNull().default("medium"), // low | medium | high | critical
-  status: varchar("status", { length: 32 }).notNull().default("open"), // open | assigned | in_progress | blocked | completed | cancelled
+  type: varchar("type", { length: 32 }).$type<WorkOrderType>().notNull().default("corrective"),
+  priority: varchar("priority", { length: 16 }).$type<WorkOrderPriority>().notNull().default("medium"),
+  status: varchar("status", { length: 32 }).$type<WorkOrderStatus>().notNull().default("open"),
   assignedTo: uuid("assigned_to").references(() => users.id, { onDelete: "set null" }),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
   dueAt: timestamp("due_at", { mode: "string" }),

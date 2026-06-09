@@ -12,9 +12,24 @@ build/
 coverage/
 
 # Environment files (NEVER commit secrets)
+# Per Finding 21 (Medium): the previous .gitignore listed .env, .env.local,
+# and .env.*.local but missed every other shape (.env.production, .env.staging,
+# .env.preview, etc.). A developer who created .env.production by accident
+# could commit real secrets. The fix is the catch-all `.env.*` rule with an
+# explicit allowlist for `.env.example` (which is committed).
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Local Claude / editor settings — may contain model routing, API keys,
+# machine identifiers. Per Finding 32 (Low): never commit these.
+.claude/settings.local.json
+.cursor/
+.codex/
+.aider*
+
+# Infisical project link (points to a specific project, harmless but project-specific)
+.infisical.json
 
 # IDE / OS
 .vscode/

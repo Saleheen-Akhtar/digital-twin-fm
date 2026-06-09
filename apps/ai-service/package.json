@@ -1,0 +1,18 @@
+{
+  "name": "@digital-twin-fm/ai-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Digital Twin FM — AI service (FastAPI). MIT. Python deps in requirements.txt; this package.json exists for pnpm workspace tooling only.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "uvicorn app.main:app --reload --port 8000",
+    "build": "echo 'Python build is a no-op; production uses docker image' && exit 0",
+    "start": "uvicorn app.main:app --host 0.0.0.0 --port 8000",
+    "lint": "ruff check .",
+    "test": "pytest -q",
+    "typecheck": "mypy app"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}

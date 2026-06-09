@@ -1,4 +1,5 @@
-version: '3.8'
+# Digital Twin FM — Local dev infrastructure
+# All services here are MIT/BSD/Apache-2.0; safe for commercial use.
 
 services:
   postgres:
@@ -7,34 +8,83 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-dtfm_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dtfm_pass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-dtfm_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    # Per Finding 16 (Medium): bind to 127.0.0.1 instead of 0.0.0.0 so
+    # the dev database is NOT exposed on the LAN. To expose the
+    # database on the host (e.g. for a desktop client), use the
+    # `docker-compose.override.yml` or pass `127.0.0.1:5432:5432`.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-dtfm_user}", "-d", "${POSTGRES_DB:-dtfm_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: dtfm-redis
+  # Valkey (BSD) is a true drop-in fork of Redis, fully open under BSD.
+  # Pin to 7.2 for last-fully-open Redis, or use Valkey for a cleaner license.
+  #
+  # Per Finding 16 (Medium): require a password via --requirepass. The
+  # previous config shipped with no auth — anyone on the host's loopback
+  # (and on 0.0.0.0, anyone on the LAN) could read all session/refresh/
+  # pub-sub state.
+  valkey:
+    image: valkey/valkey:7.2-alpine
+    container_name: dtfm-valkey
     restart: unless-stopped
-    command: redis-server --save 60 1 --loglevel warning
+    command:
+      - valkey-server
+      - --save
+      - "60 1"
+      - --loglevel
+      - warning
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --bind
+      - 127.0.0.1
     volumes:
-      - redis_data:/data
+      - valkey_data:/data
+    # Per Finding 16: bind to 127.0.0.1 instead of 0.0.0.0.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # Optional: Mosquitto MQTT broker for real IoT devices (post-MVP)
+  # mosquitto:
+  #   image: eclipse-mosquitto:2
+  #   container_name: dtfm-mqtt
+  #   ports:
+  #     - "1883:1883"
+  #     - "9001:9001"
+  #   volumes:
+  #     - mosquitto_data:/mosquitto/data
+  #     - mosquitto_log:/mosquitto/log
+  #     - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  # Optional: Caddy reverse proxy (recommended for staging/prod)
+  # caddy:
+  #   image: caddy:2
+  #   container_name: dtfm-caddy
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+
 volumes:
   postgres_data:
-  redis_data:
+  valkey_data:
+  # mosquitto_data:
+  # mosquitto_log:
+  # caddy_data:
+  # caddy_config:

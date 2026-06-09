@@ -2,11 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc } from 'drizzle-orm';
 import { alerts } from '@digital-twin-fm/db';
-import { AlertDto } from './dto/alert.dto';
+import type { Alert, AlertStatus, AlertSeverity } from '@digital-twin-fm/types';
 
 export interface ListAlertsFilter {
-  status?: string;
-  severity?: string;
+  status?: AlertStatus;
+  severity?: AlertSeverity;
   assetId?: string;
   limit?: number;
 }
@@ -15,7 +15,7 @@ export interface ListAlertsFilter {
 export class AlertsService {
   constructor(@Inject('DB') private readonly db: NodePgDatabase) {}
 
-  async findAll(filter: ListAlertsFilter = {}): Promise<AlertDto[]> {
+  async findAll(filter: ListAlertsFilter = {}): Promise<Alert[]> {
     const conditions = [];
     if (filter.status) conditions.push(eq(alerts.status, filter.status));
     if (filter.severity) conditions.push(eq(alerts.severity, filter.severity));
@@ -30,7 +30,7 @@ export class AlertsService {
       .limit(filter.limit ?? 100);
   }
 
-  async findOne(id: string): Promise<AlertDto | null> {
+  async findOne(id: string): Promise<Alert | null> {
     const rows = await this.db.select().from(alerts).where(eq(alerts.id, id)).limit(1);
     return rows[0] ?? null;
   }

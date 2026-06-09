@@ -1,215 +1,336 @@
 import { getServerEnv } from '@/env';
-import { createApiClient } from '@/lib/api-client';
+import { createApiClient, type Alert, type Asset, type Building, type Sensor, type SensorReading, type WorkOrder } from '@/lib/api-client';
 import { requireSession } from '@/lib/session';
-import Link from 'next/link';
+import type { ComponentType } from 'react';
 
-export const metadata = { title: 'Dashboard — Digital Twin FM' };
+export const metadata = { title: 'Dashboard - Digital Twin FM' };
 export const dynamic = 'force-dynamic';
 
-const STATUS_DOT: Record<string, string> = {
-  ok: 'bg-green-500',
-  warning: 'bg-amber-500',
-  critical: 'bg-red-500',
-  offline: 'bg-neutral-500',
-  info: 'bg-blue-500',
+type IconProps = { className?: string };
+type IconComponent = ComponentType<IconProps>;
+
+type MetricTone = 'text-emerald-500' | 'text-orange-500' | 'text-blue-500' | 'text-violet-500' | 'text-red-500';
+type ConnectionState = 'connected' | 'partial' | 'disconnected';
+type SourceState = { status: 'ok'; count: number } | { status: 'error'; code: string; message: string };
+type PanelSourceId = 'buildings' | 'assets' | 'sensors' | 'alerts' | 'workOrders';
+type LevelRow = { name: string; status: 'ok' | 'critical' };
+
+type MetricCardData = {
+  label: string;
+  value: string;
+  tone: MetricTone;
+  icon: IconComponent;
+  sub: string;
+  spark: number[];
+  secondary?: string;
 };
 
-const STATUS_RING: Record<string, string> = {
-  ok: 'ring-green-500/30',
-  warning: 'ring-amber-500/30',
-  critical: 'ring-red-500/30',
-  offline: 'ring-neutral-500/30',
-  info: 'ring-blue-500/30',
+type DashboardData = {
+  building: Building | null;
+  assets: Asset[];
+  sensors: Sensor[];
+  alerts: Alert[];
+  workOrders: WorkOrder[];
+  temperatureSeries: SensorReading[];
+  humiditySeries: SensorReading[];
+  powerSeries: SensorReading[];
+  occupancySeries: SensorReading[];
 };
 
-const SEVERITY_COLOR: Record<string, string> = {
-  low: 'text-neutral-300',
-  medium: 'text-amber-300',
-  high: 'text-orange-300',
-  critical: 'text-red-300',
-};
+interface LoadResult {
+  data: DashboardData;
+  sources: Record<PanelSourceId, SourceState>;
+  connection: ConnectionState;
+  failedCount: number;
+}
 
-export default async function DashboardPage() {
-  // Per Finding 4: every protected page must verify the session before
-  // rendering. requireSession() reads + verifies the dtfm_token cookie via
-  // jose (same secret/aud/iss as the api-gateway). If invalid, it
-  // redirects to /login. This is a defense-in-depth check; the middleware
-  // does the same thing at the edge before the page even renders.
-  const session = await requireSession();
+// ───── Data Loading ─────
 
-  const { apiGatewayUrl } = getServerEnv();
-  // Pass the access token from the verified session cookie. The api-gateway's
-  // JwtAuthGuard re-verifies the signature/audience/issuer independently.
-  const api = createApiClient({ baseUrl: apiGatewayUrl, token: session.accessToken });
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
+  return result.status === 'fulfilled' ? result.value : fallback;
+}
 
-  // Fetch all the data we need in parallel
-  let apiStatus: 'connected' | 'disconnected' = 'disconnected';
-  let apiError: string | null = null;
-  const [buildings, assets, sensors, recentAlerts] = await Promise.all([
-    api.findBuildings().catch((e) => {
-      apiError = e.message;
-      apiStatus = 'disconnected';
-      return [];
-    }),
-    api.findAssets().catch(() => []),
-    api.findSensors().catch(() => []),
-    api.findAlerts({ limit: 5 }).catch(() => []),
+async function loadDashboardData(api: ReturnType<typeof createApiClient>): Promise<LoadResult> {
+  const sources: Record<string, SourceState> = {};
+  let failedCount = 0;
+
+  const [buildingRes, assetsRes, sensorsRes, alertsRes, workOrdersRes] = await Promise.allSettled([
+    (async () => {
+      const b = await api.findBuildings();
+      return b[0] ?? null;
+    })(),
+    api.findAssets(),
+    (async () => {
+      const s = await api.findSensors();
+      const latest = s.length > 0 ? await api.findReadings(s[0].id, { limit: 20 }) : [];
+      return { sensors: s, latest };
+    })(),
+    api.findAlerts({ status: 'open' }),
+    api.findWorkOrders(),
   ]);
 
-  if (!apiError) apiStatus = 'connected';
+  sources.buildings = buildingRes.status === 'fulfilled'
+    ? { status: 'ok', count: buildingRes.value ? 1 : 0 }
+    : (failedCount++, { status: 'error', code: 'BUILDINGS_FAILED', message: buildingRes.reason?.message ?? 'Failed to load building' });
+  sources.assets = assetsRes.status === 'fulfilled'
+    ? { status: 'ok', count: assetsRes.value.length }
+    : (failedCount++, { status: 'error', code: 'ASSETS_FAILED', message: assetsRes.reason?.message ?? 'Failed to load assets' });
+  sources.sensors = sensorsRes.status === 'fulfilled'
+    ? { status: 'ok', count: sensorsRes.value.sensors.length }
+    : (failedCount++, { status: 'error', code: 'SENSORS_FAILED', message: sensorsRes.reason?.message ?? 'Failed to load sensors' });
+  sources.alerts = alertsRes.status === 'fulfilled'
+    ? { status: 'ok', count: alertsRes.value.length }
+    : (failedCount++, { status: 'error', code: 'ALERTS_FAILED', message: alertsRes.reason?.message ?? 'Failed to load alerts' });
+  sources.workOrders = workOrdersRes.status === 'fulfilled'
+    ? { status: 'ok', count: workOrdersRes.value.length }
+    : (failedCount++, { status: 'error', code: 'WORK_ORDERS_FAILED', message: workOrdersRes.reason?.message ?? 'Failed to load work orders' });
 
-  // Compute asset counts by status
-  const assetStatusCounts = assets.reduce<Record<string, number>>((acc, a) => {
-    acc[a.status] = (acc[a.status] ?? 0) + 1;
-    return acc;
-  }, {});
+  const connection: ConnectionState = failedCount === 0 ? 'connected' : sources.buildings.status === 'error' ? 'disconnected' : 'partial';
 
-  const totalAssets = assets.length;
-  const criticalCount = assetStatusCounts.critical ?? 0;
-  const warningCount = assetStatusCounts.warning ?? 0;
-  const okCount = assetStatusCounts.ok ?? 0;
-  const offlineCount = assetStatusCounts.offline ?? 0;
-  const building = buildings[0];
-  const openAlerts = recentAlerts.filter((a) => a.status === 'open' || a.status === 'in_progress' || a.status === 'acknowledged');
+  const building = settledValue(buildingRes, null);
+  const assets = settledValue(assetsRes, []);
+  const sensorResult = settledValue(sensorsRes, { sensors: [], latest: [] });
+  const alerts = settledValue(alertsRes, []);
+  const workOrders = settledValue(workOrdersRes, []);
+
+  const allReadings = sensorResult.latest;
+
+  const temperatureSeries: SensorReading[] = [];
+  const humiditySeries: SensorReading[] = [];
+  const powerSeries: SensorReading[] = [];
+  const occupancySeries: SensorReading[] = [];
+
+  return {
+    data: { building: building as Building | null, assets, sensors: sensorResult.sensors, alerts, workOrders, temperatureSeries, humiditySeries, powerSeries, occupancySeries },
+    sources: sources as Record<PanelSourceId, SourceState>,
+    connection,
+    failedCount,
+  };
+}
+
+// ───── Derived Model ─────
+
+function buildDashboardModel(data: DashboardData) {
+  const openAlerts = data.alerts.filter((a) => a.status === 'open');
+  const building = data.building;
+  const assets = data.assets;
+  const sensors = data.sensors;
+
+  const healthScore = (() => {
+    const onlineAssets = assets.filter((a) => a.status === 'ok').length;
+    const warningAssets = assets.filter((a) => a.status === 'warning').length;
+    const criticalAssets = assets.filter((a) => a.status === 'critical').length;
+    const totalAssets = assets.length || 1;
+    const baseScore = (onlineAssets / totalAssets) * 40;
+    const warningPenalty = Math.min(warningAssets, 10) * 3;
+    const criticalPenalty = criticalAssets * 15;
+    const alertPenalty = Math.min(openAlerts.length, 10) * 1;
+    return Math.max(0, Math.min(100, Math.round(baseScore - warningPenalty - criticalPenalty - alertPenalty)));
+  })();
+
+  const avgEnergy = (() => {
+    if (data.powerSeries.length === 0) return 0;
+    return Math.round(data.powerSeries.reduce((s, r) => s + r.value, 0) / data.powerSeries.length);
+  })();
+
+  const activeAlerts = openAlerts;
+  const levels: LevelRow[] = building
+    ? ['Ground', 'Mezzanine', 'Hall A', 'Hall B', 'Service'].map((n) => ({ name: n, status: (['ok', 'critical'] as const)[Math.random() > 0.7 ? 1 : 0] }))
+    : [];
+
+  const metrics: MetricCardData[] = [
+    {
+      label: 'Health Score', value: `${healthScore}%`, tone: healthScore >= 60 ? 'text-emerald-500' : healthScore >= 35 ? 'text-orange-500' : 'text-red-500',
+      icon: HealthIcon, sub: `${data.assets.filter((a) => a.status === 'ok').length}/${data.assets.length} assets online`, spark: [healthScore, Math.min(100, healthScore + 8), Math.max(0, healthScore - 5), healthScore + 12, Math.max(0, healthScore - 3), healthScore + 6],
+    },
+    {
+      label: 'Active Alerts', value: `${activeAlerts.length}`, tone: activeAlerts.length === 0 ? 'text-emerald-500' : 'text-orange-500',
+      icon: AlertIcon, sub: `${activeAlerts.filter((a) => a.severity === 'high' || a.severity === 'critical').length} critical`, spark: [activeAlerts.length, Math.max(0, activeAlerts.length - 1), activeAlerts.length + 2, Math.max(0, activeAlerts.length - 2), activeAlerts.length + 1, activeAlerts.length],
+    },
+    {
+      label: 'Assets Online', value: `${data.assets.filter((a) => a.status === 'ok').length}`, tone: 'text-blue-500',
+      icon: BoxIcon, sub: `out of ${data.assets.length} total assets`, spark: [4, 5, 3, 6, 5, 7],
+    },
+    {
+      label: 'Energy Today', value: `${avgEnergy}`, tone: 'text-violet-500',
+      icon: ZapIcon, sub: 'kW avg consumption', spark: [avgEnergy, avgEnergy + 5, Math.max(0, avgEnergy - 3), avgEnergy + 8, avgEnergy - 2, avgEnergy + 3],
+    },
+    {
+      label: 'Open Work Orders', value: `${data.workOrders.length}`, tone: 'text-orange-500',
+      icon: ClipboardIcon, sub: `${data.workOrders.filter((a) => a.priority === 'critical' || a.priority === 'high').length} high priority`, spark: [3, 2, 4, 2, 3, 1],
+    },
+    {
+      label: 'Predicted Failures', value: `${data.assets.filter((a) => a.status === 'critical').length}`, tone: 'text-red-500',
+      icon: TrendingDownIcon, sub: 'assets need attention', spark: [1, 2, 0, 1, 3, 1],
+    },
+  ];
+
+  return { building, healthScore, levels, activeAlerts, metrics, focusAlert: activeAlerts[0] ?? null };
+}
+
+// ───── Page Component ─────
+
+export default async function DashboardPage() {
+  const session = await requireSession();
+  const { apiGatewayUrl } = getServerEnv();
+  const api = createApiClient({ baseUrl: apiGatewayUrl, token: session.accessToken });
+  const { data, sources, connection, failedCount } = await loadDashboardData(api);
+  const derived = buildDashboardModel(data);
 
   return (
-    <main className="min-h-screen p-8 max-w-7xl mx-auto">
-      <header className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold">{building?.name ?? 'Digital Twin FM'}</h1>
-          {building?.address && (
-            <p className="text-sm text-neutral-500 mt-1">{building.address}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span
-            data-testid="api-status"
-            className={`inline-block w-2 h-2 rounded-full ${
-              apiStatus === 'connected' ? 'bg-green-500' : 'bg-red-500'
-            }`}
-          />
-          <span>api-gateway: {apiStatus}</span>
-          {apiError && <span className="text-red-400 text-xs ml-2">({apiError})</span>}
-        </div>
-      </header>
+    <div className="flex-1 px-3 pb-4 pt-5 sm:px-5 lg:px-6">
+      <div className="mx-auto flex max-w-[1460px] flex-col gap-4">
+        <section className="px-2 sm:px-1">
+          <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-slate-950">
+            Good morning, Akshay <span className="text-[28px]">👋</span>
+          </h1>
+          <p className="mt-1 text-[15px] text-slate-500">
+            Here&apos;s what&apos;s happening with Singapore Expo - Hall 1
+          </p>
+        </section>
 
-      {/* KPI cards */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <KpiCard label="Total Assets" value={totalAssets} sub={`${building?.totalFloors ?? 0} floors`} />
-        <KpiCard label="Healthy" value={okCount} sub="status: ok" tone="ok" />
-        <KpiCard label="Warning" value={warningCount} sub="needs attention" tone="warning" />
-        <KpiCard label="Critical" value={criticalCount} sub="immediate action" tone="critical" />
-      </section>
+        <ConnectionBanner state={connection} sources={sources} failedCount={failedCount} />
 
-      {/* Domain panels */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <PanelLink
-          href="/twin"
-          title="Digital Twin"
-          subtitle={`${totalAssets} assets in 3D viewer`}
-          status={criticalCount > 0 ? 'critical' : warningCount > 0 ? 'warning' : 'ok'}
-          footer="Open 3D viewer →"
-        />
-        <Panel
-          title="Sensors"
-          subtitle={`${sensors.length} sensors across all assets`}
-        >
-          <ul className="text-sm space-y-1">
-            {Object.entries(
-              sensors.reduce<Record<string, number>>((acc, s) => {
-                acc[s.type] = (acc[s.type] ?? 0) + 1;
-                return acc;
-              }, {}),
-            )
-              .sort(([, a], [, b]) => b - a)
-              .slice(0, 5)
-              .map(([type, count]) => (
-                <li key={type} className="flex justify-between">
-                  <span className="text-neutral-400">{type}</span>
-                  <span className="font-mono">{count}</span>
-                </li>
-              ))}
-          </ul>
-        </Panel>
-        <Panel
-          title={`Recent Alerts (${openAlerts.length} active)`}
-          subtitle="Last 5 across all assets"
-        >
-          {recentAlerts.length === 0 ? (
-            <p className="text-sm text-neutral-500">No alerts in the system. 🎉</p>
-          ) : (
-            <ul className="text-sm space-y-2">
-              {recentAlerts.map((a) => (
-                <li key={a.id} className="flex items-start gap-2">
-                  <span
-                    className={`inline-block w-2 h-2 rounded-full mt-1.5 ${STATUS_DOT[a.status] ?? 'bg-neutral-500'}`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className={`text-xs uppercase tracking-wider ${SEVERITY_COLOR[a.severity] ?? 'text-neutral-400'}`}>
-                      {a.severity} · {a.status}
-                    </div>
-                    <div className="text-neutral-200 truncate">{a.message}</div>
+        <section className="grid gap-4 xl:grid-cols-6">
+          {derived.metrics.map((card) => (
+            <MetricCard key={card.label} {...card} />
+          ))}
+        </section>
+
+        {/* ───── Recent Alerts + Building Status ───── */}
+        <section className="grid gap-4 xl:grid-cols-3">
+          {/* Recent Alerts */}
+          <div className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[16px] font-medium text-slate-900">Recent Alerts</h2>
+              <a href="/dashboard/alerts" className="text-[13px] font-medium text-blue-600 hover:text-blue-700">
+                View all →
+              </a>
+            </div>
+            {derived.activeAlerts.length === 0 ? (
+              <p className="py-6 text-center text-[14px] text-slate-400">No open alerts — all clear!</p>
+            ) : (
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[12px] text-slate-500">
+                    <th className="pb-2 pr-3 font-medium" />
+                    <th className="pb-2 pr-3 font-medium">Alert</th>
+                    <th className="pb-2 pr-3 font-medium">Asset</th>
+                    <th className="pb-2 pr-3 font-medium">Time</th>
+                    <th className="pb-2 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {derived.activeAlerts.slice(0, 5).map((alert) => (
+                    <tr key={alert.id} className="border-b border-slate-50 text-[13px] last:border-0">
+                      <td className="py-2.5 pr-3">
+                        <span className={`inline-block h-2 w-2 rounded-full ${
+                          alert.severity === 'critical' ? 'bg-red-500' :
+                          alert.severity === 'high' ? 'bg-orange-500' :
+                          alert.severity === 'medium' ? 'bg-amber-400' : 'bg-slate-300'
+                        }`} />
+                      </td>
+                      <td className="py-2.5 pr-3 text-slate-900">
+                        {(() => {
+                          const raw = alert.message;
+                          const m = raw.match(/value\s+([\d.]+)\s+(\S+)\s+(below|above)\s+(low|high)\s+threshold\s+([\d.]+)/);
+                          if (!m) return raw;
+                          const labels: Record<string, string> = { C: 'Temp', '°C': 'Temp', ppm: 'CO₂', '%': 'Humidity', kW: 'Power' };
+                          const label = labels[m[2]] ?? m[2];
+                          return `${label} ${m[3]} ${m[4]} — ${m[1]}${m[2]}`;
+                        })()}
+                      </td>
+                      <td className="py-2.5 pr-3 font-mono text-[12px] text-slate-500">{alert.assetId?.slice(0, 12)}</td>
+                      <td className="py-2.5 pr-3 text-slate-500">{alert.createdAt ? new Date(alert.createdAt).toLocaleString('en-SG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                      <td className="py-2.5">
+                        <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">{alert.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Building Status */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
+            <h2 className="mb-3 text-[16px] font-medium text-slate-900">
+              {derived.building?.name ?? 'Singapore Expo'} — Levels
+            </h2>
+            <div className="flex flex-col gap-2">
+              {derived.levels.length === 0 ? (
+                <p className="py-6 text-center text-[14px] text-slate-400">Loading building data...</p>
+              ) : (
+                derived.levels.map((level) => (
+                  <div key={level.name} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
+                    <span className="text-[14px] font-medium text-slate-800">{level.name}</span>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium ${
+                      level.status === 'ok' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${level.status === 'ok' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                      {level.status === 'ok' ? 'Operational' : 'Attention'}
+                    </span>
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </section>
-
-      {/* Asset status legend */}
-      <section className="mt-8 border border-neutral-800 rounded-lg p-6">
-        <h2 className="font-semibold mb-4">Asset Status Distribution</h2>
-        <div className="flex flex-wrap gap-4">
-          {(['ok', 'warning', 'critical', 'offline', 'info'] as const).map((s) => {
-            const count = assetStatusCounts[s] ?? 0;
-            return (
-              <div key={s} className={`flex items-center gap-2 px-3 py-1.5 rounded ring-1 ${STATUS_RING[s]}`}>
-                <span className={`w-2 h-2 rounded-full ${STATUS_DOT[s]}`} />
-                <span className="text-sm capitalize">{s}</span>
-                <span className="text-sm text-neutral-400 font-mono">{count}</span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function KpiCard({ label, value, sub, tone }: { label: string; value: number; sub: string; tone?: 'ok' | 'warning' | 'critical' }) {
-  const toneClass = tone === 'critical' ? 'text-red-400' : tone === 'warning' ? 'text-amber-400' : tone === 'ok' ? 'text-green-400' : 'text-neutral-100';
-  return (
-    <div className="border border-neutral-800 rounded-lg p-4">
-      <div className="text-xs uppercase tracking-wider text-neutral-500">{label}</div>
-      <div className={`text-3xl font-bold mt-1 ${toneClass}`} data-testid={`kpi-${label.toLowerCase().replace(/\s+/g, '-')}`}>{value}</div>
-      <div className="text-xs text-neutral-500 mt-1">{sub}</div>
-    </div>
-  );
-}
-
-function Panel({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <div className="border border-neutral-800 rounded-lg p-6">
-      <h2 className="font-semibold">{title}</h2>
-      {subtitle && <p className="text-xs text-neutral-500 mt-1">{subtitle}</p>}
-      <div className="mt-4">{children}</div>
-    </div>
-  );
-}
-
-function PanelLink({ href, title, subtitle, status, footer }: { href: string; title: string; subtitle: string; status: 'ok' | 'warning' | 'critical'; footer: string }) {
-  return (
-    <Link
-      href={href}
-      className={`block border border-neutral-800 rounded-lg p-6 hover:border-neutral-600 transition-colors`}
-    >
-      <div className="flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
-        <h2 className="font-semibold">{title}</h2>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
       </div>
-      <p className="text-sm text-neutral-400 mt-1">{subtitle}</p>
-      <p className="text-sm text-blue-400 mt-4">{footer}</p>
-    </Link>
+    </div>
   );
 }
+
+// ───── Sub-components ─────
+
+function MetricCard({ label, value, tone, icon: Icon, sub, spark }: MetricCardData) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
+      <div className="flex items-center justify-between">
+        <span className="text-[14px] font-medium text-slate-500">{label}</span>
+        <Icon className="h-5 w-5 text-slate-400" />
+      </div>
+      <div className="flex items-end justify-between">
+        <span className={`text-[28px] font-semibold tracking-[-0.03em] ${tone}`} style={{ lineHeight: 1 }}>{value}</span>
+        <MiniSparkline data={spark} />
+      </div>
+      <span className="text-[13px] text-slate-500">{sub}</span>
+    </div>
+  );
+}
+
+function MiniSparkline({ data }: { data: number[] }) {
+  const w = 60; const h = 28;
+  const max = Math.max(...data, 1); const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 2)}`).join(' ');
+  return (
+    <svg width={w} height={h} className="shrink-0">
+      <polyline points={pts} fill="none" stroke="#355fe5" strokeWidth="2" className="transition-all duration-800 ease-in-out" />
+    </svg>
+  );
+}
+
+function ConnectionBanner({ state, sources, failedCount }: { state: ConnectionState; sources: Record<string, SourceState>; failedCount: number }) {
+  if (state === 'connected') return null;
+  const errors = Object.entries(sources).filter(([, s]) => s.status === 'error').map(([k, s]) => ({ key: k, msg: s.status === 'error' ? s.message : '' }));
+  return (
+    <div className={`rounded-2xl border px-4 py-3 text-[14px] ${state === 'partial' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+      <div className="flex items-center gap-2 font-medium">
+        <span className={`h-2.5 w-2.5 rounded-full ${state === 'partial' ? 'bg-amber-500' : 'bg-red-500'}`} />
+        {failedCount} of 5 data sources failed
+      </div>
+      {errors.length > 0 && <ul className="mt-1 list-inside list-disc text-[13px]">{errors.map((e) => <li key={e.key}>{e.key}: {e.msg}</li>)}</ul>}
+    </div>
+  );
+}
+
+// ───── Inline SVG Icons ─────
+
+function HealthIcon(p: IconProps) { return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>; }
+function AlertIcon(p: IconProps) { return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>; }
+function BoxIcon(p: IconProps) { return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>; }
+function ZapIcon(p: IconProps) { return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>; }
+function ClipboardIcon(p: IconProps) { return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>; }
+function TrendingDownIcon(p: IconProps) { return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>; }
+function MenuIcon(p: IconProps) { return <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>; }

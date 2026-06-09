@@ -1,7 +1,16 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Per Finding 19 (Medium): the previous `allowBuilds` block let
+# `es5-ext` run its postinstall script for every workspace. es5-ext
+# is a transitive dependency of the (very old) @nestjs/cli — it is
+# only used in CLI tooling, never in the runtime. Granting it
+# allowBuilds means a malicious update to es5-ext would execute code
+# on every developer's machine on `pnpm install`. The fix is to drop
+# the es5-ext entry; the build still works because @nestjs/cli is
+# not imported at runtime. (@nestjs/core is left intact because it
+# is a hard runtime dependency.)
 allowBuilds:
   '@nestjs/core': true
-  es5-ext: true
   esbuild: true

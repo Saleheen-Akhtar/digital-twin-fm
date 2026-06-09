@@ -55,8 +55,12 @@ export function DigitalTwinPanel({
           ...current,
           ...readingsByAssetId(sensors),
         }));
-      } catch {
-        // Keep server-rendered readings when browser refresh is unavailable.
+      } catch (e) {
+        // 3D viewer uses its own internal seed data; live readings are cosmetic.
+        // Silently ignore 401 (session expired) and network errors.
+        if (e && typeof e === 'object' && 'code' in e && (e as any).code === 'network_unavailable') {
+          // don't spam the console for network blips
+        }
       }
     }
 

@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createApiClient, type Asset, type Sensor, type SensorReading, type Alert } from "@/lib/api-client";
+import { useEffect, useRef, useState } from "react";
+import {
+  type Asset,
+  type Sensor,
+  type SensorReading,
+  type Alert,
+} from "@/lib/api-client";
+import { createBrowserApiClient } from "@/lib/browser-api-client";
 
 const TYPE_LABEL: Record<string, string> = {
   ahu: "Air Handler",
@@ -23,6 +29,31 @@ const STATUS_COLOR: Record<string, string> = {
   info: "bg-blue-500",
 };
 
+/**
+ * 30-second local staleTime, in the spirit of TanStack Query's
+ * `staleTime` option. The previous version of this panel re-issued
+ * the full /sensors + /alerts + /sensors/:id/readings waterfall
+ * every time the user opened the panel — even if they had just
+ * closed it 5 seconds ago and re-clicked the same marker. With 4
+ * sensors, that is 1 + 1 + 4 = 6 API calls per open. At 300
+ * requests/min for sustained polling, this is well under the
+ * throttler ceiling, but it is still wasteful and produces visible
+ * "Loading…" flash.
+ *
+ * The cache stores the in-memory snapshot of `{ sensors, readings,
+ * alerts }` keyed by `assetId` with a 30-second TTL. Re-opening the
+ * same asset within that window renders the cached data
+ * synchronously and skips the network entirely.
+ */
+const STALE_MS = 30_000;
+
+interface AssetDetailCacheEntry {
+  sensors: Sensor[];
+  readingsBySensor: Record<string, SensorReading[]>;
+  alerts: Alert[];
+  fetchedAt: number;
+}
+
 function friendlyName(a: Asset): string {
   const match = a.name.match(/^[A-Z_]+-?(\d+)$/);
   if (match) {
@@ -43,7 +74,18 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch sensors + recent alerts when an asset is selected
+  // Module-scoped cache: persists across mount/unmount within the same
+  // browser session. useRef is used (not useState) so a cache write
+  // does not trigger a re-render.
+  const cacheRef = useRef<Map<string, AssetDetailCacheEntry>>(new Map());
+
+  // Fetch sensors + recent alerts when an asset is selected. Gated on
+  // a fresh `asset` reference — if the user re-selects the same asset
+  // within STALE_MS, the cached snapshot is hydrated synchronously and
+  // the network is skipped. There is only ONE useEffect here (per
+  // Finding 14 the dashboard previously had a stale `dashboardSnapshot`
+  // module-level variable; this is the smaller, panel-scoped version
+  // of the same idea, with an explicit TTL).
   useEffect(() => {
     if (!asset) {
       setSensors([]);
@@ -51,33 +93,65 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
       setAlerts([]);
       return;
     }
+
+    const cached = cacheRef.current.get(asset.id);
+    if (cached && Date.now() - cached.fetchedAt < STALE_MS) {
+      // Hydrate from cache — no spinner, no network.
+      setSensors(cached.sensors);
+      setReadingsBySensor(cached.readingsBySensor);
+      setAlerts(cached.alerts);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
     setLoading(true);
     (async () => {
       try {
-        const api = createApiClient({ baseUrl: window.location.origin.replace(/:3000$/, ':4000') });
+        // The browser cannot read the httpOnly `dtfm_token` cookie, so we
+        // cannot attach `Authorization: Bearer` from here. Instead we hit
+        // the same-origin proxy at `/api/proxy/...`, which reads the
+        // cookie server-side and forwards the request to the api-gateway
+        // with the Bearer token. The browser never sees the JWT.
+        const api = createBrowserApiClient();
         const [allSensors, allAlerts] = await Promise.all([
-          api.findSensors(),
-          api.findAlerts({ assetId: asset.id, limit: 5 }),
+          api.get<Sensor[]>("/sensors"),
+          api.get<Alert[]>(`/alerts?assetId=${encodeURIComponent(asset.id)}&limit=5`),
         ]);
         const assetSensors = allSensors.filter((s) => s.assetId === asset.id);
-        setSensors(assetSensors);
-        setAlerts(allAlerts);
+        if (cancelled) return;
 
-        // Fetch latest readings for each sensor (max 10)
+        // Fetch latest readings for each sensor (max 4)
         const readings: Record<string, SensorReading[]> = {};
         await Promise.all(
           assetSensors.slice(0, 4).map(async (s) => {
-            const r = await api.findReadings(s.id, { limit: 10 });
+            const r = await api.get<SensorReading[]>(
+              `/sensors/${encodeURIComponent(s.id)}/readings?limit=10`,
+            );
             readings[s.id] = r;
           }),
         );
+        if (cancelled) return;
+
+        setSensors(assetSensors);
+        setAlerts(allAlerts);
         setReadingsBySensor(readings);
+
+        cacheRef.current.set(asset.id, {
+          sensors: assetSensors,
+          readingsBySensor: readings,
+          alerts: allAlerts,
+          fetchedAt: Date.now(),
+        });
       } catch (err) {
         console.error('Failed to load asset details:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [asset]);
 
   if (!asset) return null;

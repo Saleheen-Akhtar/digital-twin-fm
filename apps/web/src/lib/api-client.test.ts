@@ -41,4 +41,58 @@ describe('api-client', () => {
       ),
     ).rejects.toThrow();
   });
+
+  it('fetches buildings list', async () => {
+    const client = createApiClient({ baseUrl: 'http://example.test' });
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [{ id: 'b1', name: 'Hall 7', totalFloors: 5, createdAt: 'x', updatedAt: 'x' }],
+    });
+    const result = await client.findBuildings({ fetch: fetchMock as unknown as typeof fetch });
+    expect(result).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith('http://example.test/buildings', expect.any(Object));
+  });
+
+  it('fetches assets with filter', async () => {
+    const client = createApiClient({ baseUrl: 'http://example.test' });
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [],
+    });
+    await client.findAssets({ buildingId: 'b1', status: 'critical' }, { fetch: fetchMock as unknown as typeof fetch });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('buildingId=b1'),
+      expect.any(Object),
+    );
+  });
+
+  it('fetches sensor readings with limit', async () => {
+    const client = createApiClient({ baseUrl: 'http://example.test' });
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [],
+    });
+    await client.findReadings('s1', { limit: 5 }, { fetch: fetchMock as unknown as typeof fetch });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://example.test/sensors/s1/readings?limit=5',
+      expect.any(Object),
+    );
+  });
+
+  it('fetches alerts with filter', async () => {
+    const client = createApiClient({ baseUrl: 'http://example.test' });
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [],
+    });
+    await client.findAlerts({ status: 'open' }, { fetch: fetchMock as unknown as typeof fetch });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('status=open'),
+      expect.any(Object),
+    );
+  });
 });

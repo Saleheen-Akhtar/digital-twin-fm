@@ -1,0 +1,782 @@
+{
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\init-db.sql": {
+    "mtime": 1780600151.6167002,
+    "ast_hash": "a665d1835cc66ea1305142397f8ffc34",
+    "semantic_hash": "a665d1835cc66ea1305142397f8ffc34"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\package.json": {
+    "mtime": 1780661197.4141896,
+    "ast_hash": "c57906afa62e2f83036e26c0e5485186",
+    "semantic_hash": "c57906afa62e2f83036e26c0e5485186"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\turbo.json": {
+    "mtime": 1780645033.953474,
+    "ast_hash": "51bf0472849ab1a67f5b1f63e5724909",
+    "semantic_hash": "51bf0472849ab1a67f5b1f63e5724909"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\.claude\\settings.local.json": {
+    "mtime": 1780595095.9807973,
+    "ast_hash": "81e0e87c65689edba4f913178a26e3c6",
+    "semantic_hash": "81e0e87c65689edba4f913178a26e3c6"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ai-service\\package.json": {
+    "mtime": 1780660869.9458208,
+    "ast_hash": "e35b9a0c7a0197f3748f2c808712d510",
+    "semantic_hash": "e35b9a0c7a0197f3748f2c808712d510"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ai-service\\app\\config.py": {
+    "mtime": 1780660208.5953302,
+    "ast_hash": "db94404d557f4065e514ef7c3ec5d9db",
+    "semantic_hash": "db94404d557f4065e514ef7c3ec5d9db"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ai-service\\app\\main.py": {
+    "mtime": 1780660222.9056942,
+    "ast_hash": "58350d44f3bf7f466c751d757ebd52a9",
+    "semantic_hash": "58350d44f3bf7f466c751d757ebd52a9"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ai-service\\app\\__init__.py": {
+    "mtime": 1780660195.1819496,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ai-service\\app\\routers\\copilot.py": {
+    "mtime": 1780660256.006293,
+    "ast_hash": "3f42ebe68c3560b6308655dc91d33e87",
+    "semantic_hash": "3f42ebe68c3560b6308655dc91d33e87"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ai-service\\app\\routers\\health.py": {
+    "mtime": 1780660241.1694508,
+    "ast_hash": "a75885b817780ed6e56031582e737c9c",
+    "semantic_hash": "a75885b817780ed6e56031582e737c9c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ai-service\\app\\routers\\__init__.py": {
+    "mtime": 1780660233.294664,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\jest.config.js": {
+    "mtime": 1780601582.7341309,
+    "ast_hash": "9211aa44d4bc200219fb5e488ab1a828",
+    "semantic_hash": "9211aa44d4bc200219fb5e488ab1a828"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\nest-cli.json": {
+    "mtime": 1780600851.1336217,
+    "ast_hash": "b6c9c4b64b7092bea720263a47b574cf",
+    "semantic_hash": "b6c9c4b64b7092bea720263a47b574cf"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\package.json": {
+    "mtime": 1780674313.2123103,
+    "ast_hash": "9c5c5274ac0a63221dd0e80f8801f8d2",
+    "semantic_hash": "9c5c5274ac0a63221dd0e80f8801f8d2"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\tsconfig.json": {
+    "mtime": 1780601253.4051366,
+    "ast_hash": "c93440a93970bf5cd298574de3442f6d",
+    "semantic_hash": "c93440a93970bf5cd298574de3442f6d"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\app.module.ts": {
+    "mtime": 1780674855.989,
+    "ast_hash": "4760416dc44256a363f0b3069ae457bc",
+    "semantic_hash": "4760416dc44256a363f0b3069ae457bc"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\main.ts": {
+    "mtime": 1780616101.573062,
+    "ast_hash": "a59cab6ae88892fc680228f297885eb4",
+    "semantic_hash": "a59cab6ae88892fc680228f297885eb4"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\alerts\\alerts.controller.ts": {
+    "mtime": 1780664781.8464103,
+    "ast_hash": "85f07425049faa022044744165269ee7",
+    "semantic_hash": "85f07425049faa022044744165269ee7"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\alerts\\alerts.module.ts": {
+    "mtime": 1780664781.8464103,
+    "ast_hash": "73e6f48b837bcaaa9efb76137e3af1f7",
+    "semantic_hash": "73e6f48b837bcaaa9efb76137e3af1f7"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\alerts\\alerts.service.spec.ts": {
+    "mtime": 1780667229.1135015,
+    "ast_hash": "04856c67ab9b063a90d4fc6276ecaf44",
+    "semantic_hash": "04856c67ab9b063a90d4fc6276ecaf44"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\alerts\\alerts.service.ts": {
+    "mtime": 1780664781.8433928,
+    "ast_hash": "93482dfc38c2ddefd61c06f81ac5b265",
+    "semantic_hash": "93482dfc38c2ddefd61c06f81ac5b265"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\alerts\\dto\\alert.dto.ts": {
+    "mtime": 1780664781.8349602,
+    "ast_hash": "79eabc2919dade1eb05fd4c82cd15601",
+    "semantic_hash": "79eabc2919dade1eb05fd4c82cd15601"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\assets\\assets.controller.ts": {
+    "mtime": 1780664214.131346,
+    "ast_hash": "66147b9617b8b14c03cf2c3bcd592a33",
+    "semantic_hash": "66147b9617b8b14c03cf2c3bcd592a33"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\assets\\assets.module.ts": {
+    "mtime": 1780664225.1326103,
+    "ast_hash": "b0d4979f2d584292dbc11236f4e00d52",
+    "semantic_hash": "b0d4979f2d584292dbc11236f4e00d52"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\assets\\assets.service.spec.ts": {
+    "mtime": 1780667228.4034815,
+    "ast_hash": "f2e736f721c75967ecc699da29d63c0c",
+    "semantic_hash": "f2e736f721c75967ecc699da29d63c0c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\assets\\assets.service.ts": {
+    "mtime": 1780664201.5347314,
+    "ast_hash": "c1200adc52dbe3fc00450c670c60f4ac",
+    "semantic_hash": "c1200adc52dbe3fc00450c670c60f4ac"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\assets\\dto\\asset.dto.ts": {
+    "mtime": 1780664188.2268343,
+    "ast_hash": "ee7bbdb0d5b728cc39c80752bd5a11af",
+    "semantic_hash": "ee7bbdb0d5b728cc39c80752bd5a11af"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\auth\\auth.controller.ts": {
+    "mtime": 1780674649.207556,
+    "ast_hash": "8ed371a3fadf7c6303063fe96f15999f",
+    "semantic_hash": "8ed371a3fadf7c6303063fe96f15999f"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\auth\\auth.module.ts": {
+    "mtime": 1780674526.843281,
+    "ast_hash": "ad8369ef91bb77c4c066c72780a108db",
+    "semantic_hash": "ad8369ef91bb77c4c066c72780a108db"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\auth\\auth.service.spec.ts": {
+    "mtime": 1780616101.5695517,
+    "ast_hash": "3442bdb491d59d07bd07d4ae35ddbe6e",
+    "semantic_hash": "3442bdb491d59d07bd07d4ae35ddbe6e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\auth\\auth.service.ts": {
+    "mtime": 1780674582.221284,
+    "ast_hash": "463ed04e7b7a36473a29c61732e97c2b",
+    "semantic_hash": "463ed04e7b7a36473a29c61732e97c2b"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\auth\\jwt-auth.guard.ts": {
+    "mtime": 1780674445.0646434,
+    "ast_hash": "8ca416b301565a695e50bc1544404886",
+    "semantic_hash": "8ca416b301565a695e50bc1544404886"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\auth\\jwt.strategy.ts": {
+    "mtime": 1780674378.4711359,
+    "ast_hash": "dc0f7bb5f9d6dd5f2423062edc58b9a7",
+    "semantic_hash": "dc0f7bb5f9d6dd5f2423062edc58b9a7"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\auth\\roles.guard.ts": {
+    "mtime": 1780674475.6237953,
+    "ast_hash": "91e2b6f32f2f5d6ffc70eb7a409cbcce",
+    "semantic_hash": "91e2b6f32f2f5d6ffc70eb7a409cbcce"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\auth\\dto\\login.dto.ts": {
+    "mtime": 1780616101.5710564,
+    "ast_hash": "c12946f42e0d8a9526ce5e59fb955d2d",
+    "semantic_hash": "c12946f42e0d8a9526ce5e59fb955d2d"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\buildings\\buildings.controller.ts": {
+    "mtime": 1780663599.4428115,
+    "ast_hash": "8120d36834c4249379a5047eb71bf379",
+    "semantic_hash": "8120d36834c4249379a5047eb71bf379"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\buildings\\buildings.module.ts": {
+    "mtime": 1780663471.2899354,
+    "ast_hash": "980a9e3ce8c05ec6de8994f728f74dee",
+    "semantic_hash": "980a9e3ce8c05ec6de8994f728f74dee"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\buildings\\buildings.service.spec.ts": {
+    "mtime": 1780667228.0086577,
+    "ast_hash": "4ebc0c9499d9a1e5cec99a68b3375df2",
+    "semantic_hash": "4ebc0c9499d9a1e5cec99a68b3375df2"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\buildings\\buildings.service.ts": {
+    "mtime": 1780663447.3350272,
+    "ast_hash": "166058d8ea3756bbe4a525d172d0bbc0",
+    "semantic_hash": "166058d8ea3756bbe4a525d172d0bbc0"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\buildings\\dto\\building.dto.ts": {
+    "mtime": 1780663588.621371,
+    "ast_hash": "1002817fc07b08c4ae6430abf584affa",
+    "semantic_hash": "1002817fc07b08c4ae6430abf584affa"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\config\\config.module.spec.ts": {
+    "mtime": 1780601490.5920575,
+    "ast_hash": "224789c8b776953f89ff8d815990487e",
+    "semantic_hash": "224789c8b776953f89ff8d815990487e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\config\\config.module.ts": {
+    "mtime": 1780616101.5720642,
+    "ast_hash": "4240cba815d67a8c90587b2ffbebd565",
+    "semantic_hash": "4240cba815d67a8c90587b2ffbebd565"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\config\\infisical.loader.ts": {
+    "mtime": 1780601603.8921633,
+    "ast_hash": "25c7d4476a6e7ad332a591b51725ad69",
+    "semantic_hash": "25c7d4476a6e7ad332a591b51725ad69"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\db\\db.module.ts": {
+    "mtime": 1780667157.928477,
+    "ast_hash": "70d7b781178dc0db33106216e3fa62ad",
+    "semantic_hash": "70d7b781178dc0db33106216e3fa62ad"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\health\\health.controller.spec.ts": {
+    "mtime": 1780602160.6614554,
+    "ast_hash": "d22faa23438d68d78fa059f940fe9b5f",
+    "semantic_hash": "d22faa23438d68d78fa059f940fe9b5f"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\health\\health.controller.ts": {
+    "mtime": 1780674723.988787,
+    "ast_hash": "a53b34f69b00a9f80946dcf5601b3e5e",
+    "semantic_hash": "a53b34f69b00a9f80946dcf5601b3e5e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\sensors\\sensor-readings.controller.ts": {
+    "mtime": 1780664525.8028238,
+    "ast_hash": "5c268433b89898feb8c114b11388f45c",
+    "semantic_hash": "5c268433b89898feb8c114b11388f45c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\sensors\\sensors.controller.ts": {
+    "mtime": 1780664515.6150496,
+    "ast_hash": "f02b0e5c7f53c73a3b69a060d7e80c45",
+    "semantic_hash": "f02b0e5c7f53c73a3b69a060d7e80c45"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\sensors\\sensors.module.ts": {
+    "mtime": 1780664537.725157,
+    "ast_hash": "926571a37f0998e4f0e77676140db55e",
+    "semantic_hash": "926571a37f0998e4f0e77676140db55e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\sensors\\sensors.service.spec.ts": {
+    "mtime": 1780667228.7420642,
+    "ast_hash": "04f61109669f5bfc9edb6bbcf69e4e17",
+    "semantic_hash": "04f61109669f5bfc9edb6bbcf69e4e17"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\sensors\\sensors.service.ts": {
+    "mtime": 1780664602.756692,
+    "ast_hash": "1d42aac9643b9984dc26ef39186f0122",
+    "semantic_hash": "1d42aac9643b9984dc26ef39186f0122"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\api-gateway\\src\\sensors\\dto\\sensor.dto.ts": {
+    "mtime": 1780664486.7139826,
+    "ast_hash": "547a34ae94d1252263e3044fa81138d8",
+    "semantic_hash": "547a34ae94d1252263e3044fa81138d8"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ingestion-service\\package.json": {
+    "mtime": 1780660276.6088529,
+    "ast_hash": "713da1249022547f797abb1b71ef2fb8",
+    "semantic_hash": "713da1249022547f797abb1b71ef2fb8"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ingestion-service\\tsconfig.json": {
+    "mtime": 1780660286.6445472,
+    "ast_hash": "1fedd7aceeb5b7ffe0c1cc5dbd28d351",
+    "semantic_hash": "1fedd7aceeb5b7ffe0c1cc5dbd28d351"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ingestion-service\\src\\index.test.ts": {
+    "mtime": 1780660336.6118183,
+    "ast_hash": "a72d3df44bff70e1191045e8642991c2",
+    "semantic_hash": "a72d3df44bff70e1191045e8642991c2"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ingestion-service\\src\\index.ts": {
+    "mtime": 1780660310.105029,
+    "ast_hash": "4e60f0628884d07770aa3c126ed1ebfc",
+    "semantic_hash": "4e60f0628884d07770aa3c126ed1ebfc"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\jest.config.js": {
+    "mtime": 1780649083.5215044,
+    "ast_hash": "a3f63e708bc4b7b8bc6ee3b41041ec38",
+    "semantic_hash": "a3f63e708bc4b7b8bc6ee3b41041ec38"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\jest.setup.ts": {
+    "mtime": 1780645338.6343074,
+    "ast_hash": "00e47f7b9836e8f731101981fa2bb2de",
+    "semantic_hash": "00e47f7b9836e8f731101981fa2bb2de"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\next-env.d.ts": {
+    "mtime": 1780649210.618715,
+    "ast_hash": "ba64ff7d54714a8f64db89b1003207d8",
+    "semantic_hash": "ba64ff7d54714a8f64db89b1003207d8"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\next.config.ts": {
+    "mtime": 1780645338.6416872,
+    "ast_hash": "03104417419f47748f336047af2eca66",
+    "semantic_hash": "03104417419f47748f336047af2eca66"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\package.json": {
+    "mtime": 1780674338.17024,
+    "ast_hash": "0f20fd6bf6830d19c0a9fe4412182751",
+    "semantic_hash": "0f20fd6bf6830d19c0a9fe4412182751"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\postcss.config.mjs": {
+    "mtime": 1780645338.6696472,
+    "ast_hash": "9a944fbda06979be39571bd9bd00b0d9",
+    "semantic_hash": "9a944fbda06979be39571bd9bd00b0d9"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\tsconfig.json": {
+    "mtime": 1780645338.6343074,
+    "ast_hash": "b10808a9639b421f0ce0e054d9724a50",
+    "semantic_hash": "b10808a9639b421f0ce0e054d9724a50"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\env.test.ts": {
+    "mtime": 1780649379.85437,
+    "ast_hash": "38514cfcc55756778cdefcc3fb4d1ceb",
+    "semantic_hash": "38514cfcc55756778cdefcc3fb4d1ceb"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\env.ts": {
+    "mtime": 1780649401.6630101,
+    "ast_hash": "2695b220fc2e4240b3895a9940fd34db",
+    "semantic_hash": "2695b220fc2e4240b3895a9940fd34db"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\layout.test.tsx": {
+    "mtime": 1780648991.0545835,
+    "ast_hash": "9d9c98f998223337fa76e5e2645bb54c",
+    "semantic_hash": "9d9c98f998223337fa76e5e2645bb54c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\layout.tsx": {
+    "mtime": 1780671666.2635362,
+    "ast_hash": "ce8a1d5975982ea316cbb92456efec57",
+    "semantic_hash": "ce8a1d5975982ea316cbb92456efec57"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\page.test.tsx": {
+    "mtime": 1780651790.9563272,
+    "ast_hash": "3132391b1c6a6eae18a5f5877251b1df",
+    "semantic_hash": "3132391b1c6a6eae18a5f5877251b1df"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\page.tsx": {
+    "mtime": 1780651805.6767168,
+    "ast_hash": "886a901b6a0baff41bfc05fe80bedef2",
+    "semantic_hash": "886a901b6a0baff41bfc05fe80bedef2"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\dashboard\\page.test.tsx": {
+    "mtime": 1780667955.1211212,
+    "ast_hash": "21e82801b2e168687166e19451ee35d9",
+    "semantic_hash": "21e82801b2e168687166e19451ee35d9"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\dashboard\\page.tsx": {
+    "mtime": 1780675516.532359,
+    "ast_hash": "7c3c799e43372e78a3cf1b9a5339a436",
+    "semantic_hash": "7c3c799e43372e78a3cf1b9a5339a436"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\login\\actions.ts": {
+    "mtime": 1780651284.4143474,
+    "ast_hash": "d3ac54a51e619a425845be21a00dc966",
+    "semantic_hash": "d3ac54a51e619a425845be21a00dc966"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\login\\login-form.test.tsx": {
+    "mtime": 1780658276.740965,
+    "ast_hash": "75a671d50d8cfac21d6a81ebbb60ab5a",
+    "semantic_hash": "75a671d50d8cfac21d6a81ebbb60ab5a"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\login\\login-form.tsx": {
+    "mtime": 1780658202.1994927,
+    "ast_hash": "adf59f3979a2a0c99cbe4c367e4e9c87",
+    "semantic_hash": "adf59f3979a2a0c99cbe4c367e4e9c87"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\login\\page.tsx": {
+    "mtime": 1780658223.6737604,
+    "ast_hash": "a940738ac08976b32acaf17a5d6bace4",
+    "semantic_hash": "a940738ac08976b32acaf17a5d6bace4"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\app\\twin\\page.tsx": {
+    "mtime": 1780675579.8694277,
+    "ast_hash": "cc63c6f9225fe6ba5333b1725579f352",
+    "semantic_hash": "cc63c6f9225fe6ba5333b1725579f352"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\features\\digital-twin\\asset-detail-panel.tsx": {
+    "mtime": 1780672035.7822752,
+    "ast_hash": "9590daf381ee635901588085a879b79e",
+    "semantic_hash": "9590daf381ee635901588085a879b79e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\features\\digital-twin\\panel.tsx": {
+    "mtime": 1780672184.5799563,
+    "ast_hash": "e25f7ae1f515fa5fc57770a54aef5077",
+    "semantic_hash": "e25f7ae1f515fa5fc57770a54aef5077"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\features\\digital-twin\\viewer.tsx": {
+    "mtime": 1780672208.6689007,
+    "ast_hash": "d784d3ca203b8ef05c7b2657e5302c95",
+    "semantic_hash": "d784d3ca203b8ef05c7b2657e5302c95"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\lib\\api-client.test.ts": {
+    "mtime": 1780667868.8130214,
+    "ast_hash": "4885bdeacbf6b68b1b6cdde8a8f967fd",
+    "semantic_hash": "4885bdeacbf6b68b1b6cdde8a8f967fd"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\src\\lib\\api-client.ts": {
+    "mtime": 1780675177.1265047,
+    "ast_hash": "0d342e7541e090ce149d2647ad0b6edc",
+    "semantic_hash": "0d342e7541e090ce149d2647ad0b6edc"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\web\\__mocks__\\styleMock.js": {
+    "mtime": 1780649083.6070993,
+    "ast_hash": "2f3d1a73eac1104259f9bfd70dd740d3",
+    "semantic_hash": "2f3d1a73eac1104259f9bfd70dd740d3"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\drizzle.config.ts": {
+    "mtime": 1780662646.2313483,
+    "ast_hash": "49ce1c29d845dfa7b03be06623756acc",
+    "semantic_hash": "49ce1c29d845dfa7b03be06623756acc"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\migrate.mjs": {
+    "mtime": 1780662880.5071,
+    "ast_hash": "0e2b3edd72b330be1541bdad955c78a7",
+    "semantic_hash": "0e2b3edd72b330be1541bdad955c78a7"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\package.json": {
+    "mtime": 1780667320.8560612,
+    "ast_hash": "e7e914f2d548612325ec6ff606fadbe3",
+    "semantic_hash": "e7e914f2d548612325ec6ff606fadbe3"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\tsconfig.build.json": {
+    "mtime": 1780667340.326062,
+    "ast_hash": "71cc163ec67919a837dbccbc231cba2a",
+    "semantic_hash": "71cc163ec67919a837dbccbc231cba2a"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\tsconfig.json": {
+    "mtime": 1780667384.868363,
+    "ast_hash": "10d586873036e3214614ca837cbcd648",
+    "semantic_hash": "10d586873036e3214614ca837cbcd648"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\drizzle\\0000_bouncy_vulture.sql": {
+    "mtime": 1780662775.1521056,
+    "ast_hash": "1eeb8d31b6b517d51cc8ab39470b265a",
+    "semantic_hash": "1eeb8d31b6b517d51cc8ab39470b265a"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\drizzle\\meta\\0000_snapshot.json": {
+    "mtime": 1780662775.1521056,
+    "ast_hash": "11a16a88c36d5bd9141f4e514e485202",
+    "semantic_hash": "11a16a88c36d5bd9141f4e514e485202"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\drizzle\\meta\\_journal.json": {
+    "mtime": 1780662775.1521056,
+    "ast_hash": "73ccb541d84536192d861d4830607fbe",
+    "semantic_hash": "73ccb541d84536192d861d4830607fbe"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\src\\index.ts": {
+    "mtime": 1780667409.9098268,
+    "ast_hash": "a3ba218e4e532161c448ee98cd4ed1db",
+    "semantic_hash": "a3ba218e4e532161c448ee98cd4ed1db"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\src\\schema.ts": {
+    "mtime": 1780662759.6072252,
+    "ast_hash": "487f6c50b851cb53a8479f0ab4b34165",
+    "semantic_hash": "487f6c50b851cb53a8479f0ab4b34165"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\db\\src\\seed.ts": {
+    "mtime": 1780660584.4799166,
+    "ast_hash": "d33b24c64b9c1e3327b4cd3511dc393c",
+    "semantic_hash": "d33b24c64b9c1e3327b4cd3511dc393c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\eslint-config\\package.json": {
+    "mtime": 1780601157.1528034,
+    "ast_hash": "1a609a7ea26613d0548a6bcd0a48e01e",
+    "semantic_hash": "1a609a7ea26613d0548a6bcd0a48e01e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\types\\package.json": {
+    "mtime": 1780660460.768315,
+    "ast_hash": "32043a1ef28131af7c2ea2ef4f1826cd",
+    "semantic_hash": "32043a1ef28131af7c2ea2ef4f1826cd"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\types\\tsconfig.json": {
+    "mtime": 1780660468.7528133,
+    "ast_hash": "9b17e14adff9db43db777b0280a0d678",
+    "semantic_hash": "9b17e14adff9db43db777b0280a0d678"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\types\\src\\index.ts": {
+    "mtime": 1780672291.0724642,
+    "ast_hash": "1b3d91771de92b69f9e7fa77f4603503",
+    "semantic_hash": "1b3d91771de92b69f9e7fa77f4603503"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\ui\\package.json": {
+    "mtime": 1780660356.7534885,
+    "ast_hash": "06d69b5a9c20f12b1186d77d74be63e3",
+    "semantic_hash": "06d69b5a9c20f12b1186d77d74be63e3"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\ui\\tsconfig.json": {
+    "mtime": 1780660364.6413112,
+    "ast_hash": "94205765a8d2d62e772fc40f92b25064",
+    "semantic_hash": "94205765a8d2d62e772fc40f92b25064"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\ui\\src\\index.ts": {
+    "mtime": 1780660445.6386015,
+    "ast_hash": "c87323d7cad83695a69aaf6ece796169",
+    "semantic_hash": "c87323d7cad83695a69aaf6ece796169"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\ui\\src\\utils.ts": {
+    "mtime": 1780660375.989069,
+    "ast_hash": "618d00bf4537ce84f9ba62c5b215fb30",
+    "semantic_hash": "618d00bf4537ce84f9ba62c5b215fb30"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\ui\\src\\components\\badge.tsx": {
+    "mtime": 1780660425.326859,
+    "ast_hash": "2ce0df631bc813feb1054683119fab14",
+    "semantic_hash": "2ce0df631bc813feb1054683119fab14"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\ui\\src\\components\\button.tsx": {
+    "mtime": 1780660399.834832,
+    "ast_hash": "ab8d71fa0a81ecc337d2a3d568a7b21d",
+    "semantic_hash": "ab8d71fa0a81ecc337d2a3d568a7b21d"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\ui\\src\\components\\card.tsx": {
+    "mtime": 1780660414.462579,
+    "ast_hash": "1e8d9141c658969ba9d1002c792525e2",
+    "semantic_hash": "1e8d9141c658969ba9d1002c792525e2"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\packages\\ui\\src\\components\\status-pill.tsx": {
+    "mtime": 1780660437.7912726,
+    "ast_hash": "4f9451b19835cf89a62c9bec3b3b6727",
+    "semantic_hash": "4f9451b19835cf89a62c9bec3b3b6727"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\check-env.js": {
+    "mtime": 1780653804.1219926,
+    "ast_hash": "e22ea54b0fa8b23f83d8b38a95adba3c",
+    "semantic_hash": "e22ea54b0fa8b23f83d8b38a95adba3c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\check-licenses.mjs": {
+    "mtime": 1780662239.858796,
+    "ast_hash": "54cfbf97a14a8acfbd9ad487e8dface5",
+    "semantic_hash": "54cfbf97a14a8acfbd9ad487e8dface5"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\dump-env.js": {
+    "mtime": 1780653823.0392451,
+    "ast_hash": "51dd6b785dd05f77b1b7b12ac162b8a2",
+    "semantic_hash": "51dd6b785dd05f77b1b7b12ac162b8a2"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\e2e-login-test.js": {
+    "mtime": 1780658512.617025,
+    "ast_hash": "cecd452e134fa24659c5cde0ce799319",
+    "semantic_hash": "cecd452e134fa24659c5cde0ce799319"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\e2e-test.js": {
+    "mtime": 1780657912.2384956,
+    "ast_hash": "b568f88400ede44687dd95963b1140c1",
+    "semantic_hash": "b568f88400ede44687dd95963b1140c1"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\final-check.js": {
+    "mtime": 1780658619.0362637,
+    "ast_hash": "206ff60e14d7979f2386047c2f80f085",
+    "semantic_hash": "206ff60e14d7979f2386047c2f80f085"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\get-pw.js": {
+    "mtime": 1780670828.2453904,
+    "ast_hash": "f1d93d1813b04d6eb86f2d0ad0330d85",
+    "semantic_hash": "f1d93d1813b04d6eb86f2d0ad0330d85"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\list-licenses.mjs": {
+    "mtime": 1780661764.772902,
+    "ast_hash": "5972d9a23a5b87b43bdda55d8677d04c",
+    "semantic_hash": "5972d9a23a5b87b43bdda55d8677d04c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\page-check.js": {
+    "mtime": 1780657944.8514142,
+    "ast_hash": "6e7aa555bcaa90884fb0ec4b157c062d",
+    "semantic_hash": "6e7aa555bcaa90884fb0ec4b157c062d"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\scripts\\verify-form.js": {
+    "mtime": 1780658478.4051955,
+    "ast_hash": "083b4535f544194c27139057d05f0e8b",
+    "semantic_hash": "083b4535f544194c27139057d05f0e8b"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\CHANGELOG.md": {
+    "mtime": 1780653626.0902245,
+    "ast_hash": "cd363739e072661330e99776994d49a3",
+    "semantic_hash": "cd363739e072661330e99776994d49a3"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\docker-compose.yml": {
+    "mtime": 1780660799.1822803,
+    "ast_hash": "d34977d6412a1e9ad3e79528304bd4db",
+    "semantic_hash": "d34977d6412a1e9ad3e79528304bd4db"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\LICENSES.md": {
+    "mtime": 1780662167.4282289,
+    "ast_hash": "e1b4d0483aa180f3eb552fffa63b04f0",
+    "semantic_hash": "e1b4d0483aa180f3eb552fffa63b04f0"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\pnpm-workspace.yaml": {
+    "mtime": 1780602422.8955653,
+    "ast_hash": "e95dd33bf7f67a1e417178cfd1535360",
+    "semantic_hash": "e95dd33bf7f67a1e417178cfd1535360"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\.agent\\AGENTS.md": {
+    "mtime": 1780526044.9134004,
+    "ast_hash": "1388977a7520725a583be9466fe2fdab",
+    "semantic_hash": "1388977a7520725a583be9466fe2fdab"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\.agent\\hermes-persona.md": {
+    "mtime": 1780524853.143517,
+    "ast_hash": "de249ce4aa2e09598f98d6265f50d738",
+    "semantic_hash": "de249ce4aa2e09598f98d6265f50d738"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\.github\\PULL_REQUEST_TEMPLATE.md": {
+    "mtime": 1780611179.9580517,
+    "ast_hash": "3b3f7d7e8bc34cb8736a63d036f5d627",
+    "semantic_hash": "3b3f7d7e8bc34cb8736a63d036f5d627"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\.github\\workflows\\ci.yml": {
+    "mtime": 1780661205.9778383,
+    "ast_hash": "10c341e8cc58826de5223260504895dd",
+    "semantic_hash": "10c341e8cc58826de5223260504895dd"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\apps\\ai-service\\requirements.txt": {
+    "mtime": 1780660181.1256635,
+    "ast_hash": "d8feefd37b64f5d1ca87352a43134bf3",
+    "semantic_hash": "d8feefd37b64f5d1ca87352a43134bf3"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\docs\\GITHUB_SETUP.md": {
+    "mtime": 1780616101.573062,
+    "ast_hash": "779e8a8d5742f2de39dd43a4889317f6",
+    "semantic_hash": "779e8a8d5742f2de39dd43a4889317f6"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\docs\\plans\\2026-06-04-api-gateway-scaffolding.md": {
+    "mtime": 1780600679.1056836,
+    "ast_hash": "071a8db0a5fb23cfc102a26b4228e901",
+    "semantic_hash": "071a8db0a5fb23cfc102a26b4228e901"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\docs\\plans\\2026-06-04-foundation-monorepo-setup.md": {
+    "mtime": 1780590770.557331,
+    "ast_hash": "7d55b576d29df7099e35de95b1410431",
+    "semantic_hash": "7d55b576d29df7099e35de95b1410431"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\docs\\plans\\2026-06-04-web-scaffolding.md": {
+    "mtime": 1780648872.1841257,
+    "ast_hash": "f30324546759d0e39535368f953523dd",
+    "semantic_hash": "f30324546759d0e39535368f953523dd"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\README.md": {
+    "mtime": 1780653615.1515985,
+    "ast_hash": "67f4c2061a567b42ac1c152fcefee5b9",
+    "semantic_hash": "67f4c2061a567b42ac1c152fcefee5b9"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\AI_SERVICE_SPEC.md": {
+    "mtime": 1780582998.0066261,
+    "ast_hash": "0b15ad52b6cc8302a43ea11aec492bf7",
+    "semantic_hash": "0b15ad52b6cc8302a43ea11aec492bf7"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\DATA_RETENTION.md": {
+    "mtime": 1780523718.123675,
+    "ast_hash": "aa976a0a7d3af82b94ad15e7551a103c",
+    "semantic_hash": "aa976a0a7d3af82b94ad15e7551a103c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\DEPLOYMENT_STRATEGY.md": {
+    "mtime": 1780523790.2264025,
+    "ast_hash": "88e4f8f25acf8db1630599e291d5a96e",
+    "semantic_hash": "88e4f8f25acf8db1630599e291d5a96e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\DIGITAL_TWIN_VIEWER_SPEC.md": {
+    "mtime": 1780523666.2972097,
+    "ast_hash": "9aa3a8cc0bb26dc115b0cc2250c46f3f",
+    "semantic_hash": "9aa3a8cc0bb26dc115b0cc2250c46f3f"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\ENTERPRISE_REQUIREMENTS.md": {
+    "mtime": 1780523614.4639833,
+    "ast_hash": "fc5f87b59e12c0a57af35e053d52b2f7",
+    "semantic_hash": "fc5f87b59e12c0a57af35e053d52b2f7"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\FULL_PRODUCT_ROADMAP.md": {
+    "mtime": 1780582526.2484276,
+    "ast_hash": "2e31f58a808cdb0200588cce57203ed7",
+    "semantic_hash": "2e31f58a808cdb0200588cce57203ed7"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\IOT_INTEGRATION_STRATEGY.md": {
+    "mtime": 1780523642.54549,
+    "ast_hash": "91d75421e40db1beeac8a117d709a7ad",
+    "semantic_hash": "91d75421e40db1beeac8a117d709a7ad"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\MOBILE_PWA_STRATEGY.md": {
+    "mtime": 1780523810.7904894,
+    "ast_hash": "54eeec4e27a9cce841fb5c186145e08d",
+    "semantic_hash": "54eeec4e27a9cce841fb5c186145e08d"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\OBSERVABILITY.md": {
+    "mtime": 1780523741.4941552,
+    "ast_hash": "efcece2277e4e321664a208325ae803a",
+    "semantic_hash": "efcece2277e4e321664a208325ae803a"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\POST_MVP_ARCHITECTURE.md": {
+    "mtime": 1780523591.4456837,
+    "ast_hash": "0d02740c47379c8876f035fa007aecc7",
+    "semantic_hash": "0d02740c47379c8876f035fa007aecc7"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\README.md": {
+    "mtime": 1780582618.901433,
+    "ast_hash": "3a4d6f3294e03339cba18d0fb45387e1",
+    "semantic_hash": "3a4d6f3294e03339cba18d0fb45387e1"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\REPORTING_ANALYTICS.md": {
+    "mtime": 1780523833.0651016,
+    "ast_hash": "9f8fc16187baa16d5d99dc7330bc481e",
+    "semantic_hash": "9f8fc16187baa16d5d99dc7330bc481e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\full_product\\SECURITY_EXPANSION.md": {
+    "mtime": 1780523767.1245656,
+    "ast_hash": "7084fe713489e79346084cbf54eed31d",
+    "semantic_hash": "7084fe713489e79346084cbf54eed31d"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\API_CONTRACTS.md": {
+    "mtime": 1780582488.8923178,
+    "ast_hash": "480ddeccf722267d9c7f66f4850d4a11",
+    "semantic_hash": "480ddeccf722267d9c7f66f4850d4a11"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\ARCHITECTURE.md": {
+    "mtime": 1780582442.925638,
+    "ast_hash": "f305b0d8033b452f3de6acdf44fc67a8",
+    "semantic_hash": "f305b0d8033b452f3de6acdf44fc67a8"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\CONTRIBUTING.md": {
+    "mtime": 1780616101.5740733,
+    "ast_hash": "06c5b281d09547e42bb78c3f2aa2a86f",
+    "semantic_hash": "06c5b281d09547e42bb78c3f2aa2a86f"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\DATABASE_SCHEMA.md": {
+    "mtime": 1780522324.4392543,
+    "ast_hash": "9bcc7e4bdaf61a92dd802bee1293732b",
+    "semantic_hash": "9bcc7e4bdaf61a92dd802bee1293732b"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\DEPLOYMENT.md": {
+    "mtime": 1780518388.2347991,
+    "ast_hash": "ad0c92b980e329f95301c341a5af911d",
+    "semantic_hash": "ad0c92b980e329f95301c341a5af911d"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\EXPO_EXECUTION_PLAN.md": {
+    "mtime": 1780589964.5393195,
+    "ast_hash": "030f541d785a89801d9232e045436a7c",
+    "semantic_hash": "030f541d785a89801d9232e045436a7c"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\FILE_STRUCTURE.md": {
+    "mtime": 1780522594.2893016,
+    "ast_hash": "c7c4fe5b4d012ffdfc4448a7eeb05fe4",
+    "semantic_hash": "c7c4fe5b4d012ffdfc4448a7eeb05fe4"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\MAINTENANCE_MODULE_SPEC.md": {
+    "mtime": 1780582334.670846,
+    "ast_hash": "644b0fad4be1152b6b54a0e07e86fa69",
+    "semantic_hash": "644b0fad4be1152b6b54a0e07e86fa69"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\MVP_SCOPE.md": {
+    "mtime": 1780590527.6086743,
+    "ast_hash": "72f3a6987ee1772d47f34e5d129878b9",
+    "semantic_hash": "72f3a6987ee1772d47f34e5d129878b9"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\REALTIME_EVENTS.md": {
+    "mtime": 1780522378.6711323,
+    "ast_hash": "1ca9533a41fe05f439f63605edf4982b",
+    "semantic_hash": "1ca9533a41fe05f439f63605edf4982b"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\ROADMAP.md": {
+    "mtime": 1780582243.621212,
+    "ast_hash": "5c6510a28a8ebe43d9b20cb3a9a5954e",
+    "semantic_hash": "5c6510a28a8ebe43d9b20cb3a9a5954e"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\SECURITY.md": {
+    "mtime": 1780582701.4241598,
+    "ast_hash": "952942c9358560b91573bcf442f45dac",
+    "semantic_hash": "952942c9358560b91573bcf442f45dac"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\SECURITY_AUDIT.md": {
+    "mtime": 1780673513.8942695,
+    "ast_hash": "4cbcdd70b962335ef3aaa333d0d464ba",
+    "semantic_hash": "4cbcdd70b962335ef3aaa333d0d464ba"
+  },
+  "C:\\Users\\sahil\\Projects\\Digital-Twinn\\documents\\mvp\\TECHNICAL_PRD.md": {
+    "mtime": 1780522584.9797115,
+    "ast_hash": "37bfe1771ad90c180bb83736ddf49d4b",
+    "semantic_hash": "37bfe1771ad90c180bb83736ddf49d4b"
+  }
+}

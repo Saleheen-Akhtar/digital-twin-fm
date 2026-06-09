@@ -1,21 +1,12 @@
-export interface SensorDto {
-  id: string;
-  assetId: string;
-  type: string; // temperature | humidity | power | vibration | co2 | occupancy | pressure | flow
-  unit: string;
-  status: string;
-  thresholdLow: number | null;
-  thresholdHigh: number | null;
-  lastValue: number | null;
-  lastReadingAt: string | null;
-  createdAt: string;
-}
+import type { Sensor, SensorReading } from '@digital-twin-fm/types';
 
-export interface SensorReadingDto {
-  id: string;
-  sensorId: string;
-  assetId: string;
-  timestamp: string;
-  value: number;
-  quality: string; // good | uncertain | bad
-}
+/**
+ * Response shapes for the sensors endpoints.
+ *
+ * Per Finding 23 (Medium): these used to be locally-defined interfaces
+ * with `type: string` and `status: string` (no enum safety). The fix
+ * is to alias the shared types from `@digital-twin-fm/types` so the
+ * `SensorType` / `AssetStatus` / `ReadingQuality` unions propagate.
+ */
+export type SensorDto = Sensor;
+export type SensorReadingDto = SensorReading;

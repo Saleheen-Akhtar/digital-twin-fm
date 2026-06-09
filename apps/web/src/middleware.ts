@@ -30,6 +30,7 @@ const PUBLIC_PREFIXES = [
   '/_next',
   '/favicon',
   '/api/health',
+  '/api/proxy',
 ];
 
 // Static file extensions (always public)

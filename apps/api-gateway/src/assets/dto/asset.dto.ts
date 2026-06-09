@@ -1,18 +1,13 @@
-export interface AssetDto {
-  id: string;
-  buildingId: string;
-  floorId: string | null;
-  roomId: string | null;
-  name: string;
-  type: string; // ahu | chiller | boiler | pump | fan | elevator | lighting | sensor_only | other
-  status: string; // ok | warning | critical | offline | info
-  manufacturer: string | null;
-  model: string | null;
-  serialNumber: string | null;
-  installedAt: string | null;
-  positionX: number | null;
-  positionY: number | null;
-  positionZ: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { Asset } from '@digital-twin-fm/types';
+
+/**
+ * Response shape for `GET /api/assets` and `GET /api/assets/:id`.
+ *
+ * Per Finding 23 (Medium): the previous version of this file defined its
+ * own `AssetDto` interface with string-typed `type` and `status` (no
+ * enum safety), and the web-side api-client defined yet another shape.
+ * The fix is to extend the single source of truth in
+ * `@digital-twin-fm/types`. The `AssetType` / `AssetStatus` unions
+ * from there are now picked up automatically.
+ */
+export type AssetDto = Asset;

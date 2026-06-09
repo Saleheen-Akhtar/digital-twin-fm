@@ -29,7 +29,8 @@ export type UserRole = "admin" | "facility_manager" | "technician" | "viewer";
 export interface Building {
   id: string;
   name: string;
-  address?: string;
+  address?: string | null;
+  totalFloors: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,8 +50,8 @@ export interface Asset {
   positionX?: number | null; // for 3D marker
   positionY?: number | null;
   positionZ?: number | null;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Sensor {
@@ -63,7 +64,7 @@ export interface Sensor {
   thresholdHigh?: number | null;
   lastValue?: number | null;
   lastReadingAt?: string | null;
-  createdAt?: string;
+  createdAt: string;
 }
 
 export interface SensorReading {

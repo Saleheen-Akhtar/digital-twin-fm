@@ -1,12 +1,11 @@
-export interface AlertDto {
-  id: string;
-  sensorId: string | null;
-  assetId: string | null;
-  severity: string; // low | medium | high | critical
-  status: string; // open | acknowledged | in_progress | resolved | cancelled
-  message: string;
-  acknowledgedBy: string | null;
-  acknowledgedAt: string | null;
-  resolvedAt: string | null;
-  createdAt: string;
-}
+import type { Alert } from '@digital-twin-fm/types';
+
+/**
+ * Response shape for `GET /api/alerts` and `GET /api/alerts/:id`.
+ *
+ * Per Finding 23 (Medium): was a locally-defined interface with
+ * `severity: string` / `status: string`. Now aliases the shared
+ * `Alert` from `@digital-twin-fm/types` so the `AlertSeverity` and
+ * `AlertStatus` unions propagate.
+ */
+export type AlertDto = Alert;

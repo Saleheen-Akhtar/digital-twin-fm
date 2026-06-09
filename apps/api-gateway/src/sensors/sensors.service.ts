@@ -16,12 +16,14 @@ export class SensorsService {
   constructor(@Inject('DB') private readonly db: NodePgDatabase) {}
 
   async findAll(): Promise<SensorDto[]> {
-    return this.db.select().from(sensors);
+    const rows = await this.db.select().from(sensors);
+    return this.withLatestReadings(rows);
   }
 
   async findOne(id: string): Promise<SensorDto | null> {
     const rows = await this.db.select().from(sensors).where(eq(sensors.id, id)).limit(1);
-    return rows[0] ?? null;
+    const hydrated = await this.withLatestReadings(rows);
+    return hydrated[0] ?? null;
   }
 
   async findReadings(filter: ListReadingsFilter): Promise<SensorReadingDto[]> {
@@ -35,5 +37,21 @@ export class SensorsService {
       .orderBy(desc(sensorReadings.timestamp))
       .limit(filter.limit ?? 100);
     return rows as SensorReadingDto[];
+  }
+
+  private async withLatestReadings(rows: SensorDto[]): Promise<SensorDto[]> {
+    return Promise.all(
+      rows.map(async (sensor) => {
+        if (sensor.lastValue != null && sensor.lastReadingAt != null) return sensor;
+        const latest = await this.findReadings({ sensorId: sensor.id, limit: 1 });
+        const reading = latest[0];
+        if (!reading) return sensor;
+        return {
+          ...sensor,
+          lastValue: reading.value,
+          lastReadingAt: reading.timestamp,
+        };
+      }),
+    );
   }
 }

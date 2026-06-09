@@ -86,75 +86,337 @@ function friendlyName(a: ViewerAsset): string {
 // A 5-floor building outline. Real dimensions are picked to feel like
 // a Singapore Expo-style hall: 40m wide × 30m deep × 18m tall (5 floors × 3.6m).
 function ProceduralBuilding({ floorCount = 5 }: { floorCount?: number }) {
-  const W = 30; // width
-  const D = 24; // depth
-  const H = 3.6; // floor height
-  const totalH = H * floorCount;
-  const halfW = W / 2;
-  const halfD = D / 2;
-  const cx = 0; // centered
-  const cz = 0;
+  // ─── Dimensions: a modern office tower ───
+  // Main tower is taller than wide (realistic proportions),
+  // a 2m podium at the base, and a rooftop penthouse.
+  const towerW = 18;
+  const towerD = 14;
+  const floorH = 4.2;          // generous floor height
+  const totalH = floorH * floorCount;
+  const halfW = towerW / 2;
+  const halfD = towerD / 2;
+  const podiumH = 2.2;
+  const podiumW = towerW + 3;
+  const podiumD = towerD + 3;
+  const halfPodiumW = podiumW / 2;
+  const halfPodiumD = podiumD / 2;
+  const mullionT = 0.12;       // window frame thickness
+  const slabT = 0.35;          // floor slab thickness (visible between glass)
+
+  // Mullion grid: 5 columns × 3 rows of glass panels per floor
+  const mullionCols = 5;
+  const mullionRows = 3;
 
   return (
     <group>
-      {/* Main building shell — semi-transparent so we can see through */}
-      <mesh position={[cx, totalH / 2, cz]} castShadow receiveShadow>
-        <boxGeometry args={[W, totalH, D]} />
-        <meshStandardMaterial
-          color="#1f2937"
-          metalness={0.05}
-          roughness={0.85}
-          transparent
-          opacity={0.18}
-        />
-        <Edges color="#64748b" linewidth={1} />
+      {/* ─── Ground plane (matches dashboard light theme) ─── */}
+      <mesh
+        position={[0, -0.01, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[120, 120]} />
+        <meshStandardMaterial color="#e8eef7" roughness={0.95} metalness={0} />
       </mesh>
+      {/* Subtle grid lines on ground (architectural feel) */}
+      <Grid
+        args={[120, 120]}
+        cellSize={2}
+        cellThickness={0.3}
+        cellColor="#d4dce8"
+        sectionSize={10}
+        sectionThickness={0.6}
+        sectionColor="#c2cbdc"
+        position={[0, 0, 0]}
+      />
 
-      {/* Floor plates — stacked, each one slightly lighter */}
-      {Array.from({ length: floorCount }, (_, i) => {
-        const y = i * H + H / 2;
+      {/* ─── Podium (base, slightly wider than tower) ─── */}
+      <mesh position={[0, podiumH / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[podiumW, podiumH, podiumD]} />
+        <meshStandardMaterial
+          color="#94a3b8"
+          roughness={0.7}
+          metalness={0.1}
+        />
+      </mesh>
+      {/* Podium entrance — a darker recessed panel on the front */}
+      <mesh position={[0, podiumH / 2, halfPodiumD - 0.05]}>
+        <boxGeometry args={[6, 1.6, 0.1]} />
+        <meshStandardMaterial color="#475569" roughness={0.4} metalness={0.3} />
+      </mesh>
+      {/* Entrance canopy */}
+      <mesh position={[0, podiumH - 0.15, halfPodiumD + 1.5]} castShadow>
+        <boxGeometry args={[7, 0.15, 2.5]} />
+        <meshStandardMaterial color="#64748b" roughness={0.5} metalness={0.2} />
+      </mesh>
+      {/* Canopy support columns */}
+      {[-3, 3].map((x) => (
+        <mesh key={`canopy-col-${x}`} position={[x, podiumH / 2 - 0.15, halfPodiumD + 1.5]} castShadow>
+          <boxGeometry args={[0.2, podiumH - 0.3, 0.2]} />
+          <meshStandardMaterial color="#475569" />
+        </mesh>
+      ))}
+
+      {/* ─── Main tower: glass curtain wall with visible slabs ─── */}
+      {Array.from({ length: floorCount }, (_, floorI) => {
+        const yBase = podiumH + floorI * floorH;
+        const yCenter = yBase + floorH / 2;
+        const panelH = (floorH - slabT) / mullionRows;
+        const panelW = towerW / mullionCols;
         return (
-          <mesh key={i} position={[cx, y, cz]} receiveShadow>
-            <boxGeometry args={[W, 0.08, D]} />
-            <meshStandardMaterial
-              color={i % 2 === 0 ? "#374151" : "#4b5563"}
-              metalness={0.1}
-              roughness={0.7}
-              transparent
-              opacity={0.4}
-            />
-          </mesh>
+          <group key={`tower-floor-${floorI}`}>
+            {/* Floor slab (concrete, visible as horizontal band) */}
+            <mesh position={[0, yBase, 0]} castShadow receiveShadow>
+              <boxGeometry args={[towerW + 0.3, slabT, towerD + 0.3]} />
+              <meshStandardMaterial
+                color="#e2e8f0"
+                roughness={0.85}
+                metalness={0.05}
+              />
+            </mesh>
+
+            {/* Glass panels — front */}
+            {Array.from({ length: mullionRows }, (_, row) =>
+              Array.from({ length: mullionCols }, (_, col) => {
+                const x = -halfW + panelW * (col + 0.5);
+                const y = yBase + slabT / 2 + panelH * (row + 0.5);
+                return (
+                  <mesh key={`gf-${floorI}-${row}-${col}`} position={[x, y, halfD - 0.05]}>
+                    <boxGeometry args={[panelW * 0.92, panelH * 0.88, 0.08]} />
+                    <meshPhysicalMaterial
+                      color="#5b8fd9"
+                      metalness={0.1}
+                      roughness={0.05}
+                      transmission={0.6}
+                      transparent
+                      opacity={0.55}
+                      ior={1.5}
+                    />
+                  </mesh>
+                );
+              })
+            )}
+
+            {/* Glass panels — back */}
+            {Array.from({ length: mullionRows }, (_, row) =>
+              Array.from({ length: mullionCols }, (_, col) => {
+                const x = -halfW + panelW * (col + 0.5);
+                const y = yBase + slabT / 2 + panelH * (row + 0.5);
+                return (
+                  <mesh key={`gb-${floorI}-${row}-${col}`} position={[x, y, -halfD + 0.05]}>
+                    <boxGeometry args={[panelW * 0.92, panelH * 0.88, 0.08]} />
+                    <meshPhysicalMaterial
+                      color="#5b8fd9"
+                      metalness={0.1}
+                      roughness={0.05}
+                      transmission={0.6}
+                      transparent
+                      opacity={0.55}
+                      ior={1.5}
+                    />
+                  </mesh>
+                );
+              })
+            )}
+
+            {/* Glass panels — left */}
+            {Array.from({ length: mullionRows }, (_, row) =>
+              Array.from({ length: mullionCols }, (_, col) => {
+                const z = -halfD + panelW * (col + 0.5);
+                const y = yBase + slabT / 2 + panelH * (row + 0.5);
+                return (
+                  <mesh key={`gl-${floorI}-${row}-${col}`} position={[-halfW + 0.05, y, z]}>
+                    <boxGeometry args={[0.08, panelH * 0.88, panelW * 0.92]} />
+                    <meshPhysicalMaterial
+                      color="#5b8fd9"
+                      metalness={0.1}
+                      roughness={0.05}
+                      transmission={0.6}
+                      transparent
+                      opacity={0.55}
+                      ior={1.5}
+                    />
+                  </mesh>
+                );
+              })
+            )}
+
+            {/* Glass panels — right */}
+            {Array.from({ length: mullionRows }, (_, row) =>
+              Array.from({ length: mullionCols }, (_, col) => {
+                const z = -halfD + panelW * (col + 0.5);
+                const y = yBase + slabT / 2 + panelH * (row + 0.5);
+                return (
+                  <mesh key={`gr-${floorI}-${row}-${col}`} position={[halfW - 0.05, y, z]}>
+                    <boxGeometry args={[0.08, panelH * 0.88, panelW * 0.92]} />
+                    <meshPhysicalMaterial
+                      color="#5b8fd9"
+                      metalness={0.1}
+                      roughness={0.05}
+                      transmission={0.6}
+                      transparent
+                      opacity={0.55}
+                      ior={1.5}
+                    />
+                  </mesh>
+                );
+              })
+            )}
+
+            {/* Vertical mullions (window frames) — front + back */}
+            {Array.from({ length: mullionCols + 1 }, (_, i) => {
+              const x = -halfW + panelW * i;
+              return (
+                <group key={`mv-${floorI}-${i}`}>
+                  <mesh position={[x, yCenter, halfD - 0.02]}>
+                    <boxGeometry args={[mullionT, floorH - slabT, mullionT]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                  <mesh position={[x, yCenter, -halfD + 0.02]}>
+                    <boxGeometry args={[mullionT, floorH - slabT, mullionT]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                </group>
+              );
+            })}
+
+            {/* Vertical mullions — left + right */}
+            {Array.from({ length: mullionCols + 1 }, (_, i) => {
+              const z = -halfD + panelW * i;
+              return (
+                <group key={`mvl-${floorI}-${i}`}>
+                  <mesh position={[-halfW + 0.02, yCenter, z]}>
+                    <boxGeometry args={[mullionT, floorH - slabT, mullionT]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                  <mesh position={[halfW - 0.02, yCenter, z]}>
+                    <boxGeometry args={[mullionT, floorH - slabT, mullionT]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                </group>
+              );
+            })}
+
+            {/* Horizontal mullions (mid-rail of each panel row) */}
+            {Array.from({ length: mullionRows - 1 }, (_, i) => {
+              const y = yBase + slabT / 2 + panelH * (i + 1);
+              return (
+                <group key={`mh-${floorI}-${i}`}>
+                  {/* front + back */}
+                  <mesh position={[0, y, halfD - 0.02]}>
+                    <boxGeometry args={[towerW, mullionT * 0.8, mullionT]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                  <mesh position={[0, y, -halfD + 0.02]}>
+                    <boxGeometry args={[towerW, mullionT * 0.8, mullionT]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                  {/* left + right */}
+                  <mesh position={[-halfW + 0.02, y, 0]}>
+                    <boxGeometry args={[mullionT, mullionT * 0.8, towerD]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                  <mesh position={[halfW - 0.02, y, 0]}>
+                    <boxGeometry args={[mullionT, mullionT * 0.8, towerD]} />
+                    <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                  </mesh>
+                </group>
+              );
+            })}
+          </group>
         );
       })}
 
-      {/* Floor labels — floating HTML above each plate (no font loading needed) */}
+      {/* ─── Rooftop structure (penthouse + mechanical equipment) ─── */}
+      <mesh position={[0, podiumH + totalH + 0.6, 0]} castShadow>
+        <boxGeometry args={[towerW + 1, 1.2, towerD + 1]} />
+        <meshStandardMaterial color="#cbd5e1" roughness={0.7} metalness={0.1} />
+      </mesh>
+      {/* Mechanical boxes on roof */}
+      {[
+        [-5, 0, -3],
+        [5, 0, -3],
+        [-5, 0, 3],
+        [5, 0, 3],
+        [0, 0, 0],
+      ].map(([x, , z], i) => (
+        <mesh key={`mech-${i}`} position={[x, podiumH + totalH + 1.8, z]} castShadow>
+          <boxGeometry args={[1.5, 1, 1.5]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.5} metalness={0.4} />
+        </mesh>
+      ))}
+      {/* Antenna on roof */}
+      <mesh position={[0, podiumH + totalH + 3.5, 0]} castShadow>
+        <cylinderGeometry args={[0.05, 0.05, 3, 8]} />
+        <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.2} />
+      </mesh>
+
+      {/* ─── Corner columns (structural, visible at corners) ─── */}
+      {[
+        [-halfW, -halfD],
+        [halfW, -halfD],
+        [-halfW, halfD],
+        [halfW, halfD],
+      ].map(([x, z], i) => (
+        <mesh key={`col-${i}`} position={[x, podiumH + totalH / 2, z]} castShadow>
+          <boxGeometry args={[0.5, totalH, 0.5]} />
+          <meshStandardMaterial color="#64748b" metalness={0.5} roughness={0.4} />
+        </mesh>
+      ))}
+
+      {/* ─── Floor labels (matching dashboard badge style) ─── */}
       {Array.from({ length: floorCount }, (_, i) => {
-        const y = i * H + H + 0.6;
+        const y = podiumH + i * floorH + floorH + 0.8;
         return (
           <Html
             key={`label-${i}`}
-            position={[halfW + 1.2, y, cz]}
+            position={[halfW + 1.5, y, 0]}
             center
             style={{ pointerEvents: "none" }}
           >
-            <div className="px-2 py-0.5 text-xs bg-neutral-800/80 text-neutral-300 rounded border border-neutral-700">
+            <div
+              style={{
+                background: "white",
+                border: "1px solid #c9d6ff",
+                borderRadius: "12px",
+                padding: "4px 10px",
+                color: "#1e4fd8",
+                fontSize: "11px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                boxShadow: "0 4px 12px rgba(15,23,42,0.06)",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+              }}
+            >
               Level {i + 1}
             </div>
           </Html>
         );
       })}
 
-      {/* Roof */}
-      <mesh position={[cx, totalH + 0.1, cz]}>
-        <boxGeometry args={[W + 0.4, 0.2, D + 0.4]} />
-        <meshStandardMaterial color="#0f172a" />
-      </mesh>
-
-      {/* Building outline — wireframe edges for clarity */}
-      <lineSegments>
-        <edgesGeometry args={[new THREE.BoxGeometry(W, totalH, D)]} />
-        <lineBasicMaterial color="#475569" />
-      </lineSegments>
+      {/* ─── Entrance label ─── */}
+      <Html
+        position={[0, podiumH / 2, halfPodiumD + 3]}
+        center
+        style={{ pointerEvents: "none" }}
+      >
+        <div
+          style={{
+            background: "white",
+            border: "1px solid #c9d6ff",
+            borderRadius: "12px",
+            padding: "4px 10px",
+            color: "#1e4fd8",
+            fontSize: "11px",
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 12px rgba(15,23,42,0.06)",
+            fontFamily: "system-ui, -apple-system, sans-serif",
+          }}
+        >
+          Main Entrance
+        </div>
+      </Html>
     </group>
   );
 }
@@ -316,43 +578,25 @@ export function DigitalTwinViewer({
   onSelectAsset,
 }: DigitalTwinViewerProps) {
   return (
-    <div className="w-full h-[640px] bg-neutral-900 rounded-lg overflow-hidden relative" data-testid="digital-twin-viewer">
+    <div className="w-full h-[640px] bg-[#f7f9fd] rounded-lg overflow-hidden relative" data-testid="digital-twin-viewer">
       <Canvas
         camera={{ position: [22, 18, 28], fov: 50 }}
         shadows
         gl={{ antialias: true }}
       >
         <Suspense fallback={null}>
-          {/* Lighting */}
-          <ambientLight intensity={0.5} />
+          {/* Lighting — tuned for light theme + glass building */}
+          <ambientLight intensity={0.7} />
           <directionalLight
             position={[15, 25, 10]}
-            intensity={0.8}
+            intensity={1.2}
             castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
+            shadow-mapSize-width={2048}
+            shadow-mapSize-height={2048}
           />
-          <hemisphereLight args={["#a3b8c8", "#1a1f2e", 0.4]} />
+          <hemisphereLight args={["#e8eef7", "#94a3b8", 0.6]} />
 
-          {/* Ground */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-            <planeGeometry args={[80, 80]} />
-            <meshStandardMaterial color="#0a0e1a" roughness={0.9} />
-          </mesh>
-          <Grid
-            args={[80, 80]}
-            cellSize={1}
-            cellThickness={0.5}
-            cellColor="#1f2937"
-            sectionSize={5}
-            sectionThickness={1}
-            sectionColor="#374151"
-            fadeDistance={60}
-            infiniteGrid
-            position={[0, 0.01, 0]}
-          />
-
-          {/* Procedural building */}
+          {/* Procedural building (includes its own ground plane + grid) */}
           <ProceduralBuilding floorCount={5} />
 
           {/* Asset markers */}
@@ -372,16 +616,16 @@ export function DigitalTwinViewer({
         </Suspense>
       </Canvas>
 
-      {/* Header overlay */}
-      <div className="absolute top-3 left-3 bg-black/70 backdrop-blur border border-neutral-700 rounded px-3 py-2 pointer-events-none">
-        <div className="text-xs text-neutral-400">Digital Twin</div>
-        <div className="text-sm font-medium text-white">
+      {/* Header overlay — dashboard-style white card */}
+      <div className="absolute top-3 left-3 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] px-4 py-2 pointer-events-none">
+        <div className="text-xs text-slate-500">Digital Twin</div>
+        <div className="text-sm font-medium text-slate-900">
           {assets.length} {assets.length === 1 ? "asset" : "assets"}
         </div>
       </div>
 
-      {/* Controls hint */}
-      <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur border border-neutral-700 rounded px-3 py-2 pointer-events-none text-xs text-neutral-400">
+      {/* Controls hint — dashboard-style white card */}
+      <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur border border-slate-200 rounded-2xl shadow-[0_8px_24px_rgba(15,23,42,0.04)] px-4 py-2 pointer-events-none text-xs text-slate-500">
         Drag to rotate · Scroll to zoom · Click marker to inspect
       </div>
     </div>

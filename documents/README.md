@@ -36,6 +36,7 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 | [MAINTENANCE_MODULE_SPEC.md](./mvp/MAINTENANCE_MODULE_SPEC.md) | Asset registry MVP scope and deferred post-MVP CMMS/work-order workflows |
 | [EXPO_EXECUTION_PLAN.md](./mvp/EXPO_EXECUTION_PLAN.md) | Expo-specific demo strategy focusing on Digital Twin and AI impact |
 | [SECURITY.md](./mvp/SECURITY.md) | Authentication, RBAC, secrets, ingestion, and AI security boundaries |
+| [SECURITY_AUDIT.md](./mvp/SECURITY_AUDIT.md) | 2026-06-05 code review: 21 findings (5 critical, 7 high, 7 medium, 3 low) with concrete code fixes |
 | [SECRETS_MANAGEMENT.md](./mvp/SECRETS_MANAGEMENT.md) | MVP Infisical secrets-management strategy and local fallback rules |
 | [FILE_STRUCTURE.md](./mvp/FILE_STRUCTURE.md) | Full directory breakdown and team ownership |
 | [CONTRIBUTING.md](./mvp/CONTRIBUTING.md) | Branch strategy, code standards, PR and review process |
