@@ -31,6 +31,7 @@ const PUBLIC_PREFIXES = [
   '/favicon',
   '/api/health',
   '/api/proxy',
+  '/',           // landing page — no auth required
 ];
 
 // Static file extensions (always public)
