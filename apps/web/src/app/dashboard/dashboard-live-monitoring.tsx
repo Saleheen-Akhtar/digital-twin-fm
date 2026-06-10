@@ -65,6 +65,7 @@ export function DashboardLiveMonitoring({
   const [lastUpdated, setLastUpdated] = useState(() => new Date());
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [countdown, setCountdown] = useState(10);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,9 +88,13 @@ export function DashboardLiveMonitoring({
 
     void refreshSensors();
     const timer = window.setInterval(refreshSensors, 10_000);
+    const countdownTimer = window.setInterval(() => {
+      setCountdown((c) => (c <= 1 ? 10 : c - 1));
+    }, 1_000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      window.clearInterval(countdownTimer);
     };
   }, []);
 
@@ -103,7 +108,7 @@ export function DashboardLiveMonitoring({
               ? "Sensors unavailable"
               : error
               ? error
-              : `Updated ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+              : `Updated ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · Live ${countdown}s`}
           </p>
         </div>
         <button className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-[13px] text-slate-500">

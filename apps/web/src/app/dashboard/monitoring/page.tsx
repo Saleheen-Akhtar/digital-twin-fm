@@ -58,6 +58,7 @@ export default function MonitoringPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChart, setSelectedChart] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(10);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +81,11 @@ export default function MonitoringPage() {
 
     fetchSensors();
     const timer = window.setInterval(fetchSensors, 10_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    // Countdown tick every second
+    const countdownTimer = window.setInterval(() => {
+      setCountdown((c) => (c <= 1 ? 10 : c - 1));
+    }, 1_000);
+    return () => { cancelled = true; window.clearInterval(timer); window.clearInterval(countdownTimer); };
   }, []);
 
   const onlineSensors = sensors.filter((s) => s.lastValue != null).length;
@@ -115,7 +120,7 @@ export default function MonitoringPage() {
           {!loading && !error && (
             <div className="flex items-center gap-2 text-[13px] text-emerald-600">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Live · 10s refresh
+              Live · {countdown}s
             </div>
           )}
         </section>

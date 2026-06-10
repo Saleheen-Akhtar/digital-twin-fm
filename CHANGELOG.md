@@ -107,7 +107,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.1.3] - 2026-06-04
 
 ### Added
-- Added `documents/mvp/EXPO_EXECUTION_PLAN.md` defining the demo-first strategy for the Singapore Expo.
+- Added `documents/mvp/EXECUTION_PLAN.md` defining the demo-first strategy for the Singapore project.
 
 ### Changed
 - Revised MVP roadmap to prioritize Dashboard → Digital Twin Viewer → Realtime Sensors → Alerts → AI Copilot.
@@ -119,7 +119,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Revised `MVP_SCOPE.md` to deprioritize maintenance modules and focus on Digital Twin and AI as hero features for the MVP.
 - Revised `ROADMAP.md` to execute in order: Foundation -> Dashboard/Twin -> Realtime -> AI -> Maintenance.
 - Updated `AI_SERVICE_SPEC.md` to highlight AI Copilot as the core product differentiator.
-- Updated `documents/README.md` to include the Expo execution plan.
+- Updated `documents/README.md` to include the execution plan.
 
 ## [0.1.2] - 2026-06-04
 
@@ -138,6 +138,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Defined architecture, database schema, and API contracts for MVP.
 - Established full-product documentation in `documents/full_product/`.
 - Added detailed specifications for post-MVP integration, security, AI, and operations.
-- Initialized `ROADMAP.md` covering phases from Expo MVP to full enterprise scale.
+- Initialized `ROADMAP.md` covering phases from MVP to full enterprise scale.
 - Added `CHANGELOG.md` to track project history.
 - Initialized agent automation configuration files.

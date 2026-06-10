@@ -48,19 +48,8 @@ export interface BrowserApiClientOptions {
 
 export function createBrowserApiClient(opts: BrowserApiClientOptions = {}) {
   const credentials = opts.credentials ?? 'same-origin';
-  const cache = new Map<string, { ts: number; data: unknown }>();
-  const CACHE_TTL = 30_000; // 30 seconds
 
   async function call<T>(method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body?: unknown): Promise<T> {
-    const cacheKey = `${method}:${path}`;
-    
-    // Only cache GET requests
-    if (method === 'GET') {
-      const cached = cache.get(cacheKey);
-      if (cached && Date.now() - cached.ts < CACHE_TTL) {
-        return cached.data as T;
-      }
-    }
 
     const url = `${PROXY_PREFIX}${path.startsWith('/') ? path : `/${path}`}`;
     const init: RequestInit = {
@@ -94,11 +83,7 @@ export function createBrowserApiClient(opts: BrowserApiClientOptions = {}) {
     // Some proxied endpoints may return 204; guard the JSON parse.
     const text = await res.text();
     if (!text) return undefined as T;
-    const parsed = JSON.parse(text) as T;
-    if (method === 'GET') {
-      cache.set(cacheKey, { ts: Date.now(), data: parsed });
-    }
-    return parsed;
+    return JSON.parse(text) as T;
   }
 
   return {
