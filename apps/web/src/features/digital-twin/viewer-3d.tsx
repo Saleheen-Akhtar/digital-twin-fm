@@ -975,20 +975,7 @@ export function DigitalTwinViewer3D({
     (a) => a.status === "warning" || a.status === "fault",
   );
 
-  // ─── Homepage: assets per floor (for building info panel) ───
-  const assetsByFloor: Record<number, Asset[]> = {};
-  for (let f = 0; f < B.floorCount; f++) {
-    assetsByFloor[f] = SEED_ASSETS.filter((a) => a.floor === f);
-  }
-  function firstMetricValue(asset: Asset): string {
-    const entries = Object.entries(asset.metrics);
-    return entries[0]?.[1] ?? "—";
-  }
-  function firstMetricKey(asset: Asset): string {
-    const entries = Object.entries(asset.metrics);
-    return entries[0]?.[0] ?? "";
-  }
-
+  // ─── Homepage: live counts ───
   return (
     <div
       ref={mountRef}
@@ -996,7 +983,8 @@ export function DigitalTwinViewer3D({
       style={{ background: colors.bg.canvas, borderRadius: "1rem" }}
       data-testid="digital-twin-viewer-3d"
     >
-      {/* ─── Floor selector (top-left, always visible) ─── */}
+      {/* ─── Floor selector (top-left) ─── */}
+      {showMarkers && (
       <div
         className="absolute top-3 left-3 z-10 flex flex-col gap-1"
         data-testid="floor-selector"
@@ -1024,6 +1012,7 @@ export function DigitalTwinViewer3D({
           );
         })}
       </div>
+      )}
 
       {/* ─── Type legend (top-right, only when markers shown) ─── */}
       {showMarkers && (
@@ -1065,128 +1054,6 @@ export function DigitalTwinViewer3D({
               </button>
             );
           })}
-        </div>
-      )}
-
-      {/* ─── Homepage: Building info panel (left, below floor selector) ─── */}
-      {!showMarkers && (
-        <div
-          className="absolute top-3 left-24 z-10 p-4 w-[300px]"
-          style={{
-            background: colors.bg.surfaceTranslucent,
-            border: colors.border.card,
-            borderRadius: "1rem",
-            backdropFilter: "blur(8px)",
-            maxHeight: "calc(100% - 24px)",
-            overflowY: "auto",
-            boxShadow: shadow.md,
-          }}
-          data-testid="building-info-panel"
-        >
-          <h2
-            className="text-lg font-semibold mb-3"
-            style={{ color: colors.text.primary }}
-          >
-            Singapore Expo — Hall 7
-          </h2>
-          <div
-            className="text-[10px] uppercase tracking-[0.16em] mb-2"
-            style={{ color: colors.text.secondary }}
-          >
-            Floors
-          </div>
-          <div className="flex flex-col gap-1.5">
-            {[...Array.from({ length: B.floorCount }, (_, i) => i), -1].map(
-              (f) => {
-                const isRoof = f === -1;
-                const fNum = isRoof ? B.floorCount : (f as 0 | 1 | 2 | 3);
-                const assets = isRoof ? [] : assetsByFloor[f as 0 | 1 | 2 | 3] ?? [];
-                const count = assets.length;
-                const isActive = !isRoof && selectedFloor === f;
-                return (
-                  <div key={f}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        !isRoof &&
-                        setSelectedFloor(
-                          isActive ? "ALL" : (f as FloorFilter),
-                        )
-                      }
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs transition-colors"
-                      style={{
-                        background: isActive
-                          ? colors.bg.subtle
-                          : "transparent",
-                        color: colors.text.primary,
-                        border: colors.border.card,
-                        borderRadius: "0.75rem",
-                        textAlign: "left",
-                        cursor: isRoof ? "default" : "pointer",
-                      }}
-                    >
-                      <span className="font-medium">
-                        {isRoof ? "Roof" : `Level ${fNum + 1}`}
-                      </span>
-                      <span
-                        style={{
-                          color: colors.text.secondary,
-                          fontSize: "10px",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.1em",
-                        }}
-                      >
-                        {isRoof ? "RTUs" : `${count} asset${count === 1 ? "" : "s"}`}
-                      </span>
-                    </button>
-                    {isActive && !isRoof && assets.length > 0 && (
-                      <div
-                        className="mt-1 mb-1 pl-2"
-                        style={{
-                          color: colors.text.secondary,
-                          fontSize: "10px",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.1em",
-                        }}
-                      >
-                        Assets on floor: {assets.length}
-                      </div>
-                    )}
-                    {isActive && !isRoof && (
-                      <div className="flex flex-col gap-1 pl-2 mb-2">
-                        {assets.map((a) => {
-                          const metricKey = firstMetricKey(a);
-                          const label = METRIC_LABEL[metricKey] ?? metricKey;
-                          return (
-                            <div
-                              key={a.id}
-                              className="flex items-center justify-between text-[11px]"
-                              style={{ color: colors.text.primary }}
-                            >
-                              <span>
-                                <span style={{ marginRight: "4px" }}>
-                                  {a.emoji}
-                                </span>
-                                {a.name}
-                              </span>
-                              <span
-                                style={{
-                                  color: colors.text.secondary,
-                                  fontFamily: "monospace",
-                                }}
-                              >
-                                {label} · {firstMetricValue(a)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              },
-            )}
-          </div>
         </div>
       )}
 
