@@ -1,8 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc } from 'drizzle-orm';
 import { alerts } from '@digital-twin-fm/db';
 import type { Alert, AlertStatus, AlertSeverity } from '@digital-twin-fm/types';
+import { UpdateAlertDto } from './dto/update-alert.dto';
 
 export interface ListAlertsFilter {
   status?: AlertStatus;
@@ -33,5 +34,31 @@ export class AlertsService {
   async findOne(id: string): Promise<Alert | null> {
     const rows = await this.db.select().from(alerts).where(eq(alerts.id, id)).limit(1);
     return rows[0] ?? null;
+  }
+
+  async update(id: string, dto: UpdateAlertDto): Promise<Alert> {
+    const existing = await this.findOne(id);
+    if (!existing) throw new NotFoundException(`Alert ${id} not found`);
+
+    const now = new Date().toISOString();
+    const updateData: Record<string, unknown> = {};
+
+    if (dto.status !== undefined) {
+      updateData.status = dto.status;
+      if (dto.status === 'acknowledged') {
+        updateData.acknowledgedAt = now;
+      }
+      if (dto.status === 'resolved') {
+        updateData.resolvedAt = now;
+      }
+    }
+
+    const rows = await this.db
+      .update(alerts)
+      .set(updateData)
+      .where(eq(alerts.id, id))
+      .returning();
+
+    return rows[0];
   }
 }

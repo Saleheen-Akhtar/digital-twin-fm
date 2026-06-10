@@ -1,8 +1,10 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc } from 'drizzle-orm';
 import { workOrders } from '@digital-twin-fm/db';
 import type { WorkOrder, WorkOrderStatus, WorkOrderPriority } from '@digital-twin-fm/types';
+import { CreateWorkOrderDto } from './dto/create-work-order.dto';
+import { UpdateWorkOrderDto } from './dto/update-work-order.dto';
 
 export interface ListWorkOrdersFilter {
   status?: WorkOrderStatus;
@@ -50,5 +52,51 @@ export class WorkOrdersService {
   async findOne(id: string): Promise<WorkOrder | null> {
     const rows = await this.db.select().from(workOrders).where(eq(workOrders.id, id)).limit(1);
     return rows[0] ? mapWorkOrder(rows[0]) : null;
+  }
+
+  async create(dto: CreateWorkOrderDto): Promise<WorkOrder> {
+    const rows = await this.db
+      .insert(workOrders)
+      .values({
+        assetId: dto.assetId,
+        alertId: dto.alertId ?? null,
+        title: dto.title,
+        description: dto.description ?? null,
+        priority: dto.priority ?? 'medium',
+      })
+      .returning();
+    return mapWorkOrder(rows[0]);
+  }
+
+  async update(id: string, dto: UpdateWorkOrderDto): Promise<WorkOrder> {
+    const existing = await this.db
+      .select()
+      .from(workOrders)
+      .where(eq(workOrders.id, id))
+      .limit(1);
+    if (!existing.length) throw new NotFoundException(`Work order ${id} not found`);
+
+    const now = new Date().toISOString();
+    const updateData: Record<string, unknown> = {
+      updatedAt: now,
+    };
+
+    if (dto.status !== undefined) {
+      updateData.status = dto.status;
+      if (dto.status === 'in_progress' || dto.status === 'assigned') {
+        updateData.startedAt = existing[0].startedAt ?? now;
+      }
+      if (dto.status === 'completed') {
+        updateData.completedAt = now;
+      }
+    }
+
+    const rows = await this.db
+      .update(workOrders)
+      .set(updateData)
+      .where(eq(workOrders.id, id))
+      .returning();
+
+    return mapWorkOrder(rows[0]);
   }
 }

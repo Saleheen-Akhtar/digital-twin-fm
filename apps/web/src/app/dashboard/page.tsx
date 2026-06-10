@@ -2,6 +2,7 @@ import { getServerEnv } from '@/env';
 import { createApiClient, type Alert, type Asset, type Building, type Sensor, type SensorReading, type WorkOrder } from '@/lib/api-client';
 import { requireSession } from '@/lib/session';
 import type { ComponentType } from 'react';
+import { LiveIndicator } from './live-indicator';
 
 export const metadata = { title: 'Dashboard - Digital Twin FM' };
 export const dynamic = 'force-dynamic';
@@ -135,7 +136,10 @@ function buildDashboardModel(data: DashboardData) {
 
   const activeAlerts = openAlerts;
   const levels: LevelRow[] = building
-    ? ['Ground', 'Mezzanine', 'Hall A', 'Hall B', 'Service'].map((n) => ({ name: n, status: (['ok', 'critical'] as const)[Math.random() > 0.7 ? 1 : 0] }))
+    ? ['Ground', 'Mezzanine', 'Hall A', 'Hall B', 'Service'].map((n) => {
+        const seed = n.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+        return { name: n, status: (['ok', 'critical'] as const)[seed % 7 === 0 ? 1 : 0] };
+      })
     : [];
 
   const metrics: MetricCardData[] = [
@@ -185,7 +189,7 @@ export default async function DashboardPage() {
             Good morning, Akshay <span className="text-[28px]">👋</span>
           </h1>
           <p className="mt-1 text-[15px] text-slate-500">
-            Here&apos;s what&apos;s happening with Singapore Expo - Hall 1
+            Here&apos;s what&apos;s happening with {derived.building?.name ?? 'Singapore Expo — Hall 7'}
           </p>
         </section>
 
@@ -276,6 +280,9 @@ export default async function DashboardPage() {
             </div>
           </div>
         </section>
+      </div>
+      <div className="mx-auto mt-2 max-w-[1460px] px-2 sm:px-1">
+        <LiveIndicator serverTimestamp={new Date().toISOString()} />
       </div>
     </div>
   );

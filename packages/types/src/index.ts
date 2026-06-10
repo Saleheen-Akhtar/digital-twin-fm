@@ -14,7 +14,7 @@ export type SensorType = "temperature" | "humidity" | "power" | "vibration" | "c
 export type ReadingQuality = "good" | "uncertain" | "bad";
 
 export type AlertSeverity = "low" | "medium" | "high" | "critical";
-export type AlertStatus = "open" | "acknowledged" | "in_progress" | "resolved" | "cancelled";
+export type AlertStatus = "open" | "acknowledged" | "in_progress" | "resolved" | "cancelled" | "closed";
 
 export type WorkOrderStatus = "open" | "assigned" | "in_progress" | "blocked" | "completed" | "cancelled";
 export type WorkOrderPriority = "low" | "medium" | "high" | "critical";

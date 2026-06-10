@@ -1,8 +1,11 @@
 "use client";
 
 import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { createBrowserApiClient } from '@/lib/browser-api-client';
+import type { Alert } from '@/lib/api-client';
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -19,17 +22,34 @@ function BrandMark() {
   );
 }
 
-const navItems = [
+const navItems: Array<{ label: string; icon: (p: any) => React.ReactNode; href: string; badge?: string }> = [
   { label: 'Dashboard', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>, href: '/dashboard' },
   { label: 'Digital Twin', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>, href: '/dashboard/twin' },
   { label: 'Monitoring', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>, href: '/dashboard/monitoring' },
-  { label: 'Alerts', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>, badge: '12', href: '/dashboard/alerts' },
+  { label: 'Alerts', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>, href: '/dashboard/alerts' },
   { label: 'Work Orders', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>, href: '/dashboard/work-orders' },
   { label: 'Assets', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>, href: '/dashboard/assets' },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [alertBadge, setAlertBadge] = useState<string | null>(null);
+
+  useEffect(() => {
+    const api = createBrowserApiClient();
+    let cancelled = false;
+    api.get<Alert[]>('/alerts')
+      .then((data) => {
+        if (cancelled) return;
+        const arr = Array.isArray(data) ? data : [];
+        const openCount = arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed').length;
+        setAlertBadge(String(openCount));
+      })
+      .catch(() => {
+        if (!cancelled) setAlertBadge(null);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#f7f9fd] text-slate-900">
@@ -58,7 +78,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                       : 'text-slate-700 hover:bg-slate-100'}`}>
                   <Icon className="h-5 w-5" />
                   <span className="flex-1">{item.label}</span>
-                  {item.badge ? <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ef4444] px-2 text-[12px] font-semibold text-white">{item.badge}</span> : null}
+                  {item.label === 'Alerts' && alertBadge !== null ? (
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ef4444] px-2 text-[12px] font-semibold text-white">{alertBadge}</span>
+                  ) : item.badge ? (
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#ef4444] px-2 text-[12px] font-semibold text-white">{item.badge}</span>
+                  ) : null}
                 </Link>
               );
             })}

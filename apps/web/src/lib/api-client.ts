@@ -221,12 +221,25 @@ export function createApiClient(opts: ApiClientOptions, deps: ApiClientDeps = {}
     ) => call<Alert[]>(`/alerts${qs(filter as Record<string, string | number | undefined>)}`, { method: 'GET' }, callDeps),
     findAlert: (id: string, callDeps: ApiClientDeps = {}) =>
       call<Alert>(`/alerts/${id}`, { method: 'GET' }, callDeps),
+    acknowledgeAlert: (id: string, callDeps: ApiClientDeps = {}) =>
+      call<Alert>(`/alerts/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'acknowledged' as AlertStatus }) }, callDeps),
+    resolveAlert: (id: string, callDeps: ApiClientDeps = {}) =>
+      call<Alert>(`/alerts/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved' as AlertStatus }) }, callDeps),
 
     // ───── Work Orders ─────
     findWorkOrders: (
       filter: { status?: string; priority?: string; limit?: number } = {},
       callDeps: ApiClientDeps = {},
     ) => call<WorkOrder[]>(`/work-orders${qs(filter as Record<string, string | number | undefined>)}`, { method: 'GET' }, callDeps),
+    createWorkOrder: (
+      input: { assetId: string; alertId?: string; title: string; description?: string; priority?: WorkOrderPriority },
+      callDeps: ApiClientDeps = {},
+    ) => call<WorkOrder>('/work-orders', { method: 'POST', body: JSON.stringify(input) }, callDeps),
+    updateWorkOrder: (
+      id: string,
+      input: { status?: WorkOrderStatus },
+      callDeps: ApiClientDeps = {},
+    ) => call<WorkOrder>(`/work-orders/${id}`, { method: 'PATCH', body: JSON.stringify(input) }, callDeps),
   };
 }
 
