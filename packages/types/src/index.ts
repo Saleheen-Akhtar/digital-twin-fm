@@ -93,6 +93,7 @@ export interface Alert {
 export interface WorkOrder {
   id: string;
   assetId: string;
+  alertId?: string;
   title: string;
   description?: string;
   type: WorkOrderType;

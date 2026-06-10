@@ -17,6 +17,7 @@ function mapWorkOrder(r: typeof workOrders.$inferSelect): WorkOrder {
   return {
     id: r.id,
     assetId: r.assetId,
+    alertId: r.alertId ?? undefined,
     title: r.title,
     description: r.description ?? undefined,
     type: r.type,

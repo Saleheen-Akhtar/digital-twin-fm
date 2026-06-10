@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createBrowserApiClient } from '@/lib/browser-api-client';
-import type { Alert } from '@/lib/api-client';
+import type { Alert, WorkOrder } from '@/lib/api-client';
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -34,19 +34,27 @@ const navItems: Array<{ label: string; icon: (p: any) => React.ReactNode; href: 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [alertBadge, setAlertBadge] = useState<string | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState<number>(0);
 
   useEffect(() => {
     const api = createBrowserApiClient();
     let cancelled = false;
-    api.get<Alert[]>('/alerts')
-      .then((data) => {
-        if (cancelled) return;
-        const arr = Array.isArray(data) ? data : [];
-        const openCount = arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed').length;
-        setAlertBadge(String(openCount));
-      })
+    Promise.all([
+      api.get<Alert[]>('/alerts'),
+      api.get<WorkOrder[]>('/work-orders'),
+    ]).then(([alertsData, wosData]) => {
+      if (cancelled) return;
+      const arr = Array.isArray(alertsData) ? alertsData : [];
+      const openCount = arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed').length;
+      setAlertBadge(String(openCount));
+      // Pending approvals = alerts without linked work orders
+      const woAlertIds = new Set(
+        (Array.isArray(wosData) ? wosData : []).filter((wo) => wo.alertId).map((wo) => wo.alertId)
+      );
+      setPendingApprovals(arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed' && !woAlertIds.has(a.id)).length);
+    })
       .catch(() => {
-        if (!cancelled) setAlertBadge(null);
+        if (!cancelled) { setAlertBadge(null); setPendingApprovals(0); }
       });
     return () => { cancelled = true; };
   }, []);
@@ -66,6 +74,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </div>
             </Link>
           </div>
+          {/* Notification bell — pending work order approvals */}
+          {pendingApprovals > 0 && (
+            <Link href="/dashboard"
+              className="mx-2 mb-1 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] font-medium text-amber-800 hover:bg-amber-100 transition-colors">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5 shrink-0">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span className="flex-1">Pending Approvals</span>
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">
+                {pendingApprovals}
+              </span>
+            </Link>
+          )}
           <nav className="flex flex-1 flex-col gap-1.5 px-1">
             {navItems.map((item) => {
               const Icon = item.icon;

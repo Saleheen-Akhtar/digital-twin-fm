@@ -3,6 +3,7 @@ import { createApiClient, type Alert, type Asset, type Building, type Sensor, ty
 import { requireSession } from '@/lib/session';
 import type { ComponentType } from 'react';
 import { LiveIndicator } from './live-indicator';
+import { DashboardAlertActions } from './dashboard-alert-actions';
 
 export const metadata = { title: 'Dashboard - Digital Twin FM' };
 export const dynamic = 'force-dynamic';
@@ -66,7 +67,7 @@ async function loadDashboardData(api: ReturnType<typeof createApiClient>): Promi
       const latest = s.length > 0 ? await api.findReadings(s[0].id, { limit: 20 }) : [];
       return { sensors: s, latest };
     })(),
-    api.findAlerts({ status: 'open' }),
+    api.findAlerts(),
     api.findWorkOrders(),
   ]);
 
@@ -112,7 +113,7 @@ async function loadDashboardData(api: ReturnType<typeof createApiClient>): Promi
 // ───── Derived Model ─────
 
 function buildDashboardModel(data: DashboardData) {
-  const openAlerts = data.alerts.filter((a) => a.status === 'open');
+  const openAlerts = data.alerts.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed');
   const building = data.building;
   const assets = data.assets;
   const sensors = data.sensors;
@@ -203,57 +204,12 @@ export default async function DashboardPage() {
 
         {/* ───── Recent Alerts + Building Status ───── */}
         <section className="grid gap-4 xl:grid-cols-3">
-          {/* Recent Alerts */}
-          <div className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-[16px] font-medium text-slate-900">Recent Alerts</h2>
-              <a href="/dashboard/alerts" className="text-[13px] font-medium text-blue-600 hover:text-blue-700">
-                View all →
-              </a>
-            </div>
-            {derived.activeAlerts.length === 0 ? (
-              <p className="py-6 text-center text-[14px] text-slate-400">No open alerts — all clear!</p>
-            ) : (
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[12px] text-slate-500">
-                    <th className="pb-2 pr-3 font-medium" />
-                    <th className="pb-2 pr-3 font-medium">Alert</th>
-                    <th className="pb-2 pr-3 font-medium">Asset</th>
-                    <th className="pb-2 pr-3 font-medium">Time</th>
-                    <th className="pb-2 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {derived.activeAlerts.slice(0, 5).map((alert) => (
-                    <tr key={alert.id} className="border-b border-slate-50 text-[13px] last:border-0">
-                      <td className="py-2.5 pr-3">
-                        <span className={`inline-block h-2 w-2 rounded-full ${
-                          alert.severity === 'critical' ? 'bg-red-500' :
-                          alert.severity === 'high' ? 'bg-orange-500' :
-                          alert.severity === 'medium' ? 'bg-amber-400' : 'bg-slate-300'
-                        }`} />
-                      </td>
-                      <td className="py-2.5 pr-3 text-slate-900">
-                        {(() => {
-                          const raw = alert.message;
-                          const m = raw.match(/value\s+([\d.]+)\s+(\S+)\s+(below|above)\s+(low|high)\s+threshold\s+([\d.]+)/);
-                          if (!m) return raw;
-                          const labels: Record<string, string> = { C: 'Temp', '°C': 'Temp', ppm: 'CO₂', '%': 'Humidity', kW: 'Power' };
-                          const label = labels[m[2]] ?? m[2];
-                          return `${label} ${m[3]} ${m[4]} — ${m[1]}${m[2]}`;
-                        })()}
-                      </td>
-                      <td className="py-2.5 pr-3 font-mono text-[12px] text-slate-500">{alert.assetId?.slice(0, 12)}</td>
-                      <td className="py-2.5 pr-3 text-slate-500">{alert.createdAt ? new Date(alert.createdAt).toLocaleString('en-SG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                      <td className="py-2.5">
-                        <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">{alert.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          {/* Recent Alerts — interactive with Approve/Edit/Dismiss */}
+          <div className="xl:col-span-2">
+            <DashboardAlertActions
+              initialAlerts={data.alerts.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed')}
+              initialWorkOrders={data.workOrders}
+            />
           </div>
 
           {/* Building Status */}
