@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface LiveIndicatorProps {
@@ -12,6 +12,7 @@ export function LiveIndicator({ serverTimestamp }: LiveIndicatorProps) {
   const router = useRouter();
   const [countdown, setCountdown] = useState(30);
   const [clientTs, setClientTs] = useState<string | null>(null);
+  const refreshRef = useRef(false);
 
   const refresh = useCallback(() => {
     router.refresh();
@@ -29,11 +30,17 @@ export function LiveIndicator({ serverTimestamp }: LiveIndicatorProps) {
     const interval = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
-          router.refresh();
+          refreshRef.current = true;
           return 30;
         }
         return c - 1;
       });
+      // Trigger refresh outside the state updater to avoid
+      // "Cannot update a component while rendering a different component"
+      if (refreshRef.current) {
+        refreshRef.current = false;
+        router.refresh();
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, [router]);
