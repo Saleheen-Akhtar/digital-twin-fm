@@ -77,7 +77,7 @@ loadInfisicalOrEnvSync();
             jwt: {
               accessSecret: requireSecret(process.env.JWT_ACCESS_SECRET, 'JWT_ACCESS_SECRET', env),
               refreshSecret: requireSecret(process.env.JWT_REFRESH_SECRET, 'JWT_REFRESH_SECRET', env),
-              accessTtl: process.env.JWT_ACCESS_TTL || '15m',
+              accessTtl: process.env.JWT_ACCESS_TTL || '24h',
               refreshTtl: process.env.JWT_REFRESH_TTL || '7d',
             },
             mvp: {
