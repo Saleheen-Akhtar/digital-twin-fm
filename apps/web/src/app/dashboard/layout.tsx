@@ -70,7 +70,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </div>
               <div>
                 <div className="text-[23px] font-semibold tracking-[-0.04em] text-slate-950">Digital Twin FM</div>
-                <div className="text-[13px] text-blue-600">Singapore Expo</div>
+                <div className="text-[13px] text-blue-600">Singapore</div>
               </div>
             </Link>
           </div>

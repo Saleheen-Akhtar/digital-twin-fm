@@ -14,7 +14,7 @@ export const NAV = {
 } as const;
 
 export const HERO = {
-  badge: "Singapore Expo MVP",
+  badge: "MVP",
   headline: "One building.\nEvery system.\nAlways live.",
   subtitle:
     "Monitor HVAC, chillers, boilers, pumps, and exhaust fans across every floor — with real-time sensor data, AI-powered insights, and instant fault alerts.",
@@ -23,7 +23,7 @@ export const HERO = {
 } as const;
 
 export const STATS = {
-  title: "Built for the Singapore Expo",
+  title: "Building Intelligence Platform",
   subtitle: "Live from production infrastructure",
   items: [
     { value: "5.3M+", label: "Sensor Readings" },
@@ -99,7 +99,7 @@ export const HOW_IT_WORKS = {
 } as const;
 
 export const FOOTER = {
-  copyright: "Digital Twin FM — Singapore Expo MVP",
+  copyright: "Digital Twin FM — All rights reserved",
   links: [
     { label: "GitHub", href: "https://github.com/Saleheen-Akhtar/digital-twin-fm" },
     { label: "License", href: "/LICENSES.md" },

@@ -27,8 +27,8 @@ jest.mock('@/lib/session', () => ({
 const baseBuildings = [
   {
     id: 'building-1',
-    name: 'Singapore Expo - Hall 1',
-    address: 'Expo Drive',
+    name: 'Singapore - Hall 1',
+    address: '1 Convention Drive',
     totalFloors: 5,
     createdAt: '2025-05-21T10:30:00+05:30',
     updatedAt: '2025-05-21T10:30:00+05:30',

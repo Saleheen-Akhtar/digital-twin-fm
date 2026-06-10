@@ -84,7 +84,7 @@ function friendlyName(a: ViewerAsset): string {
 
 // ──────────── Procedural Building ────────────
 // A 5-floor building outline. Real dimensions are picked to feel like
-// a Singapore Expo-style hall: 40m wide × 30m deep × 18m tall (5 floors × 3.6m).
+// a Singapore-style convention hall: 40m wide × 30m deep × 18m tall (5 floors × 3.6m).
 function ProceduralBuilding({ floorCount = 5 }: { floorCount?: number }) {
   // ─── Dimensions: a modern office tower ───
   // Main tower is taller than wide (realistic proportions),

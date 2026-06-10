@@ -190,7 +190,7 @@ export default async function DashboardPage() {
             Good morning, Akshay <span className="text-[28px]">👋</span>
           </h1>
           <p className="mt-1 text-[15px] text-slate-500">
-            Here&apos;s what&apos;s happening with {derived.building?.name ?? 'Singapore Expo — Hall 7'}
+            Here&apos;s what&apos;s happening with {derived.building?.name ?? 'Singapore — Hall 7'}
           </p>
         </section>
 
@@ -215,7 +215,7 @@ export default async function DashboardPage() {
           {/* Building Status */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
             <h2 className="mb-3 text-[16px] font-medium text-slate-900">
-              {derived.building?.name ?? 'Singapore Expo'} — Levels
+              {derived.building?.name ?? 'Singapore'} — Levels
             </h2>
             <div className="flex flex-col gap-2">
               {derived.levels.length === 0 ? (

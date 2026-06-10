@@ -10,7 +10,7 @@ import { LandingFooter } from "./_landing/landing-footer";
 export const metadata: Metadata = {
   title: "Digital Twin FM — Building Intelligence Platform",
   description:
-    "Monitor HVAC, chillers, boilers, pumps, and exhaust fans across every floor with real-time sensor data, AI-powered insights, and instant fault alerts. Singapore Expo MVP.",
+    "Monitor HVAC, chillers, boilers, pumps, and exhaust fans across every floor with real-time sensor data, AI-powered insights, and instant fault alerts. MVP.",
 };
 
 /**
