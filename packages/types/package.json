@@ -1,0 +1,19 @@
+{
+  "name": "@digital-twin-fm/types",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && echo 'types: source-only, no build artifact needed'"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.3.3"
+  }
+}

@@ -2,7 +2,7 @@
 
 ## Roadmap intent
 
-This roadmap describes the path from Expo MVP to a complete commercial-grade product.
+This roadmap describes the path from MVP to a complete commercial-grade product.
 
 The key product decision is:
 
@@ -13,7 +13,7 @@ Add deeper Facility Management / CMMS workflows after validation.
 
 The architecture remains scalable, but the execution order prioritizes the product experience customers will remember.
 
-## Phase 1 — Expo MVP: Digital Twin + AI demo
+## Phase 1 — MVP: Digital Twin + AI demo
 
 Goal: demonstrate the product vision with a working, believable, high-impact platform.
 
