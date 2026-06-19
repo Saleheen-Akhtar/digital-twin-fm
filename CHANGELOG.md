@@ -48,7 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - `apps/api-gateway/src/config/config.module.ts` enforces required secrets (no dev fallbacks) and binds the same access TTL to both token and cookie.
 - `apps/web/src/app/login/actions.ts` cookie: `httpOnly`, `secure: !isDev` (was production-only), `sameSite: 'lax'`, `maxAge: 15m`.
 - `apps/web/next.config.ts` adds `experimental.serverActions.allowedOrigins` for CSRF protection and tightens cache headers.
-- `apps/ai-service/app/main.py` resolves CORS origins from `AI_CORS_ORIGIN`; **fails closed** (`[]`) in `production` / `staging`; defaults to `["http://localhost:3000"]` in dev. Binds to `127.0.0.1` by default.
+- `apps/ai-service/app/main.py` resolves CORS origins from `AI_CORS_ORIGIN`; **fails closed** (`[]`) in `production` / `staging`; defaults to `[\"http://localhost:3000\"]` in dev. Binds to `127.0.0.1` by default.
 - `apps/ingestion-service/src/index.ts` binds to `127.0.0.1`, requires `X-Ingest-Api-Key` (constant-time compared via `crypto.timingSafeEqual`), rate-limited at 120 req/min.
 - `docker-compose.yml` binds Postgres + Valkey to `127.0.0.1`; Valkey uses `--requirepass`; API gateway + web + ingestion + AI services also bind to loopback.
 - `init-db.sql` creates a least-privilege `dtfm_app` role and grants only `CONNECT` + CRUD on app tables.
