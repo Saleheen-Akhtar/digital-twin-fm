@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     // like `webcrx=""` into <html> before React hydrates. The HTML still
     // works correctly; this just prevents the dev-mode noise.
     <html lang="en" suppressHydrationWarning>
-      <body>{children}</body>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
