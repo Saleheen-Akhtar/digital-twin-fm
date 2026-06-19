@@ -4,7 +4,7 @@
 
 This folder defines the **post-MVP / full commercial product** direction for Digital Twin FM.
 
-The MVP documents in `documents/` explain what must be built first for the Expo/demo milestone. The files in this folder explain how the platform should mature after that into a real facility-management product suitable for pilots, enterprise customers, and production deployments.
+The MVP documents in `documents/` explain what must be built first for the demo milestone. The files in this folder explain how the platform should mature after that into a real facility-management product suitable for pilots, enterprise customers, and production deployments.
 
 ## Guiding principle
 
@@ -19,7 +19,7 @@ Full product: run safely, securely, and reliably against real facilities.
 
 | Document | Purpose |
 |---|---|
-| [FULL_PRODUCT_ROADMAP.md](./FULL_PRODUCT_ROADMAP.md) | Phased path from Expo MVP to enterprise-grade platform |
+|| [FULL_PRODUCT_ROADMAP.md](./FULL_PRODUCT_ROADMAP.md) | Phased path from MVP to enterprise-grade platform |
 | [POST_MVP_ARCHITECTURE.md](./POST_MVP_ARCHITECTURE.md) | How architecture evolves after MVP without rewriting everything |
 | [ENTERPRISE_REQUIREMENTS.md](./ENTERPRISE_REQUIREMENTS.md) | Requirements for real customers: organizations, sites, SLAs, audit, support |
 | [IOT_INTEGRATION_STRATEGY.md](./IOT_INTEGRATION_STRATEGY.md) | BMS/IoT connector strategy, device registry, mapping, reliability |
@@ -36,7 +36,7 @@ Full product: run safely, securely, and reliably against real facilities.
 ## Relationship to MVP docs
 
 - MVP architecture: `../mvp/ARCHITECTURE.md`
-- Expo execution plan: `../mvp/EXPO_EXECUTION_PLAN.md`
+- Execution plan: `../mvp/EXECUTION_PLAN.md`
 - MVP scope: `../mvp/MVP_SCOPE.md`
 - MVP database: `../mvp/DATABASE_SCHEMA.md`
 - MVP API contracts: `../mvp/API_CONTRACTS.md`

@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # Per Finding 20 (Medium): the previous CI had no Dependabot config.
+  # Dependabot opens PRs weekly for vulnerable or outdated
+  # dependencies. Combined with the gitleaks + pnpm audit steps in
+  # ci.yml, this gives the team a defense-in-depth dependency story.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    # Only auto-merge patch-level updates for non-runtime deps. Runtime
+    # deps require a human review.
+    groups:
+      patch-and-minor:
+        update-types: ["minor", "patch"]
+      major-and-security:
+        update-types: ["major", "version-update:semver-major"]
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  - package-ecosystem: "pip"
+    directory: "/apps/ai-service"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "deps(ai)"

@@ -1,14 +1,26 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
-import * as schema from "./schema";
+/**
+ * Digital Twin FM — DB package
+ *
+ * Exports:
+ *   - Re-exports of the Drizzle schema (tables, types)
+ *   - `createDb(pool)` factory: build a typed Drizzle client from a pg.Pool
+ *
+ * We deliberately do NOT create a Pool or Drizzle instance at module load.
+ * Consumers (api-gateway) create their own Pool with their own config and
+ * call createDb(pool) to get the typed client. This avoids hanging on
+ * module import when the database is briefly unreachable.
+ */
+export * from './schema';
+import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 
-const pool = new Pool({
-  host: process.env.POSTGRES_HOST || "localhost",
-  port: Number(process.env.POSTGRES_PORT) || 5432,
-  user: process.env.POSTGRES_USER || "dtfm_user",
-  password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
-  database: process.env.POSTGRES_DB || "dtfm_db"
-});
+import * as buildingsTable from './schema';
+export type Schema = typeof buildingsTable;
 
-export const db = drizzle(pool, { schema });
-export * from "./schema";
+/**
+ * Build a Drizzle client from a pg.Pool. Call this lazily (e.g. inside a
+ * Nest factory provider) so the Pool isn't created at module-load time.
+ */
+export function createDb(pool: Pool): NodePgDatabase<Schema> {
+  return drizzle(pool, { schema: buildingsTable });
+}

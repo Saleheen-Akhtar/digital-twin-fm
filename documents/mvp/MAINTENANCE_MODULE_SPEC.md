@@ -6,7 +6,7 @@ Primary domain owner: Sahil.
 
 ## Purpose
 
-The maintenance domain connects assets, alerts, and facility actions. However, the full maintenance module is **not part of the Expo MVP**.
+The maintenance domain connects assets, alerts, and facility actions. However, the full maintenance module is **not part of the MVP**.
 
 The product should first prove:
 
@@ -18,7 +18,7 @@ Then add deeper CMMS/work-order workflows after the core value proposition is va
 
 ## Scope decision
 
-### Expo MVP scope
+### MVP scope
 
 Keep only:
 
@@ -47,9 +47,9 @@ Move these later:
 
 A full maintenance module is effectively a mini-CMMS system. It includes workflow state, permissions, assignments, activity logs, notifications, and technician UX.
 
-That is valuable, but it should not block the Expo demo.
+That is valuable, but it should not block the MVP demo.
 
-For Expo, customers are more likely to remember:
+For the demo, customers are more likely to remember:
 
 ```text
 3D/spatial building view
@@ -104,7 +104,7 @@ apps/web/src/features/maintenance/
   README.md              # explains deferred post-MVP scope
 ```
 
-Do not build full work-order screens for Expo unless the core digital twin + AI demo is already complete.
+Do not build full work-order screens for the demo unless the core digital twin + AI demo is already complete.
 
 ## MVP backend structure
 
@@ -185,11 +185,11 @@ Allowed statuses:
 - `completed`
 - `cancelled`
 
-This lifecycle belongs to Phase 7/post-MVP, not Expo MVP.
+This lifecycle belongs to Phase 7/post-MVP, not the MVP.
 
 ## Deferred work-order endpoints
 
-Do not implement these for Expo unless explicitly re-scoped:
+Do not implement these for the demo unless explicitly re-scoped:
 
 - `GET /api/work-orders`
 - `POST /api/work-orders`

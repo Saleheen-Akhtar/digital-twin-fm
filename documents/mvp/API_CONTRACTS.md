@@ -49,7 +49,7 @@ Response:
 ```json
 {
   "items": [
-    { "id": "uuid", "name": "Singapore Expo", "status": "ok", "timezone": "Asia/Singapore" }
+    { "id": "uuid", "name": "Singapore Convention Centre", "status": "ok", "timezone": "Asia/Singapore" }
   ]
 }
 ```
@@ -179,7 +179,7 @@ Returns a short AI-assisted asset health explanation.
 
 ## Maintenance / work orders — deferred
 
-Full work-order APIs are **post-MVP** and should not block the Expo build:
+Full work-order APIs are **post-MVP** and should not block the MVP build:
 
 - `GET /api/work-orders`
 - `POST /api/work-orders`
