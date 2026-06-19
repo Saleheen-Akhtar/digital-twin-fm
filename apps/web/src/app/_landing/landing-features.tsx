@@ -1,7 +1,6 @@
 "use client";
 
 import { FEATURES } from "./data";
-import type { CSSProperties } from "react";
 
 /* Simple inline SVG icons — no icon library dependency */
 const icons: Record<string, (c: string) => React.ReactNode> = {

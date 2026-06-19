@@ -74,18 +74,6 @@ export default function AlertsPage() {
 
   const api = createBrowserApiClient();
 
-  const fetchAlerts = useCallback(async () => {
-    try {
-      const data = await api.get<Alert[]>("/alerts");
-      setAlerts(Array.isArray(data) ? data.filter((a) => a.status !== "cancelled" && a.status !== "resolved" && a.status !== "closed") : []);
-      setLoading(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load alerts");
-      setLoading(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
 

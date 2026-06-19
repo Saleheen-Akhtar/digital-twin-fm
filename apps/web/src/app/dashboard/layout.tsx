@@ -1,13 +1,11 @@
 "use client";
 
-import type { ComponentType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createBrowserApiClient } from '@/lib/browser-api-client';
 import type { Alert, WorkOrder } from '@/lib/api-client';
-
-type IconComponent = ComponentType<{ className?: string }>;
 
 function BrandMark() {
   return (
