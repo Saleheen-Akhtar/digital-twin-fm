@@ -1,11 +1,15 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Use Socket.IO adapter for WebSocket gateway namespaces
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   // Per Finding 6 (High): add helmet for security headers.
   // The web app (`apps/web/next.config.ts`) ships its own security headers

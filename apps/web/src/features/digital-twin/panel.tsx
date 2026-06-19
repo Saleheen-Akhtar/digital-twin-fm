@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import type { Asset, Sensor } from "@digital-twin-fm/types";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
+import { useRealtime } from "@/hooks/useRealtime";
 
 // Raw Three.js (WebGL) — must be client-only. No SSR.
 const Viewer = dynamic(
@@ -42,6 +43,9 @@ export function DigitalTwinPanel({
   // and the asset-detail panel, but the viewer reads from its own
   // SEED_ASSETS / Zustand store.
   const [_liveReadings, setLiveReadings] = useState<Record<string, string>>({});
+
+  // Connect to the realtime WebSocket for live asset status updates
+  useRealtime();
 
   useEffect(() => {
     let cancelled = false;

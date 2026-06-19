@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
+import { useSensorRealtime } from "@/hooks/useSensorRealtime";
 import type { Sensor } from "@/lib/api-client";
 
 type ChartDef = {
@@ -19,6 +20,13 @@ const CHARTS: ChartDef[] = [
   { key: "humidity", label: "Humidity", unit: "%", color: "#3b82f6", bgGrad: "from-blue-500/5 to-blue-500/[0.02]", icon: "M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" },
   { key: "occupancy", label: "CO₂", unit: "ppm", color: "#8b5cf6", bgGrad: "from-violet-500/5 to-violet-500/[0.02]", icon: "M12 2a10 10 0 1 0 10 10h-10V2z" },
 ];
+
+const SENSOR_MAP: Record<string, string[]> = {
+  temperature: ["temperature"],
+  power: ["power"],
+  humidity: ["humidity"],
+  occupancy: ["occupancy", "co2"],
+};
 
 function MiniChart({ points, color }: { points: number[]; color: string }) {
   if (points.length < 2) return <div className="h-20 w-full rounded-lg bg-slate-50" />;
@@ -46,20 +54,63 @@ function MiniChart({ points, color }: { points: number[]; color: string }) {
   );
 }
 
-const SENSOR_MAP: Record<string, string[]> = {
-  temperature: ["temperature"],
-  power: ["power"],
-  humidity: ["humidity"],
-  occupancy: ["occupancy", "co2"],
-};
-
 export default function MonitoringPage() {
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChart, setSelectedChart] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(10);
+  const [chartPoints, setChartPoints] = useState<Record<string, number[]>>({});
 
+  // WebSocket live sensor readings
+  const { readings: liveReadings, connected: wsConnected, error: wsError } = useSensorRealtime();
+  const sensorsRef = useRef<Sensor[]>([]);
+
+  // Keep sensorsRef in sync with state for use in the WS callback
+  sensorsRef.current = sensors;
+
+  // Update chart points when a live reading arrives
+  const readingTs = useRef<Record<string, number>>({});
+
+  const addChartPoint = useCallback((chartKey: string, value: number) => {
+    setChartPoints((prev) => {
+      const existing = prev[chartKey] ?? [];
+      const updated = [...existing.slice(-19), value]; // keep last 20 points
+      return { ...prev, [chartKey]: updated };
+    });
+  }, []);
+
+  // Merge live WS readings into sensor state
+  useEffect(() => {
+    if (liveReadings.size === 0) return;
+
+    let changed = false;
+    const updated = sensorsRef.current.map((s) => {
+      const live = liveReadings.get(s.id);
+      if (live && live.value !== s.lastValue) {
+        changed = true;
+        // Map sensor type to chart key and add point
+        for (const [chartKey, types] of Object.entries(SENSOR_MAP)) {
+          if (types.includes(s.type)) {
+            // Throttle to ~1 update per sensor per second to avoid chart spam
+            const now = Date.now();
+            const last = readingTs.current[`${chartKey}-${s.id}`] ?? 0;
+            if (now - last > 900) {
+              readingTs.current[`${chartKey}-${s.id}`] = now;
+            }
+            addChartPoint(chartKey, live.value);
+          }
+        }
+        return { ...s, lastValue: live.value };
+      }
+      return s;
+    });
+
+    if (changed) {
+      setSensors(updated as Sensor[]);
+    }
+  }, [liveReadings, addChartPoint]);
+
+  // Initial HTTP load + set up fallback stale timer
   useEffect(() => {
     let cancelled = false;
     const api = createBrowserApiClient();
@@ -68,7 +119,23 @@ export default function MonitoringPage() {
       try {
         const data = await api.get<Sensor[]>("/sensors");
         if (!cancelled) {
-          setSensors(Array.isArray(data) ? data : []);
+          const list = Array.isArray(data) ? data : [];
+          setSensors(list);
+
+          // Initialise chart points with current sensor values
+          const points: Record<string, number[]> = {};
+          for (const def of CHARTS) {
+            const allowedTypes = SENSOR_MAP[def.key] ?? [def.key];
+            const matched = list.filter(
+              (s) => allowedTypes.includes(s.type) && s.lastValue != null
+            );
+            // Seed 2 points from current values for mini-chart shape
+            const vals = matched.map((s) => Math.max(0, s.lastValue ?? 0));
+            if (vals.length > 0) {
+              points[def.key] = [vals[0], vals[0]];
+            }
+          }
+          setChartPoints(points);
           setLoading(false);
         }
       } catch (err) {
@@ -80,12 +147,10 @@ export default function MonitoringPage() {
     }
 
     fetchSensors();
-    const timer = window.setInterval(fetchSensors, 10_000);
-    // Countdown tick every second
-    const countdownTimer = window.setInterval(() => {
-      setCountdown((c) => (c <= 1 ? 10 : c - 1));
-    }, 1_000);
-    return () => { cancelled = true; window.clearInterval(timer); window.clearInterval(countdownTimer); };
+
+    // Fallback HTTP refresh every 60s when WS is down (otherwise WS handles live)
+    const timer = window.setInterval(fetchSensors, 60_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
   const onlineSensors = sensors.filter((s) => s.lastValue != null).length;
@@ -95,7 +160,7 @@ export default function MonitoringPage() {
     const matched = sensors.filter((s) => allowedTypes.includes(s.type) && s.lastValue != null);
     if (matched.length === 0) return null;
     const sensor = matched[0];
-    const points = [...matched.map((s) => Math.max(0, s.lastValue ?? 0))];
+    const points = chartPoints[def.key] ?? [Math.max(0, sensor.lastValue ?? 0)];
     const value = def.key === "temperature"
       ? `${sensor.lastValue!.toFixed(1)}${def.unit}`
       : def.key === "power"
@@ -118,9 +183,11 @@ export default function MonitoringPage() {
             </p>
           </div>
           {!loading && !error && (
-            <div className="flex items-center gap-2 text-[13px] text-emerald-600">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Live · {countdown}s
+            <div className="flex items-center gap-2 text-[13px]">
+              <span className={`h-2 w-2 rounded-full ${wsConnected ? "bg-emerald-500" : "bg-amber-400"}`} />
+              <span className={wsConnected ? "text-emerald-600" : "text-amber-600"}>
+                {wsConnected ? "Live" : "Buffered"}
+              </span>
             </div>
           )}
         </section>
@@ -128,6 +195,18 @@ export default function MonitoringPage() {
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-800">
             {error}
+          </div>
+        )}
+        {wsError && !error && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-800">
+            WS: {wsError}
+          </div>
+        )}
+
+        {wsError && !error && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-800">
+            ⚡ Live updates unavailable: {wsError}
+            <span className="ml-2 text-amber-600">Falling back to 60s refresh</span>
           </div>
         )}
 

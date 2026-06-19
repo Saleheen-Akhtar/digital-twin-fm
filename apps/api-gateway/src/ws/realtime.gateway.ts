@@ -17,6 +17,14 @@ export interface AssetUpdatePayload {
   metrics?: Record<string, number>;
 }
 
+export interface SensorReadingPayload {
+  sensorId: string;
+  assetId: string;
+  value: number;
+  unit: string;
+  timestamp: string;
+}
+
 export interface SubscribePayload {
   floor?: number | 'all';
   type?: string | 'all';
@@ -156,14 +164,25 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
     this.server.to('all').emit('workOrder:updated', workOrder);
   }
 
+  /** Broadcast live sensor reading to all connected clients */
+  broadcastSensorReading(payload: SensorReadingPayload) {
+    this.server.to('all').emit('sensor:reading', payload);
+  }
+
   private extractToken(client: Socket): string | null {
-    // Check auth header first
+    // Check Socket.IO auth handshake (sent by client `auth: { token }`)
+    const authToken = client.handshake.auth?.token;
+    if (typeof authToken === 'string') {
+      return authToken;
+    }
+
+    // Check auth header (Bearer token)
     const authHeader = client.handshake.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       return authHeader.slice(7);
     }
 
-    // Check query param (for browser EventSource / fallback)
+    // Check query param (for URL-based fallback)
     const queryToken = client.handshake.query.token;
     if (typeof queryToken === 'string') {
       return queryToken;

@@ -175,3 +175,24 @@ export const maintenanceLogs = pgTable("maintenance_logs", {
   notes: text("notes"),
   createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
 });
+
+// ─────────────────────── Building snapshots (health score history) ───────────────────────
+export const buildingSnapshots = pgTable("building_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  buildingId: uuid("building_id").references(() => buildings.id, { onDelete: "cascade" }),
+  healthScore: integer("health_score").notNull(), // 0-100
+  totalAssets: integer("total_assets").notNull().default(0),
+  onlineAssets: integer("online_assets").notNull().default(0),
+  warningAssets: integer("warning_assets").notNull().default(0),
+  criticalAssets: integer("critical_assets").notNull().default(0),
+  offlineAssets: integer("offline_assets").notNull().default(0),
+  activeAlerts: integer("active_alerts").notNull().default(0),
+  criticalAlerts: integer("critical_alerts").notNull().default(0),
+  sensorUptime: doublePrecision("sensor_uptime"), // percentage 0-100
+  totalSensors: integer("total_sensors").notNull().default(0),
+  onlineSensors: integer("online_sensors").notNull().default(0),
+  avgEnergyKw: doublePrecision("avg_energy_kw"),
+  computedAt: timestamp("computed_at", { mode: "string" }).notNull().defaultNow(),
+}, (t) => ({
+  buildingTimeIdx: index("building_snapshots_building_time_idx").on(t.buildingId, t.computedAt),
+}));

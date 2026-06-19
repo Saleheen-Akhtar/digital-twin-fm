@@ -5,9 +5,8 @@
  *
  * Raw Three.js (no @react-three/fiber) component that:
  *   - Mounts a WebGL canvas into a div (next/dynamic ssr:false in panel.tsx)
- *   - Builds a 4-floor curtain-wall glass office tower (concrete slabs,
- *     glass facade, mullion grid, structural columns, suspended ceilings,
- *     duct runs, rooftop RTU units)
+ *   - Builds a Singapore Expo convention centre (2 exhibition levels,
+ *     white panel facade, signature sawtooth roof, large entrance atrium)
  *   - Places 20 typed asset markers with per-type geometry:
  *       Air Handler → BoxGeometry cabinet + grille detail meshes
  *       Chiller     → CylinderGeometry vessel + flanged caps
@@ -17,6 +16,9 @@
  *     Each marker: TorusGeometry status ring (emissive), transparent
  *     SphereGeometry fault glow (pulsed in RAF), CanvasTexture Sprite
  *     name label above.
+ *   - Glass observation elevator with animated cab, cables, rails
+ *   - Escalators crossing the entrance atrium
+ *   - Exposed HVAC ductwork + VAV boxes on roof and in ceiling
  *   - OrbitControls: full vertical orbit, damping 0.05
  *   - Raycaster: hover (float + cursor + emissive), click (inspect panel)
  *   - Floor + type filters toggle group.visible
@@ -336,22 +338,20 @@ function buildMarker(asset: Asset): MarkerHandles {
   };
 }
 
-// ─── Building construction — glass office tower on light theme ────
+// ─── Building construction — Singapore Expo convention centre ───
+// A wide, low-rise exhibition hall with signature sawtooth roof,
+// light panel facade, and large entrance atrium.
 function buildBuilding(): THREE.Group {
   const group = new THREE.Group();
   group.name = "Building";
 
   const halfW = B.towerW / 2;
   const halfD = B.towerD / 2;
-  const podiumW = B.towerW + 3;
-  const podiumD = B.towerD + 3;
-  const halfPodiumW = podiumW / 2;
-  const halfPodiumD = podiumD / 2;
   const totalH = B.floorH * B.floorCount;
 
   // Ground plane (light, matches dashboard bg)
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(120, 120),
+    new THREE.PlaneGeometry(140, 140),
     new THREE.MeshStandardMaterial({
       color: colors.building.ground,
       roughness: 0.95,
@@ -364,60 +364,68 @@ function buildBuilding(): THREE.Group {
 
   // Subtle architectural grid
   const grid = new THREE.GridHelper(
-    120,
-    60,
+    140, 60,
     colors.building.gridSection,
     colors.building.gridCell,
   );
   grid.position.y = 0.01;
   group.add(grid);
 
-  // Podium (base, slightly wider than tower)
+  // Low podium — wide base, convention centre sits near ground
+  const podiumW = B.towerW + 6;
+  const podiumD = B.towerD + 6;
+  const podiumMat = new THREE.MeshStandardMaterial({
+    color: colors.building.podium,
+    roughness: 0.7,
+    metalness: 0.1,
+  });
   const podium = new THREE.Mesh(
     new THREE.BoxGeometry(podiumW, B.podiumH, podiumD),
-    new THREE.MeshStandardMaterial({
-      color: colors.building.podium,
-      roughness: 0.7,
-      metalness: 0.1,
-    }),
+    podiumMat,
   );
   podium.position.set(0, B.podiumH / 2, 0);
   podium.castShadow = true;
   podium.receiveShadow = true;
   group.add(podium);
 
-  // Recessed entrance panel
-  const entrancePanel = new THREE.Mesh(
-    new THREE.BoxGeometry(6, 1.6, 0.1),
-    new THREE.MeshStandardMaterial({
-      color: colors.building.entrancePanel,
-      roughness: 0.4,
-      metalness: 0.3,
-    }),
-  );
-  entrancePanel.position.set(0, B.podiumH / 2, halfPodiumD - 0.05);
-  group.add(entrancePanel);
-
-  // Entrance canopy + 2 support columns
-  const canopy = new THREE.Mesh(
-    new THREE.BoxGeometry(7, 0.15, 2.5),
-    new THREE.MeshStandardMaterial({
-      color: colors.building.canopy,
-      roughness: 0.5,
-      metalness: 0.2,
-    }),
-  );
-  canopy.position.set(0, B.podiumH - 0.15, halfPodiumD + 1.5);
-  canopy.castShadow = true;
-  group.add(canopy);
-  [-3, 3].forEach((x) => {
-    const col = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, B.podiumH - 0.3, 0.2),
-      new THREE.MeshStandardMaterial({ color: colors.building.entrancePanel }),
-    );
-    col.position.set(x, B.podiumH / 2 - 0.15, halfPodiumD + 1.5);
-    col.castShadow = true;
-    group.add(col);
+  // ── Shared materials ──
+  // Singapore Expo: crisp white metal cladding panels with generous glazing
+  const panelMat = new THREE.MeshStandardMaterial({
+    color: 0xf8fafc,       // pure white — matches Expo white metal cladding
+    roughness: 0.6,
+    metalness: 0.1,
+  });
+  const accentPanelMat = new THREE.MeshStandardMaterial({
+    color: 0xf1f5f9,       // very subtle warm white for panel joints
+    roughness: 0.55,
+    metalness: 0.15,
+  });
+  const colMat = new THREE.MeshStandardMaterial({
+    color: colors.building.column,
+    metalness: 0.5,
+    roughness: 0.4,
+  });
+  // Larger, clearer glass areas for Expo-style generous glazing
+  const windowMat = new THREE.MeshPhysicalMaterial({
+    color: 0x7ab8e0,
+    metalness: 0.12,
+    roughness: 0.05,
+    transmission: 0.7,
+    transparent: true,
+    opacity: 0.2,
+    ior: 1.5,
+    side: THREE.DoubleSide,
+  });
+  const frameMat = new THREE.MeshStandardMaterial({
+    color: 0x64748b,
+    metalness: 0.6,
+    roughness: 0.3,
+  });
+  // Dark frame for structural grid expression
+  const mullionMat = new THREE.MeshStandardMaterial({
+    color: 0x475569,
+    metalness: 0.5,
+    roughness: 0.4,
   });
 
   // ─── Per-floor construction ───
@@ -427,9 +435,9 @@ function buildBuilding(): THREE.Group {
     const floorGroup = new THREE.Group();
     floorGroup.name = `Floor-${floor}`;
 
-    // Concrete slab (floor)
+    // Concrete slab
     const slab = new THREE.Mesh(
-      new THREE.BoxGeometry(B.towerW + 0.3, B.slabT, B.towerD + 0.3),
+      new THREE.BoxGeometry(B.towerW + 0.5, B.slabT, B.towerD + 0.5),
       new THREE.MeshStandardMaterial({
         color: colors.building.slab,
         roughness: 0.85,
@@ -441,201 +449,1382 @@ function buildBuilding(): THREE.Group {
     slab.receiveShadow = true;
     floorGroup.add(slab);
 
-    // Suspended ceiling (thin band below the slab)
-    const ceiling = new THREE.Mesh(
-      new THREE.BoxGeometry(B.towerW - 0.2, 0.08, B.towerD - 0.2),
-      new THREE.MeshStandardMaterial({
-        color: 0xe2e8f0,
-        roughness: 0.6,
-        metalness: 0.1,
-      }),
+    // Suspended ceiling (thin band below slab) — exhibition halls have
+    // exposed structure but some ceiling border band is visible
+    const ceilingBand = new THREE.Mesh(
+      new THREE.BoxGeometry(B.towerW - 0.3, 0.08, B.towerD - 0.3),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6, metalness: 0.1 }),
     );
-    ceiling.position.set(0, yBase + B.floorH - 0.3, 0);
-    floorGroup.add(ceiling);
+    ceilingBand.position.set(0, yBase + B.floorH - 0.25, 0);
+    floorGroup.add(ceilingBand);
 
-    // Duct runs (cylindrical, silver, along the ceiling)
-    const ductMat = new THREE.MeshStandardMaterial({
-      color: 0xcbd5e1,
-      metalness: 0.6,
-      roughness: 0.4,
-    });
-    [-B.towerW / 4, B.towerW / 4].forEach((x) => {
-      const duct = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.25, 0.25, B.towerD - 2, 12),
-        ductMat,
-      );
-      duct.rotation.x = Math.PI / 2;
-      duct.position.set(x, yBase + B.floorH - 0.6, 0);
-      duct.castShadow = true;
-      floorGroup.add(duct);
-    });
-
-    // Glass facade — 5 cols × 3 rows on all 4 sides
-    const panelH = (B.floorH - B.slabT) / B.mullionRows;
-    const panelW = B.towerW / B.mullionCols;
-    const glassMat = new THREE.MeshPhysicalMaterial({
-      color: colors.building.glass,
-      metalness: 0.1,
-      roughness: 0.05,
-      transmission: B.glassTransmission,
-      transparent: true,
-      opacity: B.glassOpacity,
-      ior: 1.5,
-    });
-    for (let row = 0; row < B.mullionRows; row++) {
-      for (let col = 0; col < B.mullionCols; col++) {
-        const x = -halfW + panelW * (col + 0.5);
-        const y = yBase + B.slabT / 2 + panelH * (row + 0.5);
-        // Front
-        const gf = new THREE.Mesh(
-          new THREE.BoxGeometry(panelW * 0.92, panelH * 0.88, 0.08),
-          glassMat,
-        );
-        gf.position.set(x, y, halfD);
-        floorGroup.add(gf);
-        // Back
-        const gb = new THREE.Mesh(
-          new THREE.BoxGeometry(panelW * 0.92, panelH * 0.88, 0.08),
-          glassMat,
-        );
-        gb.position.set(x, y, -halfD);
-        floorGroup.add(gb);
-        // Left
-        const gl = new THREE.Mesh(
-          new THREE.BoxGeometry(0.08, panelH * 0.88, panelW * 0.92),
-          glassMat,
-        );
-        gl.position.set(-halfW, y, -halfD + panelW * (col + 0.5));
-        floorGroup.add(gl);
-        // Right
-        const gr = new THREE.Mesh(
-          new THREE.BoxGeometry(0.08, panelH * 0.88, panelW * 0.92),
-          glassMat,
-        );
-        gr.position.set(halfW, y, -halfD + panelW * (col + 0.5));
-        floorGroup.add(gr);
-      }
-    }
-
-    // Mullion grid — vertical + horizontal
-    const mullionMat = new THREE.MeshStandardMaterial({
-      color: colors.building.mullion,
-      metalness: 0.7,
-      roughness: 0.3,
-    });
-    for (let i = 0; i <= B.mullionCols; i++) {
-      const x = -halfW + panelW * i;
-      [-halfD, halfD].forEach((z) => {
-        const m = new THREE.Mesh(
-          new THREE.BoxGeometry(B.mullionT, B.floorH - B.slabT, B.mullionT),
-          mullionMat,
-        );
-        m.position.set(x, yCenter, z);
-        floorGroup.add(m);
-      });
-      const z = -halfD + panelW * i;
-      [-halfW, halfW].forEach((xSide) => {
-        const m = new THREE.Mesh(
-          new THREE.BoxGeometry(B.mullionT, B.floorH - B.slabT, B.mullionT),
-          mullionMat,
-        );
-        m.position.set(xSide, yCenter, z);
-        floorGroup.add(m);
-      });
-    }
-    for (let row = 1; row < B.mullionRows; row++) {
-      const y = yBase + B.slabT / 2 + panelH * row;
-      [-halfD, halfD].forEach((z) => {
-        const m = new THREE.Mesh(
-          new THREE.BoxGeometry(B.towerW, B.mullionT * 0.8, B.mullionT),
-          mullionMat,
-        );
-        m.position.set(0, y, z);
-        floorGroup.add(m);
-      });
-      [-halfW, halfW].forEach((xSide) => {
-        const m = new THREE.Mesh(
-          new THREE.BoxGeometry(B.mullionT, B.mullionT * 0.8, B.towerD),
-          mullionMat,
-        );
-        m.position.set(xSide, y, 0);
-        floorGroup.add(m);
-      });
-    }
-
-    // Structural corner columns
-    const colMat = new THREE.MeshStandardMaterial({
-      color: colors.building.column,
-      metalness: 0.5,
-      roughness: 0.4,
-    });
-    [
-      [-halfW, -halfD],
-      [halfW, -halfD],
-      [-halfW, halfD],
-      [halfW, halfD],
-    ].forEach(([x, z]) => {
+    // ── Large structural columns — exhibition hall spans ──
+    // Front and back rows (9 columns each for wider building)
+    const colCount = 11;
+    for (let i = 0; i < colCount; i++) {
+      const t = i / (colCount - 1);
+      const x = -halfW + B.towerW * t;
       const col = new THREE.Mesh(
         new THREE.BoxGeometry(B.columnSize, B.floorH, B.columnSize),
         colMat,
       );
-      col.position.set(x, yCenter, z);
       col.castShadow = true;
-      floorGroup.add(col);
+      // Front row
+      const colF = col.clone();
+      colF.position.set(x, yCenter, halfD - 0.3);
+      floorGroup.add(colF);
+      // Back row
+      const colB = col.clone();
+      colB.position.set(x, yCenter, -halfD + 0.3);
+      floorGroup.add(colB);
+    }
+    // Side columns (7 each side)
+    for (let i = 0; i < 9; i++) {
+      const t = i / 8;
+      const z = -halfD + B.towerD * t;
+      const sideCol = new THREE.Mesh(
+        new THREE.BoxGeometry(B.columnSize, B.floorH, B.columnSize),
+        colMat,
+      );
+      sideCol.castShadow = true;
+      const colL = sideCol.clone();
+      colL.position.set(-halfW + 0.3, yCenter, z);
+      floorGroup.add(colL);
+      const colR = sideCol.clone();
+      colR.position.set(halfW - 0.3, yCenter, z);
+      floorGroup.add(colR);
+    }
+
+    // ── Exterior wall panels (NOT glass curtain wall) ──
+    // Singapore Expo: solid white/light wall panels broken by
+    // recessed horizontal window strips and vertical articulation
+    const panelCols = B.panelCols;
+    const panelRows = B.panelRows;
+    const usableH = B.floorH - B.slabT;
+    const panelH = usableH / panelRows;
+    const panelW = B.towerW / (panelCols - 1);
+
+    // Back wall — panel facade with generous window strips
+    for (let row = 0; row < panelRows; row++) {
+      for (let col = 0; col < panelCols; col++) {
+        const x = -halfW + panelW * col;
+        const y = yBase + B.slabT / 2 + panelH * (row + 0.5);
+        // Expo-style: alternate wide window bands with solid panels
+        const isWindowRow = row === 1; // middle row = wide window band
+        if (isWindowRow) {
+          // Generous continuous window strip spanning bay width
+          const win = new THREE.Mesh(
+            new THREE.BoxGeometry(panelW * 0.8, panelH * 0.65, 0.06),
+            windowMat,
+          );
+          win.position.set(x, y, -halfD);
+          floorGroup.add(win);
+        } else {
+          // Solid white panel
+          const panel = new THREE.Mesh(
+            new THREE.BoxGeometry(panelW * 0.92, panelH * 0.88, 0.1),
+            col % 2 === 0 ? panelMat : accentPanelMat,
+          );
+          panel.position.set(x, y, -halfD);
+          floorGroup.add(panel);
+        }
+      }
+    }
+    // Vertical mullion strips between panel bays (back wall)
+    for (let col = 0; col <= panelCols; col++) {
+      const x = -halfW + panelW * col - panelW / 2;
+      const mullion = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04, panelH * panelRows * 0.9, 0.12),
+        mullionMat,
+      );
+      mullion.position.set(x, yBase + B.slabT / 2 + (panelH * panelRows) / 2, -halfD);
+      floorGroup.add(mullion);
+    }
+
+    // Side walls — panel facade with generous glazing
+    for (let row = 0; row < panelRows; row++) {
+      for (let col = 0; col < panelCols; col++) {
+        const x = -halfW + panelW * col;
+        const y = yBase + B.slabT / 2 + panelH * (row + 0.5);
+        const isWindowRow = row === 1; // middle row = window band
+        const panelW2 = B.towerD / (panelCols - 1);
+        const zSide = -halfD + panelW2 * col;
+
+        // Left side wall
+        const wallL = new THREE.Mesh(
+          new THREE.BoxGeometry(
+            0.08,
+            isWindowRow ? panelH * 0.65 : panelH * 0.88,
+            panelW2 * 0.85,
+          ),
+          isWindowRow ? windowMat : (col % 2 === 0 ? panelMat : accentPanelMat),
+        );
+        wallL.position.set(-halfW, y, zSide);
+        floorGroup.add(wallL);
+        // Right side wall
+        const wallR = wallL.clone();
+        wallR.position.set(halfW, y, zSide);
+        floorGroup.add(wallR);
+      }
+    }
+    // Vertical mullion strips (side walls)
+    for (let col = 0; col <= panelCols; col++) {
+      const zSide = -halfD + (B.towerD / (panelCols - 1)) * col - (B.towerD / (panelCols - 1)) / 2;
+      for (const sideX of [-1, 1]) {
+        const mullion = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, panelH * panelRows * 0.9, 0.04),
+          mullionMat,
+        );
+        mullion.position.set(sideX * halfW, yBase + B.slabT / 2 + (panelH * panelRows) / 2, zSide);
+        floorGroup.add(mullion);
+      }
+    }
+
+    // Front wall — generous glazing with white panel bands
+    if (floor === 0) {
+      // Level 1: full glass atrium front — large glass panels with minimal framing
+      for (let col = 0; col < panelCols; col++) {
+        const x = -halfW + panelW * col;
+        // Skip center section for atrium opening
+        if (Math.abs(x) < B.atriumW / 2 + 0.5) continue;
+        for (let row = 0; row < panelRows; row++) {
+          const y = yBase + B.slabT / 2 + panelH * (row + 0.5);
+          const isWindowRow = row === 1;
+          const gf = new THREE.Mesh(
+            new THREE.BoxGeometry(
+              panelW * 0.88,
+              isWindowRow ? panelH * 0.65 : panelH * 0.85,
+              0.06,
+            ),
+            isWindowRow ? windowMat : (col % 2 === 0 ? panelMat : accentPanelMat),
+          );
+          gf.position.set(x, y, halfD);
+          floorGroup.add(gf);
+        }
+      }
+      // Atrium opening — large glass panels spanning the entrance
+      const atGlassMat = new THREE.MeshPhysicalMaterial({
+        color: 0x7ab8e0,
+        metalness: 0.12,
+        roughness: 0.05,
+        transmission: 0.75,
+        transparent: true,
+        opacity: 0.15,
+        ior: 1.5,
+        side: THREE.DoubleSide,
+      });
+      const atPanels = 7;
+      for (let i = 0; i < atPanels; i++) {
+        const x = -B.atriumW / 2 + (B.atriumW / (atPanels - 1)) * i;
+        const panelH2 = B.atriumH / panelRows;
+        for (let row = 0; row < panelRows; row++) {
+          const y = yBase + B.slabT / 2 + panelH2 * (row + 0.5);
+          const atP = new THREE.Mesh(
+            new THREE.BoxGeometry((B.atriumW / (atPanels - 1)) * 0.88, panelH2 * 0.88, 0.05),
+            atGlassMat,
+          );
+          atP.position.set(x, y, halfD);
+          floorGroup.add(atP);
+        }
+      }
+    } else {
+      // Upper floor: generous window band across full width
+      for (let col = 0; col < panelCols; col++) {
+        const x = -halfW + panelW * col;
+        for (let row = 0; row < panelRows; row++) {
+          const y = yBase + B.slabT / 2 + panelH * (row + 0.5);
+          const isWindowRow = row === 1;
+          const mat = isWindowRow ? windowMat : (col % 2 === 0 ? panelMat : accentPanelMat);
+          // Skip if this would overlap atrium void
+          if (Math.abs(x) < B.atriumW / 2 && row < 2) continue;
+          const gf = new THREE.Mesh(
+            new THREE.BoxGeometry(
+              panelW * 0.88,
+              isWindowRow ? panelH * 0.65 : panelH * 0.85,
+              isWindowRow ? 0.06 : 0.1,
+            ),
+            mat,
+          );
+          gf.position.set(x, y, halfD);
+          floorGroup.add(gf);
+        }
+      }
+    }
+    // Front facade vertical mullions
+    for (let col = 0; col <= panelCols; col++) {
+      const x = -halfW + panelW * col - panelW / 2;
+      // Skip mullions in atrium zone
+      if (Math.abs(x) < B.atriumW / 2 + 0.3) continue;
+      const mullion = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04, panelH * panelRows * 0.9, 0.12),
+        mullionMat,
+      );
+      mullion.position.set(x, yBase + B.slabT / 2 + (panelH * panelRows) / 2, halfD);
+      floorGroup.add(mullion);
+    }
+
+    // ── Horizontal spandrel bands — prominent architectural feature ──
+    // Deep concrete fascia that wraps around the building at each floor
+    // level, giving the Expo facade its distinctive layered look
+    const spandrelMat = new THREE.MeshStandardMaterial({
+      color: 0xcbd5e1,
+      roughness: 0.6,
+      metalness: 0.1,
     });
+    const spandrelShadowMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      roughness: 0.7,
+      metalness: 0.05,
+    });
+    // Main spandrel band (front face only — deep horizontal line)
+    const spandrelFront = new THREE.Mesh(
+      new THREE.BoxGeometry(B.towerW + 0.6, 0.25, 0.4),
+      spandrelMat,
+    );
+    spandrelFront.position.set(0, yBase + B.slabT - 0.05, halfD + 0.1);
+    spandrelFront.castShadow = true;
+    floorGroup.add(spandrelFront);
+    // Shadow band below
+    const shadowBand = new THREE.Mesh(
+      new THREE.BoxGeometry(B.towerW + 0.6, 0.08, 0.3),
+      spandrelShadowMat,
+    );
+    shadowBand.position.set(0, yBase + B.slabT - 0.22, halfD + 0.15);
+    floorGroup.add(shadowBand);
+
+    // Secondary spandrel at the top of each floor (front)
+    const spandrelTop = new THREE.Mesh(
+      new THREE.BoxGeometry(B.towerW + 0.6, 0.15, 0.3),
+      spandrelMat,
+    );
+    spandrelTop.position.set(0, yBase + B.floorH - 0.05, halfD + 0.1);
+    floorGroup.add(spandrelTop);
 
     group.add(floorGroup);
   }
 
-  // Rooftop penthouse
-  const penthouse = new THREE.Mesh(
-    new THREE.BoxGeometry(B.towerW + 1, 1.2, B.towerD + 1),
-    new THREE.MeshStandardMaterial({
-      color: colors.building.penthouse,
-      roughness: 0.7,
-      metalness: 0.1,
-    }),
+  // ─── Entrance Atrium — large glass feature at front ───
+  const entranceGroup = new THREE.Group();
+  entranceGroup.name = "Entrance";
+  
+  // "SINGAPORE EXPO" branding on the facade above the atrium
+  const expoCanvas = document.createElement("canvas");
+  expoCanvas.width = 512;
+  expoCanvas.height = 96;
+  const expoCtx = expoCanvas.getContext("2d")!;
+  expoCtx.clearRect(0, 0, 512, 96);
+  // Subtle dark background pill
+  expoCtx.fillStyle = "rgba(15, 23, 42, 0.55)";
+  expoCtx.beginPath();
+  expoCtx.roundRect(10, 10, 492, 76, 14);
+  expoCtx.fill();
+  // Top line: "SINGAPORE"
+  expoCtx.fillStyle = "#ffffff";
+  expoCtx.font = "bold 34px system-ui, -apple-system, sans-serif";
+  expoCtx.textAlign = "center";
+  expoCtx.textBaseline = "middle";
+  expoCtx.fillText("SINGAPORE", 256, 34);
+  // Bottom line: "EXPO"
+  expoCtx.fillStyle = "#ffb347";
+  expoCtx.font = "bold 46px system-ui, -apple-system, sans-serif";
+  expoCtx.fillText("EXPO", 256, 72);
+  const expoTex = new THREE.CanvasTexture(expoCanvas);
+  expoTex.minFilter = THREE.LinearFilter;
+  expoTex.magFilter = THREE.LinearFilter;
+  const expoSprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: expoTex, transparent: true, depthTest: false }),
   );
-  penthouse.position.set(0, B.podiumH + totalH + 0.6, 0);
-  penthouse.castShadow = true;
-  group.add(penthouse);
+  expoSprite.scale.set(12, 2.4, 1);
+  expoSprite.position.set(0, B.podiumH + B.floorH * B.floorCount + 0.5, halfD + 0.3);
+  entranceGroup.add(expoSprite);
 
-  // Rooftop RTU units (4 boxes + fan cowls)
-  const rtuMat = new THREE.MeshStandardMaterial({
-    color: colors.building.mechanical,
-    roughness: 0.5,
+  const atGlassMat = new THREE.MeshPhysicalMaterial({
+    color: 0x7ab8e0,
+    metalness: 0.12,
+    roughness: 0.05,
+    transmission: 0.75,
+    transparent: true,
+    opacity: 0.12,
+    ior: 1.5,
+    side: THREE.DoubleSide,
+  });
+  const darkFrameMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5, roughness: 0.4 });
+  const canopyMat = new THREE.MeshStandardMaterial({
+    color: 0x94a3b8,
     metalness: 0.4,
-  });
-  [
-    [-5, -3],
-    [5, -3],
-    [-5, 3],
-    [5, 3],
-  ].forEach(([x, z]) => {
-    const rtu = new THREE.Mesh(new THREE.BoxGeometry(2, 1.2, 2), rtuMat);
-    rtu.position.set(x, B.podiumH + totalH + 0.6, z);
-    rtu.castShadow = true;
-    group.add(rtu);
-    const cowl = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.6, 0.6, 0.4, 16),
-      rtuMat,
-    );
-    cowl.position.set(x, B.podiumH + totalH + 1.4, z);
-    group.add(cowl);
+    roughness: 0.5,
   });
 
-  // Antenna
-  const antenna = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.05, 0.05, 3, 8),
-    new THREE.MeshStandardMaterial({
-      color: colors.building.antenna,
-      metalness: 0.8,
-      roughness: 0.2,
+  // Entrance doors at ground level
+  for (const side of [-1, 1]) {
+    const doorPanel = new THREE.Mesh(
+      new THREE.BoxGeometry(2.5, 3.5, 0.06),
+      darkFrameMat,
+    );
+    doorPanel.position.set(side * 3.5, B.podiumH + 1.75, halfD + 0.05);
+    entranceGroup.add(doorPanel);
+  }
+  // Door header
+  const doorHeader = new THREE.Mesh(
+    new THREE.BoxGeometry(8.0, 0.2, 0.12),
+    frameMat,
+  );
+  doorHeader.position.set(0, B.podiumH + 3.6, halfD + 0.05);
+  entranceGroup.add(doorHeader);
+
+  // Sweeping entrance canopy / porte-cochère — wide overhang like actual Expo
+  const canopy = new THREE.Mesh(
+    new THREE.BoxGeometry(B.atriumW + 9, 0.3, 8.0),
+    canopyMat,
+  );
+  canopy.position.set(0, B.podiumH + 4.5, halfD + 5.0);
+  canopy.castShadow = true;
+  entranceGroup.add(canopy);
+
+  // Canopy support columns — more dramatic V-shaped aesthetic
+  for (const xc of [-B.atriumW / 2 - 2.5, -6, -2, 2, 6, B.atriumW / 2 + 2.5]) {
+    const leg = new THREE.Mesh(
+      new THREE.BoxGeometry(0.25, B.podiumH + 4.5, 0.25),
+      new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.3 }),
+    );
+    leg.position.set(xc, (B.podiumH + 4.5) / 2, halfD + 5.0);
+    leg.castShadow = true;
+    entranceGroup.add(leg);
+  }
+
+  // Canopy underside lighting (warm glow on ceiling of canopy)
+  const canopyLight = new THREE.Mesh(
+    new THREE.PlaneGeometry(B.atriumW + 7, 7.0),
+    new THREE.MeshBasicMaterial({
+      color: 0xffee88,
+      transparent: true,
+      opacity: 0.08,
+      side: THREE.DoubleSide,
+      toneMapped: false,
     }),
   );
-  antenna.position.set(0, B.podiumH + totalH + 3.5, 0);
-  antenna.castShadow = true;
-  group.add(antenna);
+  canopyLight.position.set(0, B.podiumH + 4.4, halfD + 5.0);
+  canopyLight.rotation.x = -Math.PI / 2;
+  entranceGroup.add(canopyLight);
+
+  // Canopy top accent stripe
+  const accentStripe = new THREE.Mesh(
+    new THREE.BoxGeometry(B.atriumW + 9, 0.04, 0.3),
+    new THREE.MeshBasicMaterial({ color: 0x355fe5, toneMapped: false, transparent: true, opacity: 0.4 }),
+  );
+  accentStripe.position.set(0, B.podiumH + 4.65, halfD + 5.0);
+  entranceGroup.add(accentStripe);
+
+  group.add(entranceGroup);
+
+  // ─── Front facade structural fins / pilasters ────────────
+  // Tall concrete piers between panel bays — gives the Expo its distinctive
+  // rhythmic facade with deep shadow lines
+  const finMat = new THREE.MeshStandardMaterial({
+    color: 0xd1d5db,
+    roughness: 0.7,
+    metalness: 0.05,
+  });
+  const finShadowMat = new THREE.MeshStandardMaterial({
+    color: 0x9ca3af,
+    roughness: 0.8,
+    metalness: 0.0,
+  });
+  for (let fi = 0; fi < 10; fi++) {
+    const fx = -halfW + (B.towerW / 9) * fi;
+    // Skip fins that would block the atrium entrance
+    if (Math.abs(fx) < B.atriumW / 2 + 0.5) continue;
+    const finH = totalH + 1.0;
+    const fin = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, finH, 0.4),
+      finMat,
+    );
+    fin.position.set(fx, B.podiumH + finH / 2, halfD + 0.15);
+    fin.castShadow = true;
+    group.add(fin);
+
+    // Shadow line / reveal on each side of the fin
+    for (const side of [-1, 1]) {
+      const reveal = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04, finH, 0.1),
+        finShadowMat,
+      );
+      reveal.position.set(fx + side * 0.2, B.podiumH + finH / 2, halfD + 0.35);
+      group.add(reveal);
+    }
+  }
+
+  // ─── Sawtooth Roof — signature Singapore Expo feature ───
+  const roofGroup = new THREE.Group();
+  roofGroup.name = "SawtoothRoof";
+  const roofBaseY = B.podiumH + totalH;
+
+  const roofMatLight = new THREE.MeshStandardMaterial({
+    color: 0xf1f5f9,     // white/light — matches actual Expo roof
+    roughness: 0.7,
+    metalness: 0.1,
+  });
+  const roofMatDark = new THREE.MeshStandardMaterial({
+    color: 0xe2e8f0,
+    roughness: 0.6,
+    metalness: 0.2,
+  });
+
+  for (let r = 0; r < B.roofRidgeCount; r++) {
+    const ridgeX = -halfW + B.roofRidgeW * (r + 0.5);
+    // Triangular cross-section extruded across building depth
+    const ridgeShape = new THREE.Shape();
+    ridgeShape.moveTo(-B.roofRidgeW / 2, 0);
+    ridgeShape.lineTo(0, B.roofRidgeH);
+    ridgeShape.lineTo(B.roofRidgeW / 2, 0);
+    ridgeShape.closePath();
+
+    const ridge = new THREE.Mesh(
+      new THREE.ExtrudeGeometry(ridgeShape, { depth: B.towerD + 6.0, bevelEnabled: false }),  // 6m overhang — sawtooth profile visible from front
+      r % 2 === 0 ? roofMatLight : roofMatDark,
+    );
+    ridge.position.set(ridgeX, roofBaseY, -halfD);
+    ridge.castShadow = true;
+    ridge.receiveShadow = true;
+    roofGroup.add(ridge);
+  }
+
+  // Ridge cap beams
+  for (let r = 0; r < B.roofRidgeCount; r++) {
+    const ridgeX = -halfW + B.roofRidgeW * (r + 0.5);
+    const cap = new THREE.Mesh(
+      new THREE.BoxGeometry(0.15, 0.12, B.towerD + 6.6),
+      new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.3 }),
+    );
+    cap.position.set(ridgeX, roofBaseY + B.roofRidgeH + 0.06, 0);
+    roofGroup.add(cap);
+  }
+
+  // Roof parapet wall at the overhang front edge
+  const parapet = new THREE.Mesh(
+    new THREE.BoxGeometry(B.towerW + 0.5, 0.6, 0.12),
+    new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.7, metalness: 0.05 }),
+  );
+  parapet.position.set(0, roofBaseY + 0.3, halfD + 6.0);
+  roofGroup.add(parapet);
+
+  // Roof edge fascia — clean trim line along the overhang
+  const fasciaMat = new THREE.MeshStandardMaterial({
+    color: 0x9ca3af,
+    roughness: 0.5,
+    metalness: 0.3,
+  });
+  const fascia = new THREE.Mesh(
+    new THREE.BoxGeometry(B.towerW + 0.5, 0.15, 0.2),
+    fasciaMat,
+  );
+  fascia.position.set(0, roofBaseY - 0.05, halfD + 6.0);
+  roofGroup.add(fascia);
+
+  // ── Roof overhang support columns — makes the sawtooth canopy read as an architectural feature ──
+  const supportMat = new THREE.MeshStandardMaterial({
+    color: 0x94a3b8,
+    metalness: 0.5,
+    roughness: 0.4,
+  });
+  for (let c = 0; c < 7; c++) {
+    const cx = -halfW + 1.5 + c * 5.5;
+    const support = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, B.floorH * B.floorCount - 1.0, 0.2),
+      supportMat,
+    );
+    support.position.set(cx, B.podiumH + (B.floorH * B.floorCount - 1.0) / 2, halfD + 3.5);
+    roofGroup.add(support);
+  }
+
+  group.add(roofGroup);
+
+  return group;
+}
+
+// ─── Elevator — prominent glass observation elevator ──────────────
+// Positioned on the exterior facade so it's clearly visible and
+// differentiated from mechanical equipment.
+interface ElevatorCabAnim {
+  group: THREE.Group;
+  bottomY: number;
+  topY: number;
+  phase: number;
+}
+
+interface ElevatorData {
+  group: THREE.Group;
+  cabs: ElevatorCabAnim[];
+}
+
+function buildElevators(): ElevatorData {
+  const group = new THREE.Group();
+  group.name = "Elevators";
+  const totalH = B.podiumH + B.floorH * B.floorCount;
+  const halfW = B.towerW / 2;
+  const halfD = B.towerD / 2;
+  const cabs: ElevatorCabAnim[] = [];
+
+  // Elevator-specific warm/premium materials — completely distinct from mechanical greys/blues
+  const glassShaft = new THREE.MeshPhysicalMaterial({
+    color: 0xd4e8ff,
+    metalness: 0.05,
+    roughness: 0.02,
+    transparent: true,
+    opacity: 0.06,              // barely visible — lets the glowing cab be the star
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    transmission: 0.85,
+    ior: 1.4,
+  });
+  // Warm gold/champagne metal frame — completely distinct from grey mechanical
+  const frameMat = new THREE.MeshStandardMaterial({
+    color: 0xc9a84c,        // warm gold/champagne
+    metalness: 0.8,
+    roughness: 0.2,
+  });
+  const darkFrameMat = new THREE.MeshStandardMaterial({
+    color: 0x8b7333,        // dark gold
+    metalness: 0.7,
+    roughness: 0.3,
+  });
+  // Bright gold LED material
+  const ledMat = new THREE.MeshBasicMaterial({
+    color: 0xffb347,        // warm amber/gold — NOT cyan/blue like everything else
+    toneMapped: false,
+    transparent: true,
+    opacity: 0.9,
+  });
+  const railMat = new THREE.MeshStandardMaterial({
+    color: 0xbfa55a,
+    metalness: 0.8,
+    roughness: 0.2,
+  });
+
+  // Two elevator shafts — prominent at front-right of building
+  for (let i = 0; i < 2; i++) {
+    const xPos = halfW - 2.5 - i * 4.2;  // slightly wider spacing
+    const shaftH = totalH + 0.8;
+
+    const shaft = new THREE.Group();
+    shaft.position.set(xPos, 0, halfD - 0.5);
+    shaft.name = `Elevator-${i}`;
+
+    const shW = B.elevatorShaftW + 0.3;  // slightly wider
+    const shD = B.elevatorShaftD + 0.3;
+
+    // Glass walls — 4 sides, almost invisible to show the glowing cab
+    const glassF = new THREE.Mesh(new THREE.BoxGeometry(shW, shaftH, 0.03), glassShaft);
+    glassF.position.set(0, shaftH / 2, shD / 2);
+    shaft.add(glassF);
+    const glassB = new THREE.Mesh(new THREE.BoxGeometry(shW, shaftH, 0.03), glassShaft);
+    glassB.position.set(0, shaftH / 2, -shD / 2);
+    shaft.add(glassB);
+    const glassL = new THREE.Mesh(new THREE.BoxGeometry(0.03, shaftH, shD), glassShaft);
+    glassL.position.set(-shW / 2, shaftH / 2, 0);
+    shaft.add(glassL);
+    const glassR = new THREE.Mesh(new THREE.BoxGeometry(0.03, shaftH, shD), glassShaft);
+    glassR.position.set(shW / 2, shaftH / 2, 0);
+    shaft.add(glassR);
+
+    // Gold corner extrusions — premium architectural detailing
+    for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+      const corner = new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, shaftH, 0.1),
+        frameMat,
+      );
+      corner.position.set(sx * shW / 2, shaftH / 2, sz * shD / 2);
+      shaft.add(corner);
+    }
+
+    // Warm gold LED vertical strips along all 4 front corners
+    // Makes the elevator instantly identifiable as a premium glass lift
+    for (const [ledX, ledZ] of [
+      [-shW / 2 + 0.08, shD / 2],
+      [shW / 2 - 0.08, shD / 2],
+    ]) {
+      const ledStrip = new THREE.Mesh(
+        new THREE.BoxGeometry(0.03, shaftH * 0.8, 0.03),
+        ledMat,
+      );
+      ledStrip.position.set(ledX, shaftH * 0.5 + B.podiumH, ledZ + 0.05);
+      shaft.add(ledStrip);
+    }
+
+    // Guide rails — gold tone
+    for (const [rx, rz] of [[-0.6, -0.6], [-0.6, 0.6], [0.6, -0.6], [0.6, 0.6]]) {
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(0.03, shaftH * 0.85, 0.03),
+        railMat,
+      );
+      rail.position.set(rx, shaftH / 2 + 0.3, rz);
+      shaft.add(rail);
+    }
+
+    // ── Elevator cables (barely visible thin strands) ──
+    for (let ci = 0; ci < 3; ci++) {
+      const cx = -0.3 + ci * 0.3;
+      const cable = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.008, 0.008, shaftH, 4),
+        new THREE.MeshStandardMaterial({ color: 0x8b7333, metalness: 0.8, roughness: 0.3 }),
+      );
+      cable.position.set(cx, shaftH / 2, 0);
+      shaft.add(cable);
+    }
+
+    // ── Top decorative crown — elegant glass+framed cap, NOT a boxy machine room ──
+    // This replaces the mechanical-looking machine room with an architectural feature
+    const crownMat = new THREE.MeshPhysicalMaterial({
+      color: 0xd4e8ff,
+      metalness: 0.1,
+      roughness: 0.02,
+      transparent: true,
+      opacity: 0.15,
+      transmission: 0.6,
+      side: THREE.DoubleSide,
+    });
+    // Crown glass enclosure
+    const crown = new THREE.Mesh(
+      new THREE.BoxGeometry(shW + 0.3, 0.8, shD + 0.3),
+      crownMat,
+    );
+    crown.position.set(0, shaftH + 0.4, 0);
+    shaft.add(crown);
+    // Crown gold trim
+    for (const edge of [
+      [-1, -1], [-1, 1], [1, -1], [1, 1],
+    ]) {
+      const trim = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.8, 0.08),
+        frameMat,
+      );
+      trim.position.set(edge[0] * (shW / 2 + 0.15), shaftH + 0.4, edge[1] * (shD / 2 + 0.15));
+      shaft.add(trim);
+    }
+    // Crown top accent light
+    const crownLight = new THREE.Mesh(
+      new THREE.BoxGeometry(shW - 0.2, 0.04, shD - 0.2),
+      new THREE.MeshBasicMaterial({ color: 0xffb347, toneMapped: false, transparent: true, opacity: 0.6 }),
+    );
+    crownLight.position.set(0, shaftH + 0.8, 0);
+    shaft.add(crownLight);
+
+    // ── Floor-level door frames — gold tone ──
+    for (let f = 0; f < B.floorCount; f++) {
+      const y = B.podiumH + f * B.floorH + B.floorH / 2 - 0.3;
+
+      // Door frame
+      const doorFrame = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 2.8, 0.05),
+        darkFrameMat,
+      );
+      doorFrame.position.set(0, y, shD / 2 + 0.04);
+      shaft.add(doorFrame);
+
+      // Door gap (center slit)
+      const doorGap = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, 2.6, 0.06),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2 }),
+      );
+      doorGap.position.set(0, y, shD / 2 + 0.07);
+      shaft.add(doorGap);
+
+      // Floor number display — bright amber LED digits
+      const floorNumMat = new THREE.MeshBasicMaterial({
+        color: 0xffb347,
+        toneMapped: false,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const floorDisplay = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.3, 0.02),
+        floorNumMat,
+      );
+      floorDisplay.position.set(shW / 2 + 0.06, y + 0.4, shD / 2 + 0.05);
+      shaft.add(floorDisplay);
+
+      // Floor number "digit" dots (simulating a 7-segment display)
+      for (let di = 0; di < 3; di++) {
+        const dot = new THREE.Mesh(
+          new THREE.BoxGeometry(0.02, 0.08, 0.02),
+          floorNumMat,
+        );
+        dot.position.set(
+          shW / 2 + 0.06 + 0.08 * (di - 1),
+          y + 0.04,
+          shD / 2 + 0.07,
+        );
+        shaft.add(dot);
+      }
+    }
+
+    // ── Floor divider bands ──
+    for (let f = 0; f <= B.floorCount; f++) {
+      const y = B.podiumH + f * B.floorH;
+      const band = new THREE.Mesh(
+        new THREE.BoxGeometry(shW + 0.2, 0.04, shD + 0.2),
+        frameMat,
+      );
+      band.position.set(0, y, 0);
+      shaft.add(band);
+    }
+
+    // ── ELEVATOR label sprite at the base (premium gold branding) ──
+    const elevLabelCanvas = document.createElement("canvas");
+    elevLabelCanvas.width = 256;
+    elevLabelCanvas.height = 48;
+    const elCtx = elevLabelCanvas.getContext("2d")!;
+    elCtx.fillStyle = "#1a1410";  // warm dark brown
+    elCtx.beginPath();
+    elCtx.roundRect(4, 4, 248, 40, 20);
+    elCtx.fill();
+    // Gold border
+    elCtx.strokeStyle = "#c9a84c";
+    elCtx.lineWidth = 2;
+    elCtx.beginPath();
+    elCtx.roundRect(6, 6, 244, 36, 18);
+    elCtx.stroke();
+    elCtx.fillStyle = "#ffb347";
+    elCtx.font = "bold 26px system-ui, -apple-system, sans-serif";
+    elCtx.textAlign = "center";
+    elCtx.textBaseline = "middle";
+    elCtx.fillText("✦ ELEVATOR ✦", 128, 26);
+    const elevLabelTex = new THREE.CanvasTexture(elevLabelCanvas);
+    elevLabelTex.minFilter = THREE.LinearFilter;
+    const elevLabel = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: elevLabelTex, transparent: true, depthTest: false }),
+    );
+    elevLabel.scale.set(3.5, 0.7, 1);
+    elevLabel.position.set(0, B.podiumH + 0.1, shD / 2 + 0.5);
+    shaft.add(elevLabel);
+
+    // ─── CAB — super-visible with warm glow ───
+    const cabGrp = new THREE.Group();
+    const cabH = B.elevatorCabH + 0.2;
+    // Cab body — translucent warm glass so glow shows through from all sides
+    const cabBody = new THREE.Mesh(
+      new THREE.BoxGeometry(B.elevatorCabW, cabH, B.elevatorCabD),
+      new THREE.MeshPhysicalMaterial({
+        color: 0xf5e6c8,      // warm cream — illuminated interior
+        metalness: 0.05,
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0.35,         // semi-transparent so inner glow bleeds through
+        side: THREE.DoubleSide,
+      }),
+    );
+    cabBody.position.y = cabH / 2;
+    cabBody.castShadow = true;
+    cabGrp.add(cabBody);
+
+    // Cab ceiling light panel (very bright)
+    const cabLightPanel = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.4, 1.4),
+      new THREE.MeshBasicMaterial({
+        color: 0xfff8e1,
+        transparent: true,
+        opacity: 0.95,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      }),
+    );
+    cabLightPanel.position.set(0, cabH - 0.04, 0);
+    cabLightPanel.rotation.x = -Math.PI / 2;
+    cabGrp.add(cabLightPanel);
+
+    // Cab gold LED base strip
+    const ledBase = new THREE.Mesh(
+      new THREE.BoxGeometry(B.elevatorCabW + 0.04, 0.05, B.elevatorCabD + 0.04),
+      new THREE.MeshBasicMaterial({
+        color: 0xffb347,
+        toneMapped: false,
+        transparent: true,
+        opacity: 0.8,
+      }),
+    );
+    ledBase.position.y = 0.08;
+    cabGrp.add(ledBase);
+
+    // ── MAJOR: Warm glow that EXTENDS BEYOND the cab — visible through shaft glass ──
+    // These use AdditiveBlending so they show through ANYTHING in front, including
+    // the semi-transparent cab body and the shaft glass walls.
+    
+    // Large outer glow sphere — extends past cab front face
+    const warmGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(1.1, 16, 14),
+      new THREE.MeshBasicMaterial({
+        color: 0xffaa33,
+        transparent: true,
+        opacity: 0.55,
+        toneMapped: false,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    warmGlow.position.set(0, cabH * 0.45, B.elevatorCabD / 2 + 0.3);  // PROTRUDES past cab front
+    cabGrp.add(warmGlow);
+    
+    // Secondary warm glow — centered inside cab
+    const midGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.75, 14, 12),
+      new THREE.MeshBasicMaterial({
+        color: 0xffcc44,
+        transparent: true,
+        opacity: 0.65,
+        toneMapped: false,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    midGlow.position.set(0, cabH * 0.5, B.elevatorCabD / 4);  // toward front
+    cabGrp.add(midGlow);
+
+    // Bright inner core glow
+    const innerGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.4, 12, 10),
+      new THREE.MeshBasicMaterial({
+        color: 0xffee66,
+        transparent: true,
+        opacity: 0.85,
+        toneMapped: false,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    innerGlow.position.set(0, cabH * 0.5, B.elevatorCabD / 3);
+    cabGrp.add(innerGlow);
+
+    // ── Real PointLight inside the cab — casts warm light onto shaft glass ──
+    const cabPointLight = new THREE.PointLight(0xffaa33, 0.8, 8);
+    cabPointLight.position.set(0, cabH * 0.5, 0);
+    cabGrp.add(cabPointLight);
+
+    // Front glass panel (transparent) instead of opaque cab door
+    const frontGlassMat = new THREE.MeshPhysicalMaterial({
+      color: 0xffdd99,
+      metalness: 0.05,
+      roughness: 0.1,
+      transparent: true,
+      opacity: 0.2,
+      side: THREE.DoubleSide,
+      envMapIntensity: 0.5,
+    });
+    const cabFront = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, cabH * 0.8, 0.02),
+      frontGlassMat,
+    );
+    cabFront.position.set(0, cabH * 0.4, B.elevatorCabD / 2 + 0.01);
+    cabGrp.add(cabFront);
+
+    // Door center slit (subtle)
+    const doorSlit = new THREE.Mesh(
+      new THREE.BoxGeometry(0.015, cabH * 0.6, 0.03),
+      new THREE.MeshBasicMaterial({ color: 0x553322, transparent: true, opacity: 0.3 }),
+    );
+    doorSlit.position.set(0, cabH * 0.4, B.elevatorCabD / 2 + 0.03);
+    cabGrp.add(doorSlit);
+
+    // Cab handrail inside (gold bar visible through glass)
+    const handrail = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025, 0.025, B.elevatorCabW - 0.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0xc9a84c, metalness: 0.8, roughness: 0.2 }),
+    );
+    handrail.rotation.z = Math.PI / 2;
+    handrail.position.set(0, cabH * 0.3, B.elevatorCabD / 2 - 0.1);
+    cabGrp.add(handrail);
+
+    // Cab position
+    const bottomY = B.podiumH + 0.8;
+    const topY = B.podiumH + (B.floorCount - 0.5) * B.floorH - cabH;
+    cabGrp.position.y = bottomY;
+    shaft.add(cabGrp);
+    group.add(shaft);
+
+    cabs.push({
+      group: cabGrp,
+      bottomY,
+      topY,
+      phase: i * Math.PI + (i === 1 ? Math.PI / 2 : 0),
+    });
+  }
+
+  return { group, cabs };
+}
+
+// ─── Escalators (atrium circulation) ──────────────────────────────
+function buildEscalators(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "Escalators";
+  const halfD = B.towerD / 2;
+
+  const stepMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.5, roughness: 0.4 });
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0x94a3b8, metalness: 0.1, roughness: 0.05,
+    transparent: true, opacity: 0.2, side: THREE.DoubleSide,
+  });
+  const railMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.2 });
+
+  // Two escalator banks crossing the atrium from ground to upper floor
+  for (let bank = 0; bank < 2; bank++) {
+    const side = bank === 0 ? -1 : 1;
+    const esGroup = new THREE.Group();
+    esGroup.name = `Escalator-${bank}`;
+
+    // Escalator truss (inclined bridge)
+    const trussLen = 14;
+    const trussH = 2.0;
+    const incline = 0.3; // radians
+    const xPos = side * 3.0;
+    const yBot = B.podiumH + 0.2;
+    const yTop = B.podiumH + B.floorH / 2;
+
+    // Main truss beam
+    const truss = new THREE.Mesh(
+      new THREE.BoxGeometry(trussLen, trussH, 1.6),
+      new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.4, roughness: 0.5 }),
+    );
+    truss.position.set(xPos, (yBot + yTop) / 2, halfD - 3);
+    // Tilt the truss
+    truss.rotation.z = side * incline;
+    truss.castShadow = true;
+    esGroup.add(truss);
+
+    // Glass balustrade panels on each side
+    for (const gz of [-0.85, 0.85]) {
+      const balustrade = new THREE.Mesh(
+        new THREE.BoxGeometry(trussLen * 0.9, 1.0, 0.04),
+        glassMat,
+      );
+      balustrade.position.set(xPos, (yBot + yTop) / 2 + trussH / 2, halfD - 3 + gz);
+      balustrade.rotation.z = side * incline;
+      esGroup.add(balustrade);
+    }
+
+    // Handrail (thin cylinder along the top edge)
+    for (const hz of [-0.82, 0.82]) {
+      const handrail = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.025, trussLen * 0.9, 6),
+        railMat,
+      );
+      handrail.position.set(xPos, (yBot + yTop) / 2 + trussH / 2 + 0.5, halfD - 3 + hz);
+      handrail.rotation.z = side * Math.PI / 2;
+      esGroup.add(handrail);
+    }
+
+    // Step treads visible along the inclined surface
+    const stepCount = 20;
+    for (let s = 0; s < stepCount; s++) {
+      const t = s / stepCount;
+      const sx = xPos;
+      const sy = yBot + t * (yTop - yBot);
+      const sz = halfD - 3 + 0.5;
+      const step = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.04, 0.3),
+        stepMat,
+      );
+      step.position.set(sx, sy + trussH / 2 + 0.02, sz);
+      step.rotation.z = side * incline * 0.5;
+      step.castShadow = true;
+      esGroup.add(step);
+    }
+
+    group.add(esGroup);
+  }
+
+  return group;
+}
+
+// ─── Stairwells (4 corners) ─────────────────────────────────────
+function buildStairwells(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "Stairwells";
+  const totalH = B.podiumH + B.floorH * B.floorCount;
+  const halfW = B.towerW / 2;
+  const halfD = B.towerD / 2;
+  const sw = B.stairwellW;
+  const sd = B.stairwellD;
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.4, roughness: 0.6 });
+  const treadMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.3, roughness: 0.5 });
+
+  // 4 corners — inset from the wider building edges
+  const inset = 0.8;
+  const corners = [
+    [-halfW + inset, -halfD + inset],
+    [halfW - inset, -halfD + inset],
+    [-halfW + inset, halfD - inset * 0.5],
+    [halfW - inset * 0.5, halfD - inset],
+  ] as const;
+
+  for (const [cx, cz] of corners) {
+    const stair = new THREE.Group();
+    stair.position.set(cx, 0, cz);
+    stair.name = `Stairwell@${cx},${cz}`;
+
+    // Shaft walls (solid, with a vertical slit for a window)
+    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(sw, totalH, 0.06), wallMat);
+    wallBack.position.set(0, totalH / 2, -sd / 2);
+    wallBack.castShadow = true;
+    stair.add(wallBack);
+
+    const wallSide = new THREE.Mesh(new THREE.BoxGeometry(0.06, totalH, sd), wallMat);
+    wallSide.position.set(-sw / 2, totalH / 2, 0);
+    wallSide.castShadow = true;
+    stair.add(wallSide);
+
+    // Window slit on the other side (glass)
+    const windowMat = new THREE.MeshPhysicalMaterial({
+      color: 0x88ccff, transparent: true, opacity: 0.15,
+      metalness: 0.1, roughness: 0.05,
+    });
+    const win = new THREE.Mesh(new THREE.BoxGeometry(0.03, totalH * 0.7, sd * 0.6), windowMat);
+    win.position.set(sw / 2 + 0.02, B.podiumH + totalH * 0.35, 0);
+    stair.add(win);
+
+    // Open side (front) — no wall, visible from interior
+
+    // Stair treads (visible through the open side)
+    const treadCount = Math.floor(totalH / B.stairRiserH);
+    for (let t = 0; t < treadCount; t++) {
+      const tread = new THREE.Mesh(
+        new THREE.BoxGeometry(sw * 0.6, B.stairTreadT, sd * 0.4),
+        treadMat,
+      );
+      const y = t * B.stairRiserH;
+      // Zigzag: alternating position so it looks like stairs
+      const zOff = (t % 2 === 0 ? -0.25 : 0.25);
+      tread.position.set(-sw * 0.15, y + B.stairTreadT / 2, zOff);
+      tread.castShadow = true;
+      stair.add(tread);
+    }
+
+    // Floor landing markers
+    for (let f = 0; f <= B.floorCount; f++) {
+      const y = B.podiumH + f * B.floorH;
+      const landing = new THREE.Mesh(
+        new THREE.BoxGeometry(sw * 0.5, 0.04, sd * 0.4),
+        new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5, roughness: 0.4 }),
+      );
+      landing.position.set(-sw * 0.15, y + 0.02, 0);
+      stair.add(landing);
+    }
+
+    group.add(stair);
+  }
+
+  return group;
+}
+
+// ─── Ceiling grid lights (recessed emissive panels per floor) ──
+function buildCeilingLights(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "CeilingLights";
+  const lightMat = new THREE.MeshBasicMaterial({
+    color: 0xfffde7,
+    transparent: true,
+    opacity: 0.2,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+
+  for (let f = 0; f < B.floorCount; f++) {
+    const yBase = B.podiumH + f * B.floorH;
+    const ceilY = yBase + B.floorH - 0.04;
+    const halfW = B.towerW / 2 - 2;
+    const halfD = B.towerD / 2 - 2;
+    const cols = B.lightPanelCols;
+    const rows = B.lightPanelRows;
+
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const x = c === 0 ? -halfW : c === cols - 1 ? halfW : -halfW + (halfW * 2 / (cols - 1)) * c;
+        const z = r === 0 ? -halfD : r === rows - 1 ? halfD : -halfD + (halfD * 2 / (rows - 1)) * r;
+        const panel = new THREE.Mesh(
+          new THREE.PlaneGeometry(B.lightPanelW, B.lightPanelD),
+          lightMat,
+        );
+        panel.position.set(x, ceilY, z);
+        panel.rotation.x = -Math.PI / 2;
+        group.add(panel);
+      }
+    }
+  }
+
+  return group;
+}
+
+// ─── Interior partitions — exhibition hall layout ───────────────
+// Large column-free exhibition spaces divided by movable partitions,
+// back-of-house corridors, and meeting room walls.
+function buildInteriorWalls(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "InteriorWalls";
+  const halfW = B.towerW / 2;
+  const halfD = B.towerD / 2;
+
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0xf1f5f9,
+    roughness: 0.8,
+    metalness: 0.05,
+    transparent: true,
+    opacity: 0.35,
+  });
+  const partitionMat = new THREE.MeshStandardMaterial({
+    color: 0xdbeafe,
+    roughness: 0.6,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.2,
+  });
+  const frameMat = new THREE.MeshStandardMaterial({
+    color: 0x475569,
+    metalness: 0.5,
+    roughness: 0.3,
+  });
+
+  for (let f = 0; f < B.floorCount; f++) {
+    const yBase = B.podiumH + f * B.floorH;
+
+    // ── Exhibition hall dividers (movable partition wall look) ──
+    // Convention centres have movable walls to subdivide halls.
+    // We create 3 exhibition bays per floor.
+    for (let bay = -1; bay <= 1; bay += 2) {
+      // Hall divider wall (x-direction)
+      const divW = new THREE.Mesh(
+        new THREE.BoxGeometry(halfD * 1.5, B.interiorWallH, B.interiorWallT),
+        partitionMat,
+      );
+      divW.position.set(bay * halfW * 0.55, yBase + 1.5 + B.interiorWallH / 2, -1);
+      divW.castShadow = true;
+      group.add(divW);
+    }
+
+    // ── Back-of-house corridor wall (near the back of the hall) ──
+    const bohWall = new THREE.Mesh(
+      new THREE.BoxGeometry(halfW * 1.5, B.interiorWallH, B.interiorWallT),
+      wallMat,
+    );
+    bohWall.position.set(0, yBase + 1.5 + B.interiorWallH / 2, -halfD + 3);
+    bohWall.castShadow = true;
+    group.add(bohWall);
+
+    // ── Meeting room / office walls at the back corners ──
+    for (const [cx] of [[-1], [1]] as const) {
+      const sideWall = new THREE.Mesh(
+        new THREE.BoxGeometry(B.interiorWallT, B.interiorWallH, 3),
+        wallMat,
+      );
+      sideWall.position.set(cx * (halfW - 4), yBase + 1.5 + B.interiorWallH / 2, -halfD + 3.5);
+      sideWall.castShadow = true;
+      group.add(sideWall);
+
+      const frontWall = new THREE.Mesh(
+        new THREE.BoxGeometry(4, B.interiorWallH, B.interiorWallT),
+        wallMat,
+      );
+      frontWall.position.set(cx * (halfW - 4), yBase + 1.5 + B.interiorWallH / 2, -halfD + 6);
+      frontWall.castShadow = true;
+      group.add(frontWall);
+    }
+
+    // ── Service core walls (elevator lobby area) ──
+    const coreWall = new THREE.Mesh(
+      new THREE.BoxGeometry(4, B.interiorWallH, B.interiorWallT),
+      wallMat,
+    );
+    coreWall.position.set(halfW - 8, yBase + 1.5 + B.interiorWallH / 2, halfD - 3);
+    coreWall.castShadow = true;
+    group.add(coreWall);
+  }
+
+  return group;
+}
+
+// ─── Rooftop equipment (low profile, sits between sawtooth ridges) ──
+function buildEnhancedRooftop(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "RooftopEquipment";
+  const roofBaseY = B.podiumH + B.floorH * B.floorCount + B.roofRidgeH;
+  const halfW = B.towerW / 2;
+  const halfD = B.towerD / 2;
+
+  const mechMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.4, roughness: 0.5 });
+  const fanMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.3 });
+
+  // Cooling towers (low profile, between ridge valleys)
+  for (const [x, z] of [[-3, -4], [3, -4]] as const) {
+    const ct = new THREE.Group();
+    ct.position.set(x, roofBaseY, z);
+
+    // Main body
+    const base = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 1.8), mechMat);
+    base.position.y = 0.6;
+    base.castShadow = true;
+    ct.add(base);
+
+    // Top fan cowl
+    const fanCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.8, 0.3, 16), fanMat);
+    fanCyl.position.y = 1.4;
+    ct.add(fanCyl);
+
+    // Intake grille (thin strip near base)
+    const grille = new THREE.Mesh(
+      new THREE.BoxGeometry(1.9, 0.04, 1.9),
+      new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5, roughness: 0.4 }),
+    );
+    grille.position.y = 0.1;
+    ct.add(grille);
+
+    group.add(ct);
+  }
+
+  // Exhaust fans (spread out along the roof edges)
+  const fanPositions = [[-8, 3], [8, 3], [-7, -2], [7, -2]] as const;
+  for (const [fx, fz] of fanPositions) {
+    const fan = new THREE.Group();
+    fan.position.set(fx, roofBaseY, fz);
+    const fanBase = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.5, 12), fanMat);
+    fanBase.position.y = 0.25;
+    fanBase.castShadow = true;
+    fan.add(fanBase);
+    const fanCowl = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.2, 12), fanMat);
+    fanCowl.position.y = 0.6;
+    fan.add(fanCowl);
+    group.add(fan);
+  }
+
+  // Pipe runs connecting equipment
+  const pipeMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.7, roughness: 0.2 });
+  const pipePoints = [[-3, -4, 3, -4], [-3, -4, -8, 3], [3, -4, 8, 3]] as const;
+  for (const [x1, z1, x2, z2] of pipePoints) {
+    const dx = x2 - x1;
+    const dz = z2 - z1;
+    const len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 0.1) continue;
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, len, 8), pipeMat);
+    pipe.position.set((x1 + x2) / 2, roofBaseY + 0.1, (z1 + z2) / 2);
+    pipe.rotation.x = Math.PI / 2;
+    pipe.rotation.z = Math.atan2(dz, -dx);
+    group.add(pipe);
+  }
+
+  return group;
+}
+
+// ─── Exposed HVAC ductwork + VAV boxes + ceiling diffusers ──────
+// Convention centres have exposed ductwork visible in ceiling voids
+// and on the roof. Ducts run from rooftop equipment down through
+// shafts and across the ceiling of each exhibition hall.
+function buildHVAC(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = "HVAC";
+  const halfW = B.towerW / 2;
+  const halfD = B.towerD / 2;
+  const totalH = B.podiumH + B.floorH * B.floorCount;
+
+  const ductMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.5, roughness: 0.4 });
+  const insulMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.3, roughness: 0.7 });
+  const vavMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6, roughness: 0.3 });
+  const diffuserMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.4, roughness: 0.5 });
+  const flexMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.3, roughness: 0.6 });
+
+  // ── Rooftop ductwork ──
+  // Horizontal trunk ducts connecting RTU/equipment to vertical shafts
+  for (const [x, z] of [[-2, 1], [2, 1], [-5, -3], [5, -3]] as const) {
+    const dh = 0.25;
+    const dw = 0.4;
+    const dl = 4 + Math.random() * 3;
+    const duct = new THREE.Mesh(
+      new THREE.BoxGeometry(dw, dh, dl),
+      ductMat,
+    );
+    duct.position.set(x, totalH + 0.8, z);
+    duct.castShadow = true;
+    group.add(duct);
+  }
+
+  // Vertical duct shafts from roof to each floor ceiling void
+  for (let f = 0; f < B.floorCount; f++) {
+    const yBase = B.podiumH + f * B.floorH;
+    const ceilY = yBase + B.floorH - 0.6;
+
+    // Main supply duct running lengthwise down the centre of the hall
+    const mainDuct = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.3, halfD * 1.2),
+      ductMat,
+    );
+    mainDuct.position.set(0, ceilY, 0);
+    mainDuct.castShadow = true;
+    group.add(mainDuct);
+
+    // Insulated duct sections
+    for (let i = -1; i <= 1; i += 2) {
+      const insul = new THREE.Mesh(
+        new THREE.BoxGeometry(0.6, 0.35, halfD * 0.5),
+        insulMat,
+      );
+      insul.position.set(i * 3, ceilY + 0.02, -halfD * 0.25);
+      group.add(insul);
+    }
+
+    // ── Duct branches (lateral runs to each zone) ──
+    for (let z = -halfD + 2; z <= halfD - 2; z += 3) {
+      for (const side of [-1, 1]) {
+        const branch = new THREE.Mesh(
+          new THREE.BoxGeometry(3, 0.15, 0.25),
+          flexMat,
+        );
+        branch.position.set(side * halfW * 0.35, ceilY + 0.05, z);
+        group.add(branch);
+      }
+    }
+
+    // ── VAV boxes (metal boxes where branch ducts meet main) ──
+    const vavPositions = [
+      [-4, -halfD * 0.3], [4, -halfD * 0.3],
+      [-4, halfD * 0.3], [4, halfD * 0.3],
+      [-2, -halfD * 0.6], [2, halfD * 0.6],
+    ] as const;
+    for (const [vx, vz] of vavPositions) {
+      const vav = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.35, 0.6),
+        vavMat,
+      );
+      vav.position.set(vx, ceilY + 0.05, vz);
+      vav.castShadow = true;
+      group.add(vav);
+
+      // Small control box on top
+      const ctrl = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15, 0.08, 0.15),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.3, roughness: 0.4 }),
+      );
+      ctrl.position.set(vx, ceilY + 0.22, vz);
+      group.add(ctrl);
+    }
+
+    // ── Ceiling diffusers (linear slot diffusers in ceiling grid) ──
+    const diffCols = Math.floor(halfW / 3);
+    const diffRows = Math.floor(halfD / 3);
+    for (let dc = 0; dc < diffCols; dc++) {
+      for (let dr = 0; dr < diffRows; dr++) {
+        const x = -halfW + 3 + dc * 5;
+        const z = -halfD + 3 + dr * 5;
+        if (Math.abs(x) < 2 && Math.abs(z) < 2) continue; // skip centre (main duct)
+        // Linear diffuser strip
+        const diff = new THREE.Mesh(
+          new THREE.BoxGeometry(0.8, 0.03, 0.06),
+          diffuserMat,
+        );
+        diff.position.set(x, ceilY - 0.02, z);
+        group.add(diff);
+        // Second parallel slot
+        const diff2 = diff.clone();
+        diff2.position.set(x, ceilY - 0.02, z + 0.12);
+        group.add(diff2);
+      }
+    }
+  }
 
   return group;
 }
@@ -659,6 +1848,7 @@ export function DigitalTwinViewer3D({
     camera?: THREE.PerspectiveCamera;
     controls?: OrbitControls;
     handles?: MarkerHandles[];
+    elevatorCabs?: ElevatorCabAnim[];
     raycaster?: THREE.Raycaster;
     pointer?: THREE.Vector2;
     rafId?: number;
@@ -676,10 +1866,20 @@ export function DigitalTwinViewer3D({
     selectedFloor,
     selectedType,
     selectedAsset,
+    assetStatuses,
     setSelectedFloor,
     setSelectedType,
     setSelectedAsset,
   } = useViewerStore();
+
+  /** Ref to assetStatuses so the animation loop can read the latest values. */
+  const statusMapRef = useRef<Record<string, AssetStatus>>({});
+  statusMapRef.current = assetStatuses;
+
+  /** Resolve the effective status: live override from WebSocket, or default. */
+  function getLiveStatus(asset: Asset): AssetStatus {
+    return assetStatuses[asset.id] ?? asset.status;
+  }
 
   // ─── Mount Three.js scene ───
   useEffect(() => {
@@ -746,6 +1946,28 @@ export function DigitalTwinViewer3D({
     // Building
     const building = buildBuilding();
     scene.add(building);
+
+    // Elevators (with animated cabs)
+    const elevatorData = buildElevators();
+    scene.add(elevatorData.group);
+
+    // Escalators (atrium circulation)
+    scene.add(buildEscalators());
+
+    // Stairwells
+    scene.add(buildStairwells());
+
+    // Ceiling grid lights
+    scene.add(buildCeilingLights());
+
+    // Interior partitions (exhibition hall layout)
+    scene.add(buildInteriorWalls());
+
+    // Enhanced rooftop equipment
+    scene.add(buildEnhancedRooftop());
+
+    // Exposed HVAC ductwork + VAV boxes + ceiling diffusers
+    scene.add(buildHVAC());
 
     // Markers (only when showMarkers=true)
     const handles = showMarkers ? SEED_ASSETS.map(buildMarker) : [];
@@ -868,8 +2090,9 @@ export function DigitalTwinViewer3D({
 
           // Emissive highlight: selected > hover > none
           const bodyMat = h.body.material as THREE.MeshStandardMaterial;
+          const liveStatus = statusMapRef.current[asset.id] ?? asset.status;
           if (selectedAsset && selectedAsset.id === asset.id) {
-            bodyMat.emissive.setHex(STATUS_HEX_INT[asset.status]);
+            bodyMat.emissive.setHex(STATUS_HEX_INT[liveStatus]);
             bodyMat.emissiveIntensity = 0.6;
           } else if (isHovered) {
             bodyMat.emissive.setHex(TYPE_HEX_INT[asset.type]);
@@ -879,6 +2102,15 @@ export function DigitalTwinViewer3D({
             bodyMat.emissiveIntensity = 0;
           }
         });
+      }
+
+      // Animate elevator cabs
+      const eCabs = sceneStateRef.current.elevatorCabs;
+      if (eCabs) {
+        for (const cab of eCabs) {
+          const cycle = (Math.sin(t * 0.5 + cab.phase) + 1) / 2;
+          cab.group.position.y = cab.bottomY + cycle * (cab.topY - cab.bottomY);
+        }
       }
 
       controls.update();
@@ -892,6 +2124,7 @@ export function DigitalTwinViewer3D({
       camera,
       controls,
       handles,
+      elevatorCabs: elevatorData.cabs,
       raycaster,
       pointer,
       rafId,
@@ -959,20 +2192,50 @@ export function DigitalTwinViewer3D({
     });
   }, [selectedFloor, selectedType, showMarkers]);
 
-  // ─── Filtered assets for status panel ───
+  // ─── Apply live asset status changes to Three.js markers ───
+  useEffect(() => {
+    const s = sceneStateRef.current;
+    if (!s.handles) return;
+    s.handles.forEach((h) => {
+      const asset = h.group.userData.asset as Asset;
+      const liveStatus = getLiveStatus(asset);
+
+      // Update status ring color
+      const newColor = STATUS_HEX_INT[liveStatus];
+      const ringMat = h.ring.material as THREE.MeshStandardMaterial;
+      ringMat.color.setHex(newColor);
+      ringMat.emissive.setHex(newColor);
+
+      // Update fault glow
+      const isFault = liveStatus === "fault";
+      h.isFault = isFault;
+      const glowMat = h.glow.material as THREE.MeshBasicMaterial;
+      glowMat.color.setHex(newColor);
+      if (!isFault) {
+        glowMat.opacity = 0;
+        h.glow.scale.setScalar(1);
+      }
+      // If fault, the animation loop handles the pulse
+    });
+  }, [assetStatuses]);
+
+  // ─── Filtered assets for status panel (live status aware) ───
   const visibleAssets = SEED_ASSETS.filter((a) => {
     const floorOk = selectedFloor === "ALL" || a.floor === selectedFloor;
     const typeOk = selectedType === "ALL" || a.type === selectedType;
     return floorOk && typeOk;
   });
   const counts = {
-    operational: visibleAssets.filter((a) => a.status === "operational").length,
-    warning: visibleAssets.filter((a) => a.status === "warning").length,
-    fault: visibleAssets.filter((a) => a.status === "fault").length,
+    operational: visibleAssets.filter((a) => getLiveStatus(a) === "operational").length,
+    warning: visibleAssets.filter((a) => getLiveStatus(a) === "warning").length,
+    fault: visibleAssets.filter((a) => getLiveStatus(a) === "fault").length,
     total: visibleAssets.length,
   };
   const alerts = visibleAssets.filter(
-    (a) => a.status === "warning" || a.status === "fault",
+    (a) => {
+      const s = getLiveStatus(a);
+      return s === "warning" || s === "fault";
+    },
   );
 
   // ─── Homepage: live counts ───
@@ -989,7 +2252,7 @@ export function DigitalTwinViewer3D({
         className="absolute top-3 left-3 z-10 flex flex-col gap-1"
         data-testid="floor-selector"
       >
-        {(["ALL", 0, 1, 2, 3] as FloorFilter[]).map((f) => {
+        {(["ALL", 0, 1] as FloorFilter[]).map((f) => {
           const active = selectedFloor === f;
           return (
             <button
@@ -1196,13 +2459,13 @@ export function DigitalTwinViewer3D({
               <div
                 className="inline-block px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider mb-3"
                 style={{
-                  background: `${STATUS_HEX[selectedAsset.status]}22`,
-                  color: STATUS_HEX[selectedAsset.status],
-                  border: `1px solid ${STATUS_HEX[selectedAsset.status]}44`,
+                  background: `${STATUS_HEX[getLiveStatus(selectedAsset)]}22`,
+                  color: STATUS_HEX[getLiveStatus(selectedAsset)],
+                  border: `1px solid ${STATUS_HEX[getLiveStatus(selectedAsset)]}44`,
                   borderRadius: "0.5rem",
                 }}
               >
-                {STATUS_DISPLAY[selectedAsset.status]}
+                {STATUS_DISPLAY[getLiveStatus(selectedAsset)]}
               </div>
 
               <div
@@ -1268,18 +2531,18 @@ export function DigitalTwinViewer3D({
             left: tooltipPos.x + 12,
             top: tooltipPos.y + 12,
             background: colors.bg.surface,
-            border: `1px solid ${STATUS_HEX[hoveredAsset.status]}`,
+            border: `1px solid ${STATUS_HEX[getLiveStatus(hoveredAsset)]}`,
             color: colors.text.primary,
             borderRadius: "0.5rem",
             backdropFilter: "blur(8px)",
             boxShadow: shadow.md,
             whiteSpace: "nowrap",
           }}
-        >
+          >
           <div className="flex items-center gap-1.5">
             <span>{hoveredAsset.name}</span>
-            <span style={{ color: STATUS_HEX[hoveredAsset.status] }}>
-              · {STATUS_DISPLAY[hoveredAsset.status]}
+            <span style={{ color: STATUS_HEX[getLiveStatus(hoveredAsset)] }}>
+              · {STATUS_DISPLAY[getLiveStatus(hoveredAsset)]}
             </span>
           </div>
         </div>

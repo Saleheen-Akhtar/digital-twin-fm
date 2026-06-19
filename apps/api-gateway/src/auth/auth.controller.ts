@@ -11,10 +11,14 @@ export class AuthController {
 
   /**
    * Per Finding 6 (High): the login endpoint is the primary credential-
-   * stuffing target. Bind it explicitly to the 'auth' throttler bucket
-   * (5 requests / minute / IP). The 6th attempt within 60s returns 429.
+   * stuffing target. Override both global buckets with tight per-route
+   * limits: 5 requests / 60 seconds / user (OWASP brute-force floor).
+   *
+   * The auth bucket was removed from forRoot() because it was
+   * globally rate-limiting ALL non-GET endpoints (PATCH /alerts/:id,
+   * POST /work-orders, etc.) — see app.module.ts for rationale.
    */
-  @Throttle({ auth: { ttl: 60_000, limit: 5 } })
+  @Throttle({ burst: { limit: 5, ttl: 60_000 }, sustained: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: LoginDto) {
@@ -39,7 +43,7 @@ export class AuthController {
    * issued and the client should drop the old one. A future Redis
    * jti-blocklist can revoke specific tokens before their TTL.
    */
-  @Throttle({ auth: { ttl: 60_000, limit: 30 } })
+  @Throttle({ burst: { limit: 30, ttl: 60_000 }, sustained: { limit: 30, ttl: 60_000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Body() body: RefreshDto) {

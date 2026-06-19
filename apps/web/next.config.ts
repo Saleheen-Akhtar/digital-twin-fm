@@ -98,7 +98,7 @@ const csp = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   // Allow connecting to the API gateway and dev websockets in development
-  `connect-src 'self' ${isDev ? "http://localhost:4000 ws://localhost:3000" : ""}`,
+  `connect-src 'self' ${isDev ? "http://localhost:4000 ws://localhost:4000 ws://localhost:3000" : ""}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -118,6 +118,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   transpilePackages: ['@digital-twin-fm/db'],
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];

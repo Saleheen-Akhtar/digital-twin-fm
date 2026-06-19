@@ -144,50 +144,90 @@ export const fontWeight = {
 
 /** Building geometry constants (3D model only). */
 export const building = {
-  towerW: 18,
-  towerD: 14,
-  floorH: 4.2,
-  floorCount: 4,
-  podiumH: 2.2,
-  mullionCols: 5,
-  mullionRows: 3,
-  slabT: 0.35,
-  mullionT: 0.12,
-  columnSize: 0.5,
-  glassTransmission: 0.6,
-  glassOpacity: 0.55,
+  // Singapore Expo convention centre proportions
+  // Wide, low-rise — exhibition hall scale, NOT an office tower
+  towerW: 36,           // wide exhibition hall footprint
+  towerD: 24,           // deep — column-free hall depth
+  floorH: 8.5,          // exhibition hall ceiling height (was 4.8 tower)
+  floorCount: 2,        // 2 main levels: exhibition level + upper mezzanine
+  podiumH: 0.5,         // low base, convention centre sits near ground
+
+  // ── Exterior wall system (light panels + strategic glass, no full curtain wall) ──
+  // Singapore Expo has distinctive white/light panel facade with recessed windows
+  panelCols: 9,         // number of vertical wall panels along width
+  panelRows: 3,         // horizontal panel divisions per floor
+
+  slabT: 0.4,           // thicker slabs for exhibition hall spans
+  columnSize: 0.6,      // larger columns for column-free spans
+
+  // ── Sawtooth roof (Singapore Expo signature feature) ──
+  roofRidgeCount: 6,    // more ridges for wider building
+  roofRidgeH: 3.0,      // taller ridge peaks (more dramatic)
+  roofRidgeW: 6.0,      // width of each ridge base (towerW / ridgeCount)
+
+  // ── Entrance atrium (large glass front feature) ──
+  atriumW: 14,          // wider entrance - spans multiple bays
+  atriumH: 8.0,         // full height of lower exhibition hall floor
+
+  // ── Elevators — prominent external glass observation elevator ──
+  elevatorShaftW: 2.5,
+  elevatorShaftD: 2.5,
+  elevatorCabW: 2.0,
+  elevatorCabD: 2.0,
+  elevatorCabH: 3.4,
+
+  // ── Escalators (convention centre essential) ──
+  escalatorWidth: 1.2,
+  escalatorLength: 6.0,
+  escalatorAngle: Math.PI / 6,  // 30 degrees
+
+  // ── Interior ──
+  interiorWallH: 4.0,
+  interiorWallT: 0.08,
+
+  // ── Stairwell ──
+  stairwellW: 2.5,
+  stairwellD: 3.0,
+  stairTreadT: 0.1,
+  stairRiserH: 0.18,
+
+  // ── Ceiling grid ──
+  lightPanelW: 0.8,
+  lightPanelD: 0.8,
+  lightPanelCols: 8,
+  lightPanelRows: 6,
 } as const;
 
 export const camera = {
-  fov: 50,
+  fov: 45,
   near: 0.1,
-  far: 200,
-  defaultPosition: [30, 25, 30] as [number, number, number],
-  defaultTarget: [0, 8, 0] as [number, number, number],
-  minDistance: 8,
-  maxDistance: 80,
+  far: 250,
+  defaultPosition: [50, 18, 45] as [number, number, number],
+  defaultTarget: [0, 7, 0] as [number, number, number],
+  minDistance: 10,
+  maxDistance: 120,
   minPolarAngle: 0,
   maxPolarAngle: Math.PI * 0.85,
   dampingFactor: 0.05,
-  autoRotateSpeed: 0.6,
+  autoRotateSpeed: 0.5,
 } as const;
 
 export const light = {
-  ambient: { color: 0xffffff, intensity: 0.5 },
-  sun: { color: 0xffffff, intensity: 1.2, position: [15, 25, 10] as [number, number, number] },
-  fill: { color: 0xb4c8ff, intensity: 0.5, position: [-10, 15, -10] as [number, number, number] },
+  ambient: { color: 0xffffff, intensity: 0.6 },
+  sun: { color: 0xffffff, intensity: 1.4, position: [20, 30, 15] as [number, number, number] },
+  fill: { color: 0xb4c8ff, intensity: 0.6, position: [-15, 20, -15] as [number, number, number] },
   shadow: {
     mapSize: 2048,
-    bounds: 25,
+    bounds: 35,
     near: 1,
-    far: 60,
+    far: 80,
   },
 } as const;
 
 export const fog = {
   color: 0xf7f9fd,
-  near: 60,
-  far: 140,
+  near: 80,
+  far: 180,
 } as const;
 
 /** Marker sprite defaults (2D CanvasTexture billboards). */
