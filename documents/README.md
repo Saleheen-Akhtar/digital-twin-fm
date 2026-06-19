@@ -2,7 +2,7 @@
 
 A real-time digital twin platform that gives facility managers a live 3D view of their building — sensor readings, equipment health, energy consumption, and active incidents — all in one place.
 
-> **MVP target:** Singapore Expo, August 2026
+> **MVP target:** Singapore, August 2026
 
 ---
 
@@ -28,14 +28,15 @@ A real-time digital twin platform that gives facility managers a live 3D view of
 | Document | Description |
 |---|---|
 | [MVP_SCOPE.md](./mvp/MVP_SCOPE.md) | MVP boundaries, success criteria, and first build order |
-| [EXPO_EXECUTION_PLAN.md](./mvp/EXPO_EXECUTION_PLAN.md) | Singapore Expo build order: Digital Twin + realtime + AI first, CMMS later |
+| [EXECUTION_PLAN.md](./mvp/EXECUTION_PLAN.md) | Singapore build order: Digital Twin + realtime + AI first, CMMS later |
 | [ARCHITECTURE.md](./mvp/ARCHITECTURE.md) | System design, stack decisions, services, and data flows |
 | [DATABASE_SCHEMA.md](./mvp/DATABASE_SCHEMA.md) | Core PostgreSQL/TimescaleDB tables and seed data expectations |
 | [API_CONTRACTS.md](./mvp/API_CONTRACTS.md) | REST endpoint contracts and example payloads |
 | [REALTIME_EVENTS.md](./mvp/REALTIME_EVENTS.md) | Redis/WebSocket event names and message shapes |
 | [MAINTENANCE_MODULE_SPEC.md](./mvp/MAINTENANCE_MODULE_SPEC.md) | Asset registry MVP scope and deferred post-MVP CMMS/work-order workflows |
-| [EXPO_EXECUTION_PLAN.md](./mvp/EXPO_EXECUTION_PLAN.md) | Expo-specific demo strategy focusing on Digital Twin and AI impact |
+| [EXECUTION_PLAN.md](./mvp/EXECUTION_PLAN.md) | Demo strategy focusing on Digital Twin and AI impact |
 | [SECURITY.md](./mvp/SECURITY.md) | Authentication, RBAC, secrets, ingestion, and AI security boundaries |
+| [SECURITY_AUDIT.md](./mvp/SECURITY_AUDIT.md) | 2026-06-05 code review: 21 findings (5 critical, 7 high, 7 medium, 3 low) with concrete code fixes |
 | [SECRETS_MANAGEMENT.md](./mvp/SECRETS_MANAGEMENT.md) | MVP Infisical secrets-management strategy and local fallback rules |
 | [FILE_STRUCTURE.md](./mvp/FILE_STRUCTURE.md) | Full directory breakdown and team ownership |
 | [CONTRIBUTING.md](./mvp/CONTRIBUTING.md) | Branch strategy, code standards, PR and review process |

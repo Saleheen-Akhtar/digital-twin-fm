@@ -22,7 +22,7 @@ AI must not become an unsafe autonomous operator. Human approval is required for
 
 ## MVP AI scope
 
-MVP AI should be implemented early enough to support the Expo demo narrative.
+MVP AI should be implemented early enough to support the demo narrative.
 
 Required MVP scope:
 

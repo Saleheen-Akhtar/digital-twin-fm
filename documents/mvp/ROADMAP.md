@@ -20,7 +20,7 @@ Foundation
 
 The original roadmap was technically strong but put too much weight on maintenance/work orders before the digital twin and AI experience.
 
-For the Singapore Expo and early customer validation, the memorable product is:
+For the Singapore project and early customer validation, the memorable product is:
 
 ```text
 3D/spatial building view
@@ -47,7 +47,7 @@ Deliverables:
 
 Exit criteria:
 
-- Docs clearly distinguish Expo MVP from full commercial product.
+- Docs clearly distinguish MVP from full commercial product.
 - Maintenance/CMMS is marked as post-MVP except asset registry and asset health summary.
 - Digital Twin and AI are early phases, not late phases.
 
@@ -169,7 +169,7 @@ Exit criteria:
 - AI returns evidence/suggested actions rather than generic chat output.
 - AI is permission-scoped through the API gateway.
 
-## Phase 6 — Expo hardening and demo packaging
+## Phase 6 — Demo hardening and packaging
 
 Goal: make the demo reliable and repeatable.
 
@@ -208,7 +208,7 @@ Deferred deliverables:
 Exit criteria:
 
 - Work orders are added only after the Digital Twin + AI value proposition is proven.
-- Maintenance workflows integrate with alerts/assets without bloating the Expo MVP.
+- Maintenance workflows integrate with alerts/assets without bloating the MVP.
 
 ## Post-MVP / full product
 

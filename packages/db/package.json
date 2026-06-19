@@ -1,15 +1,34 @@
 {
   "name": "@digital-twin-fm/db",
   "version": "0.1.0",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "license": "MIT",
+  "scripts": {
+    "generate": "drizzle-kit generate:pg",
+    "migrate": "node migrate.mjs",
+    "push": "drizzle-kit push:pg",
+    "studio": "drizzle-kit studio",
+    "seed": "tsx src/seed.ts",
+    "reset": "tsx src/reset.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'db: no tests yet' && exit 0"
+  },
   "dependencies": {
+    "@digital-twin-fm/types": "workspace:*",
+    "argon2": "^0.44.0",
     "drizzle-orm": "^0.30.0",
     "pg": "^8.11.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "^9.0.0",
+    "@types/pg": "^8.10.9",
     "drizzle-kit": "^0.20.0",
-    "tsx": "^4.0.0"
+    "eslint": "^8.57.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.3.3"
   }
 }

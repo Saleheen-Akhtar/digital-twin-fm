@@ -1,19 +1,19 @@
-# Expo Execution Plan — Digital Twin FM
+# Execution Plan — Digital Twin FM
 
 ## Purpose
 
-This document outlines the focused execution plan for the Singapore Expo MVP. It prioritizes impactful demo features over building a complete facility management system initially.
+This document outlines the focused execution plan for the Singapore MVP. It prioritizes impactful demo features over building a complete facility management system initially.
 
 ## Core Philosophy: Software-First & Demo Impact
 
-For the Singapore Expo, we are prioritizing a **Software-First** approach.
+For the Singapore project, we are prioritizing a **Software-First** approach.
 
 - **Simulation First:** We will build the system against a simulated sensor stream. This ensures development speed and robustness.
 - **Hardware Abstraction:** The `ingestion-service` will be built with a "Dual-Mode" interface (Simulator vs. Live IoT Gateway), allowing us to swap in real sensors later without changing the backend code.
 - **Demo Impact:** Digital Twin + AI features are prioritized to capture attention.
-- **Maintenance Deferral:** Full CMMS workflows are post-Expo to keep the MVP agile.
+- **Maintenance Deferral:** Full CMMS workflows are post-MVP to keep the project agile.
 
-## Execution Phases for Expo MVP
+## Execution Phases for MVP
 
 ### Phase 0: Foundation (Technical Setup)
 
@@ -66,7 +66,7 @@ For the Singapore Expo, we are prioritizing a **Software-First** approach.
 - **Suggested Actions:** AI recommends next steps for facility managers based on current data and alerts.
 - **Provider Abstraction:** Design for easy swapping of AI models (OpenAI, Anthropic, local).
 
-### Phase 4: Expo Hardening & Demo Packaging
+### Phase 4: Demo Hardening & Packaging
 
 **Goal:** Ensure a reliable, repeatable, and impressive demo experience.
 
@@ -78,7 +78,7 @@ For the Singapore Expo, we are prioritizing a **Software-First** approach.
 - **Deployment Instructions:** Clear steps for deploying the demo environment.
 - **Offline Mode (Limited):** Considerations for offline playback if live network is unreliable.
 
-## Deferred Features (Post-Expo / Phase 5+)
+## Deferred Features (Post-MVP / Phase 5+)
 
 - **Full Maintenance/CMMS:** Work orders, technician assignments, status workflows, maintenance logs, comments, attachments.
 - **Multi-building/Multi-site Management:** Full enterprise architecture for managing multiple distinct facilities.
@@ -90,4 +90,4 @@ For the Singapore Expo, we are prioritizing a **Software-First** approach.
 
 ## Rationale for this plan
 
-This plan optimizes for maximum impact at the Singapore Expo by focusing resources on the most compelling features: the visual Digital Twin, live monitoring, and intelligent AI insights. Building a full CMMS is a significant effort that can obscure the core innovation for early audiences and is better deferred until the core value proposition is validated.
+This plan optimizes for maximum impact at the Singapore project by focusing resources on the most compelling features: the visual Digital Twin, live monitoring, and intelligent AI insights. Building a full CMMS is a significant effort that can obscure the core innovation for early audiences and is better deferred until the core value proposition is validated.
