@@ -18,6 +18,7 @@
     "db:generate": "pnpm --filter @digital-twin-fm/db generate",
     "db:migrate": "pnpm --filter @digital-twin-fm/db migrate",
     "db:seed": "pnpm --filter @digital-twin-fm/db seed",
+    "db:reset": "pnpm --filter @digital-twin-fm/db reset",
     "db:studio": "pnpm --filter @digital-twin-fm/db studio",
     "licenses:check": "node scripts/check-licenses.mjs",
     "licenses:report": "pnpm dlx license-checker --production --csv --out public/licenses.csv"

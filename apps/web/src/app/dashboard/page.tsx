@@ -278,12 +278,12 @@ function ConnectionBanner({ state, sources, failedCount }: { state: ConnectionSt
   if (state === 'connected') return null;
   const errors = Object.entries(sources).filter(([, s]) => s.status === 'error').map(([k, s]) => ({ key: k, msg: s.status === 'error' ? s.message : '' }));
   return (
-    <div className={`rounded-2xl border px-4 py-3 text-[14px] ${state === 'partial' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
-      <div className="flex items-center gap-2 font-medium">
+    <div data-testid="connection-banner" data-state={state} className={`rounded-2xl border px-4 py-3 text-[14px] ${state === 'partial' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+      <div className="flex items-center gap-2 font-medium" data-testid="connection-banner-headline">
         <span className={`h-2.5 w-2.5 rounded-full ${state === 'partial' ? 'bg-amber-500' : 'bg-red-500'}`} />
-        {failedCount} of 5 data sources failed
+        {state === 'partial' ? `${failedCount} of 5 data sources failed` : 'Live data unavailable'}
       </div>
-      {errors.length > 0 && <ul className="mt-1 list-inside list-disc text-[13px]">{errors.map((e) => <li key={e.key}>{e.key}: {e.msg}</li>)}</ul>}
+      {errors.length > 0 && <ul className="mt-1 list-inside list-disc text-[13px]">{errors.map((e) => <li key={e.key} data-testid={`connection-banner-row-${e.key}`}>{e.key}: {e.msg}</li>)}</ul>}
     </div>
   );
 }
