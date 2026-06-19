@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 ### Fixed
+- **Dashboard and 3D Viewer Tests (Phase 6)** — Fixed Jest test drifts, typecheck mismatches, and promise rejection loops in `apps/web/src/app/dashboard/page.test.tsx` and `apps/web/src/features/digital-twin/viewer-3d.test.tsx` using `MockData<T>` helper type constraints.
 - **API proxy auth bypass** — `/auth/login` and `/auth/refresh` now pass through the proxy without requiring a session, allowing unauthenticated users to reach the api-gateway login endpoint.
 - **PostgreSQL password auth failure** — Uncovered that the `dtfm_user` password hash in the persistent Postgres data directory was stale (initialized with a different value than `.env`). Reset via `ALTER USER dtfm_user WITH PASSWORD '...'` to match the Infisical/`.env` value.
 - **Login page 500** — Caused by a stale web dev server instance with corrupted `.next` cache. Killed all server processes and restarted cleanly.
@@ -21,6 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Duplicate React keys** — Changed `tr key` from `${alert.title}-${alert.time}` to `alert.id` to fix "two children with the same key" error.
 
 ### Added
+- **Dynamic Scenario Playback (Phase 6)** — Added dynamic scenario profiles (`normal`, `chiller_failure`, `power_surge_floor_3`, `severe_temp_breach`) to the IoT sensor simulator in `apps/ingestion-service/src/simulator.ts`.
+- **Remote Ingestion Control Route (Phase 6)** — Added a protected Fastify route `POST /ingest/simulator/scenario` (using Redis pub/sub orchestration) to remotely switch simulator scenario profiles.
+- **Non-Destructive DB Reset (Phase 6)** — Added a development-gated database reset utility `packages/db/src/reset.ts` (`db:reset` script) to safely wipe transient telemetry and alarms and back-fill 1 hour of baseline readings.
 - Added `documents/mvp/SECURITY_AUDIT.md`: 2026-06-05 audit (32 findings).
 - Added `.github/dependabot.yml` (Finding 20).
 - Added `packages/db/drizzle/0001_sensor_readings_hypertable.sql` (Finding 24).

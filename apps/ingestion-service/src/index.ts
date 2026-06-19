@@ -73,6 +73,10 @@ const SensorReading = z.object({
   quality: z.enum(["good", "uncertain", "bad"]).default("good"),
 });
 
+const SimulatorScenario = z.object({
+  scenario: z.enum(["normal", "chiller_failure", "power_surge_floor_3", "severe_temp_breach"]),
+});
+
 const app = Fastify({ logger: { level: process.env.LOG_LEVEL || "info" } });
 
 // Per Finding 12 (followup): the previous version used `await` at the top
@@ -146,6 +150,22 @@ app.post(
     };
     await publish(reading);
     return { ok: true, reading };
+  },
+);
+
+app.post(
+  "/ingest/simulator/scenario",
+  { preHandler: requireIngestApiKey },
+  async (req, reply) => {
+    const parsed = SimulatorScenario.safeParse(req.body);
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: "InvalidBody", details: parsed.error.flatten() });
+    }
+    const { scenario } = parsed.data;
+    await redis.publish("simulator.control", JSON.stringify({ scenario }));
+    return { ok: true, scenario };
   },
 );
 

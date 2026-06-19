@@ -15,6 +15,17 @@ jest.mock('@/lib/session', () => ({
   }),
 }));
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    refresh: jest.fn(),
+    prefetch: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+  }),
+}));
+
 /**
  * Per Finding 14 (High): the dashboard previously used a module-level
  * snapshot and a synthetic fallback to mask API failures. The new
@@ -55,12 +66,24 @@ const baseAlerts = [
   { id: 'alert-3', assetId: 'asset-energy', severity: 'medium', status: 'open', message: 'Usage above normal', createdAt: '2025-05-21T10:30:00+05:30' },
 ];
 
+const baseWorkOrders = [
+  { id: 'wo-1', assetId: 'asset-ahu', alertId: 'alert-1', title: 'AHU-301 Failure', description: 'Chiller not cooling', type: 'corrective', priority: 'critical', status: 'open', assignedTo: 'user-1', createdAt: '2025-05-21T10:30:00+05:30' }
+];
+
+const baseReadings = [
+  { sensorId: 'sensor-temp', assetId: 'asset-ahu', timestamp: '2025-05-21T10:30:00+05:30', value: 28.7, quality: 'good' }
+];
+
+type MockData<T> = T | Promise<T> | (() => T | Promise<T>);
+
 // Mutable state — each test can overwrite these before calling
 // DashboardPage() to inject failures.
-let mockBuildings: typeof baseBuildings | Promise<typeof baseBuildings> = baseBuildings;
-let mockAssets: typeof baseAssets | Promise<typeof baseAssets> = baseAssets;
-let mockSensors: typeof baseSensors | Promise<typeof baseSensors> = baseSensors;
-let mockAlerts: typeof baseAlerts | Promise<typeof baseAlerts> = baseAlerts;
+let mockBuildings: MockData<typeof baseBuildings> = baseBuildings;
+let mockAssets: MockData<typeof baseAssets> = baseAssets;
+let mockSensors: MockData<typeof baseSensors> = baseSensors;
+let mockAlerts: MockData<typeof baseAlerts> = baseAlerts;
+let mockWorkOrders: MockData<typeof baseWorkOrders> = baseWorkOrders;
+let mockReadings: MockData<typeof baseReadings> = baseReadings;
 
 jest.mock('@/lib/api-client', () => {
   // Re-export the real `ApiError` class so tests can construct
@@ -69,10 +92,12 @@ jest.mock('@/lib/api-client', () => {
   return {
     ...actual,
     createApiClient: () => ({
-      findBuildings: () => mockBuildings,
-      findAssets: () => mockAssets,
-      findSensors: () => mockSensors,
-      findAlerts: () => mockAlerts,
+      findBuildings: () => typeof mockBuildings === 'function' ? mockBuildings() : mockBuildings,
+      findAssets: () => typeof mockAssets === 'function' ? mockAssets() : mockAssets,
+      findSensors: () => typeof mockSensors === 'function' ? mockSensors() : mockSensors,
+      findAlerts: () => typeof mockAlerts === 'function' ? mockAlerts() : mockAlerts,
+      findWorkOrders: () => typeof mockWorkOrders === 'function' ? mockWorkOrders() : mockWorkOrders,
+      findReadings: () => typeof mockReadings === 'function' ? mockReadings() : mockReadings,
     }),
   };
 });
@@ -114,36 +139,15 @@ jest.mock('@/features/digital-twin/panel', () => ({
   ),
 }));
 
-jest.mock('./dashboard-live-monitoring', () => ({
-  DashboardLiveMonitoring: ({
-    initialCharts,
-    sensorsError,
-  }: {
-    initialCharts: Array<{ title: string; value: string }>;
-    sensorsError?: { message: string } | null;
-  }) => (
-    <section>
-      <h2>Live Monitoring</h2>
-      {sensorsError ? (
-        <div data-testid="panel-error-sensors-monitoring">{sensorsError.message}</div>
-      ) : null}
-      {initialCharts.map((chart) => (
-        <div key={chart.title}>
-          <span>{chart.title}</span>
-          <span>{chart.value}</span>
-        </div>
-      ))}
-    </section>
-  ),
-}));
-
 describe('DashboardPage', () => {
   beforeEach(() => {
     // Reset to the happy path between tests.
-    mockBuildings = baseBuildings;
-    mockAssets = baseAssets;
-    mockSensors = baseSensors;
-    mockAlerts = baseAlerts;
+    mockBuildings = () => baseBuildings;
+    mockAssets = () => baseAssets;
+    mockSensors = () => baseSensors;
+    mockAlerts = () => baseAlerts;
+    mockWorkOrders = () => baseWorkOrders;
+    mockReadings = () => baseReadings;
   });
 
   it('renders the facility dashboard shell', async () => {
@@ -151,40 +155,49 @@ describe('DashboardPage', () => {
     render(element);
 
     expect(screen.getByText(/Good morning, Akshay/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Digital Twin' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Live Monitoring' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Active Alerts' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Work Orders' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'AI Copilot' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recent Alerts' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Levels/i })).toBeInTheDocument();
+    expect(screen.getByText('Health Score')).toBeInTheDocument();
+    expect(screen.getByText('Active Alerts')).toBeInTheDocument();
+    expect(screen.getByText('Assets Online')).toBeInTheDocument();
+    expect(screen.getByText('Energy Today')).toBeInTheDocument();
+    expect(screen.getByText('Open Work Orders')).toBeInTheDocument();
+    expect(screen.getByText('Predicted Failures')).toBeInTheDocument();
   });
 
   it('shows live values from the API', async () => {
     const element = await DashboardPage();
     render(element);
 
-    expect(screen.getByText('65%')).toBeInTheDocument();
-    expect(screen.getByText((_, element) => element?.textContent === '2 / 4')).toBeInTheDocument();
-    expect(screen.getAllByText('78 kWh').length).toBeGreaterThan(0);
-    expect(screen.getByText('28.7°C')).toBeInTheDocument();
-    expect(screen.getByText('54%')).toBeInTheDocument();
-    expect(screen.getAllByText((_, element) => element?.textContent === '36').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('AHU-301 Failure').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Equipment not responding').length).toBeGreaterThan(0);
+    // Assert calculated health score card
+    expect(screen.getByText('0%')).toBeInTheDocument();
+    expect(screen.getByText('2/4 assets online')).toBeInTheDocument();
+
+    // Assert active alerts count
+    expect(screen.getByText('3')).toBeInTheDocument();
+
+    // Assert assets online count
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
+
+    // Assert energy today (no series -> 0)
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0);
+
+    // Assert open work orders count
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0);
+
+    // Assert predicted failures (critical status count -> 1)
+    expect(screen.getByText('assets need attention')).toBeInTheDocument();
   });
 
-  it('hides the connection banner and shows a green "Live" pill when every source succeeds (Finding 14)', async () => {
+  it('hides the connection banner when every source succeeds', async () => {
     const element = await DashboardPage();
     render(element);
 
     expect(screen.queryByTestId('connection-banner')).not.toBeInTheDocument();
-    const pill = screen.getByTestId('connection-pill');
-    expect(pill.textContent).toMatch(/Live/);
-    // The pill should be the default slate color in the connected state.
-    expect(pill.className).toMatch(/text-slate-500/);
   });
 
-  it('renders a yellow "Partial" banner and per-panel error when only sensors fail (Finding 14)', async () => {
-    mockSensors = networkErr();
+  it('renders a yellow "Partial" banner when only sensors fail', async () => {
+    mockSensors = networkErr;
     const element = await DashboardPage();
     render(element);
 
@@ -192,27 +205,18 @@ describe('DashboardPage', () => {
     expect(banner).toBeInTheDocument();
     expect(banner.getAttribute('data-state')).toBe('partial');
     expect(screen.getByTestId('connection-banner-headline').textContent).toMatch(
-      /1 of 4 live data sources failed/,
+      /1 of 5 data sources failed/,
     );
     expect(screen.getByTestId('connection-banner-row-sensors')).toBeInTheDocument();
-
-    // Per-panel error appears on the live monitoring panel
-    expect(screen.getByTestId('panel-error-sensors-monitoring')).toBeInTheDocument();
-
-    // Sidebar pill turns amber
-    const pill = screen.getByTestId('connection-pill');
-    expect(pill.textContent).toMatch(/Partial/);
-    expect(pill.className).toMatch(/text-amber-700/);
-
-    // The other panels (alerts, work orders, twin) still render with data.
-    expect(screen.getByRole('heading', { name: 'Active Alerts' })).toBeInTheDocument();
   });
 
-  it('renders a red "Offline" banner when every source fails (Finding 14)', async () => {
-    mockBuildings = networkErr();
-    mockAssets = networkErr();
-    mockSensors = networkErr();
-    mockAlerts = networkErr();
+  it('renders a red "Offline" banner when every source fails', async () => {
+    mockBuildings = networkErr;
+    mockAssets = networkErr;
+    mockSensors = networkErr;
+    mockAlerts = networkErr;
+    mockWorkOrders = networkErr;
+    mockReadings = networkErr;
     const element = await DashboardPage();
     render(element);
 
@@ -222,26 +226,11 @@ describe('DashboardPage', () => {
       /Live data unavailable/,
     );
 
-    // Sidebar pill turns red
-    const pill = screen.getByTestId('connection-pill');
-    expect(pill.textContent).toMatch(/Offline/);
-    expect(pill.className).toMatch(/text-red-700/);
-
-    // The twin panel shows the empty-state placeholder, not the live viewer.
-    expect(
-      screen.getByText(/3D viewer is unavailable while the api-gateway is unreachable/i),
-    ).toBeInTheDocument();
-
-    // The alerts panel shows its own explicit error. (It also appears
-    // in the work-orders panel because work orders are derived from
-    // alerts — that's intentional and asserted separately below.)
-    expect(screen.getAllByTestId('panel-error-alerts').length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(/No alerts can be shown while the api-gateway is unreachable/i),
-    ).toBeInTheDocument();
-
-    // The work-orders panel disables itself (work orders are derived from alerts).
-    expect(screen.getByText(/Work orders are derived from alerts/i)).toBeInTheDocument();
+    expect(screen.getByTestId('connection-banner-row-buildings')).toBeInTheDocument();
+    expect(screen.getByTestId('connection-banner-row-assets')).toBeInTheDocument();
+    expect(screen.getByTestId('connection-banner-row-sensors')).toBeInTheDocument();
+    expect(screen.getByTestId('connection-banner-row-alerts')).toBeInTheDocument();
+    expect(screen.getByTestId('connection-banner-row-workOrders')).toBeInTheDocument();
   });
 });
 

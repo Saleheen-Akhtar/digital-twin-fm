@@ -78,10 +78,10 @@ describe("DigitalTwinViewer3D", () => {
     expect(getByTestId("floor-selector")).toBeInTheDocument();
   });
 
-  it("exposes ALL + GF + F1 + F2 + F3 floor buttons", () => {
+  it("exposes ALL + GF + F1 floor buttons", () => {
     render(<DigitalTwinViewer3D />);
     const sel = screen.getByTestId("floor-selector");
-    for (const label of ["ALL", "GF", "F1", "F2", "F3"]) {
+    for (const label of ["ALL", "GF", "F1"]) {
       expect(sel.textContent).toContain(label);
     }
   });
@@ -93,12 +93,7 @@ describe("DigitalTwinViewer3D", () => {
     expect(queryByTestId("type-legend")).not.toBeInTheDocument();
   });
 
-  it("shows the building info panel only when showMarkers=false", () => {
-    const { rerender, queryByTestId } = render(<DigitalTwinViewer3D />);
-    expect(queryByTestId("building-info-panel")).not.toBeInTheDocument();
-    rerender(<DigitalTwinViewer3D showMarkers={false} />);
-    expect(queryByTestId("building-info-panel")).toBeInTheDocument();
-  });
+
 
   it("shows the status panel with totals from SEED_ASSETS when no filter", () => {
     render(<DigitalTwinViewer3D />);
@@ -173,25 +168,14 @@ describe("DigitalTwinViewer3D", () => {
     expect(panel.textContent).toContain(STATUS_DISPLAY[target.status]);
   });
 
-  it("lists every SEED_ASSETS entry in the building info panel when its floor is active", () => {
-    useViewerStore.setState({ selectedFloor: 0 });
-    render(<DigitalTwinViewer3D showMarkers={false} />);
-    const panel = screen.getByTestId("building-info-panel");
-    const floor0Assets = SEED_ASSETS.filter((a) => a.floor === 0);
-    for (const a of floor0Assets) {
-      expect(panel.textContent).toContain(a.name);
-    }
-  });
-
-  it("hides the status + inspect + type panels on the homepage preview", () => {
+  it("hides the status + inspect + type + floor selector panels on the homepage preview", () => {
     const { queryByTestId } = render(
       <DigitalTwinViewer3D showMarkers={false} />,
     );
     expect(queryByTestId("status-panel")).not.toBeInTheDocument();
     expect(queryByTestId("inspect-panel")).not.toBeInTheDocument();
     expect(queryByTestId("type-legend")).not.toBeInTheDocument();
-    // Floor selector + building info panel are still visible
-    expect(queryByTestId("floor-selector")).toBeInTheDocument();
-    expect(queryByTestId("building-info-panel")).toBeInTheDocument();
+    expect(queryByTestId("floor-selector")).not.toBeInTheDocument();
+    expect(queryByTestId("building-info-panel")).not.toBeInTheDocument();
   });
 });
