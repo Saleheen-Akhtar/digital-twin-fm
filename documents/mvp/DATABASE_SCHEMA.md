@@ -33,7 +33,7 @@ Use PostgreSQL 16 with TimescaleDB extension.
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid pk | |
-| name | text | e.g. Singapore Expo Hall 1 |
+|| name | text | e.g. Singapore Hall 1 |
 | address | text nullable | |
 | timezone | text | e.g. `Asia/Singapore` |
 | status | text | `ok`, `warn`, `crit`, `offline` |

@@ -1,0 +1,44 @@
+============================================================
+## God Nodes (most connected - your core abstractions)
+1. `compilerOptions` - 21 edges
+2. `compilerOptions` - 19 edges
+3. `MVP Architecture` - 18 edges
+4. `columns` - 17 edges
+5. `compilerOptions` - 14 edges
+6. `compilerOptions` - 14 edges
+7. `Database Schema` - 14 edges
+8. `Contributing Guide` - 13 edges
+9. `scripts` - 12 edges
+10. `compilerOptions` - 12 edges
+
+============================================================
+## Surprising Connections (you probably didn't know these)
+- `SSO / OIDC / SAML / SCIM` --semantically_similar_to--> `JWT Authentication`  [INFERRED] [semantically similar]
+  documents/full_product/ENTERPRISE_REQUIREMENTS.md → docs/plans/2026-06-04-api-gateway-scaffolding.md
+- `Agent Guidance (AGENTS.md)` --references--> `FastAPI`  [EXTRACTED]
+  .agent/AGENTS.md → apps/ai-service/requirements.txt
+- `Contributing Guide` --implements--> `GitHub Branch Protection Rules (main and dev)`  [EXTRACTED]
+  documents/mvp/CONTRIBUTING.md → docs/GITHUB_SETUP.md
+- `cn()` --calls--> `clsx`  [INFERRED]
+  packages/ui/src/utils.ts → packages/ui/package.json
+- `Changelog` --references--> `AI Copilot (Hero Feature)`  [EXTRACTED]
+  CHANGELOG.md → documents/full_product/AI_SERVICE_SPEC.md
+
+============================================================
+## Suggested Questions
+_Questions this graph is uniquely positioned to answer:_
+
+- **Why does `columns` connect `Asset Position Columns` to `Asset Foreign Keys`, `Status Column Schema`, `Sensor Reading Columns`, `ID Column Schema`, `Created At Column`, `Updated At Column`, `Building ID Schema`, `Floor Schema Columns`, `Installed At Column`, `Manufacturer Column`, `Position X Column`, `Position Z Column`, `Room ID Column`, `Serial Number Column`, `Model Column`?**
+  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+- **Why does `assets` connect `Asset Foreign Keys` to `Drizzle Snapshot Meta`, `Asset Position Columns`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
+- **Why does `id` connect `ID Column Schema` to `Drizzle Actions Table`, `Alerts Acknowledged At`, `Sensor Reading Timestamp`, `Sensor Reading Columns`, `Asset Position Columns`, `Address Schema Columns`, `Building ID Schema`, `Floor Schema Columns`?**
+  _High betweenness centrality (0.022) - this node is a cross-community bridge._
+- **What connects `name`, `version`, `private` to the rest of the system?**
+  _785 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Drizzle Actions Table` be split into smaller, more focused modules?**
+  _Cohesion score 0.045454545454545456 - nodes in this community are weakly interconnected._
+- **Should `Web App Dependencies` be split into smaller, more focused modules?**
+  _Cohesion score 0.046511627906976744 - nodes in this community are weakly interconnected._
+- **Should `API Gateway Dependencies` be split into smaller, more focused modules?**
+  _Cohesion score 0.04878048780487805 - nodes in this community are weakly interconnected._

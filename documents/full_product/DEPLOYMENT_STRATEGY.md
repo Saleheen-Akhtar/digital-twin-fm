@@ -13,7 +13,7 @@ This document defines the post-MVP deployment direction for Digital Twin FM acro
 - FastAPI dev server for AI service.
 - Seed/demo data.
 
-### Stage 2 — Expo/demo
+### Stage 2 — Demo environment
 
 - Single reproducible demo environment.
 - Docker Compose or simple VM deployment.
