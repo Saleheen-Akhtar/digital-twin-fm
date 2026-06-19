@@ -10,7 +10,7 @@
 import { Redis } from "ioredis";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { sensorReadings, sensors, alerts, assets } from "@digital-twin-fm/db";
+import { sensorReadings, sensors, alerts } from "@digital-twin-fm/db";
 import { eq, and } from "drizzle-orm";
 
 const POSTGRES_URL = process.env.POSTGRES_URL || "postgresql://dtfm_user:t3stp4ss@localhost:5432/dtfm_db";
