@@ -2252,7 +2252,7 @@ export function DigitalTwinViewer3D({
         className="absolute top-3 left-3 z-10 flex flex-col gap-1"
         data-testid="floor-selector"
       >
-        {(["ALL", 0, 1] as FloorFilter[]).map((f) => {
+        {(["ALL", 0, 1, 2, 3] as FloorFilter[]).map((f) => {
           const active = selectedFloor === f;
           return (
             <button

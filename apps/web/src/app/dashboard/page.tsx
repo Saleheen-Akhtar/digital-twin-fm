@@ -64,8 +64,22 @@ async function loadDashboardData(api: ReturnType<typeof createApiClient>): Promi
     api.findAssets(),
     (async () => {
       const s = await api.findSensors();
-      const latest = s.length > 0 ? await api.findReadings(s[0].id, { limit: 20 }) : [];
-      return { sensors: s, latest };
+      // Load readings for every sensor that has a type we chart
+      const chartTypes = new Set(["temperature", "humidity", "power", "occupancy"]);
+      const readingsBySensor = await Promise.all(
+        s
+          .filter((se) => chartTypes.has(se.type))
+          .map((se) =>
+            api.findReadings(se.id, { limit: 20 }).then((r) => ({ sensorId: se.id, sensorType: se.type, readings: r })),
+          ),
+      );
+      // Build sensor-type → readings map for quick lookup
+      const seriesMap: Record<string, SensorReading[]> = {};
+      for (const entry of readingsBySensor) {
+        if (!seriesMap[entry.sensorType]) seriesMap[entry.sensorType] = [];
+        seriesMap[entry.sensorType].push(...entry.readings);
+      }
+      return { sensors: s, seriesMap };
     })(),
     api.findAlerts(),
     api.findWorkOrders(),
@@ -91,16 +105,14 @@ async function loadDashboardData(api: ReturnType<typeof createApiClient>): Promi
 
   const building = settledValue(buildingRes, null);
   const assets = settledValue(assetsRes, []);
-  const sensorResult = settledValue(sensorsRes, { sensors: [], latest: [] });
+  const sensorResult = settledValue(sensorsRes, { sensors: [], seriesMap: {} });
   const alerts = settledValue(alertsRes, []);
   const workOrders = settledValue(workOrdersRes, []);
 
-  const allReadings = sensorResult.latest;
-
-  const temperatureSeries: SensorReading[] = [];
-  const humiditySeries: SensorReading[] = [];
-  const powerSeries: SensorReading[] = [];
-  const occupancySeries: SensorReading[] = [];
+  const temperatureSeries: SensorReading[] = sensorResult.seriesMap.temperature ?? [];
+  const humiditySeries: SensorReading[] = sensorResult.seriesMap.humidity ?? [];
+  const powerSeries: SensorReading[] = sensorResult.seriesMap.power ?? [];
+  const occupancySeries: SensorReading[] = sensorResult.seriesMap.occupancy ?? [];
 
   return {
     data: { building: building as Building | null, assets, sensors: sensorResult.sensors, alerts, workOrders, temperatureSeries, humiditySeries, powerSeries, occupancySeries },
@@ -187,7 +199,7 @@ export default async function DashboardPage() {
       <div className="mx-auto flex max-w-[1460px] flex-col gap-4">
         <section className="px-2 sm:px-1">
           <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-slate-950">
-            Good morning, Akshay <span className="text-[28px]">👋</span>
+            Good morning{session.email ? `, ${session.email.split('@')[0]}` : ' there'} <span className="text-[28px]">👋</span>
           </h1>
           <p className="mt-1 text-[15px] text-slate-500">
             Here&apos;s what&apos;s happening with {derived.building?.name ?? 'Singapore — Hall 7'}
