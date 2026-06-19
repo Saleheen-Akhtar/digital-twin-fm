@@ -1,0 +1,37 @@
+{
+  "name": "@digital-twin-fm/ingestion-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Digital Twin FM — IoT/sensor ingestion service. MIT.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "simulator": "tsx src/simulator.ts",
+    "worker": "tsx src/worker.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@digital-twin-fm/db": "workspace:*",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/rate-limit": "^10.2.0",
+    "drizzle-orm": "^0.30.0",
+    "fastify": "^5.0.0",
+    "ioredis": "^5.11.1",
+    "mqtt": "^5.10.0",
+    "pg": "^8.11.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/pg": "^8.10.9",
+    "tsx": "^4.19.0",
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.0"
+  }
+}

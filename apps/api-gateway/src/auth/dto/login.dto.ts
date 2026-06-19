@@ -8,3 +8,9 @@ export class LoginDto {
   @MinLength(6)
   password!: string;
 }
+
+export class RefreshDto {
+  @IsString()
+  @MinLength(20)
+  refreshToken!: string;
+}

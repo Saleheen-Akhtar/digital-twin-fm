@@ -7,12 +7,11 @@ on:
     branches: [main, dev]
 
 env:
-  # Cache pnpm store between runs
   PNPM_VERSION: 9.15.0
 
 jobs:
   build-and-test:
-    name: Build, Lint, and Test
+    name: Build, Lint, Test, License-Audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -33,6 +32,22 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: License audit (no AGPL/GPL/SSPL/BSL/Elastic)
+        run: node scripts/check-licenses.mjs
+
+      # Per Finding 20 (Medium): the previous CI had no secret scan, no
+      # `pnpm audit` for vulnerable dependencies, and no Dependabot.
+      # gitleaks blocks obvious credential leaks (api keys, JWT secrets)
+      # before they reach main. pnpm audit catches known-vulnerable
+      # transitive deps with a high-severity threshold.
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: pnpm audit (moderate+ vulnerabilities fail the build)
+        run: pnpm audit --audit-level=moderate --prod
 
       - name: Build
         run: pnpm build
