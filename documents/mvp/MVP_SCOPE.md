@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define strict boundaries for the Singapore Expo MVP. Focus on Digital Twin and AI demo impact.
+Define strict boundaries for the Singapore MVP. Focus on Digital Twin and AI demo impact.
 
 ## Included in MVP
 
@@ -24,7 +24,7 @@ Define strict boundaries for the Singapore Expo MVP. Focus on Digital Twin and A
 - AI Copilot (Core features: health summary, energy explanation, root-cause insights)
 
 ### Ingestion Strategy (Software-First)
-- Sensor simulator script for development and Expo reliability.
+- Sensor simulator script for development and demo reliability.
 - Dual-mode ingestion service supporting `simulate` (internal timer) and `live` (MQTT/REST) modes.
 - This allows seamless swap to real IoT gateway (e.g., Node-RED, Industrial PC) post-MVP without backend changes.
 

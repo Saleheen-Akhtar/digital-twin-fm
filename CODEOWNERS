@@ -2,6 +2,13 @@
 # This file auto-assigns reviewers and enforces required reviews based on file path.
 # Format: <pattern> <owner1> <owner2> ...
 # See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Per Finding 32 (Low): rules that point at non-existent paths are
+# worse than no rules — they imply coverage that does not exist. The
+# previous CODEOWNERS referenced `/SECURITY.md` and `/infra/` which
+# do not exist (security docs live under `documents/mvp/SECURITY.md`
+# and the infra/ directory is a post-MVP placeholder). The fixed
+# version either points at real paths or omits the rule.
 
 # Default owner: the Technical Lead (Sahil) gets pinged on everything as a safety net.
 / @Saleheen-Akhtar
@@ -32,7 +39,4 @@
 /.github/            @Saleheen-Akhtar
 /docs/               @Saleheen-Akhtar @Akshay @Sumanth @Sudhanva
 /documents/          @Saleheen-Akhtar @Akshay @Sumanth @Sudhanva
-
-# Security-sensitive paths require Sahil's explicit review
-/SECURITY.md         @Saleheen-Akhtar
-/infra/              @Saleheen-Akhtar
+/documents/mvp/SECURITY.md @Saleheen-Akhtar

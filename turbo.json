@@ -18,9 +18,6 @@
       "dependsOn": ["^typecheck"],
       "inputs": ["src/**", "tsconfig.json", "package.json"]
     },
-    "typecheck": {
-      "dependsOn": ["^typecheck"]
-    },
     "dev": {
       "cache": false,
       "persistent": true

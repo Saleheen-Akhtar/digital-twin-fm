@@ -2,6 +2,8 @@
   "name": "digital-twin-fm",
   "version": "0.1.0",
   "private": true,
+  "description": "AI-powered Digital Twin Facility Management platform. MIT-licensed monorepo.",
+  "license": "MIT",
   "packageManager": "pnpm@9.15.0",
   "workspaces": [
     "apps/*",
@@ -12,9 +14,21 @@
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @digital-twin-fm/db generate",
+    "db:migrate": "pnpm --filter @digital-twin-fm/db migrate",
+    "db:seed": "pnpm --filter @digital-twin-fm/db seed",
+    "db:reset": "pnpm --filter @digital-twin-fm/db reset",
+    "db:studio": "pnpm --filter @digital-twin-fm/db studio",
+    "licenses:check": "node scripts/check-licenses.mjs",
+    "licenses:report": "pnpm dlx license-checker --production --csv --out public/licenses.csv"
   },
   "devDependencies": {
-    "turbo": "^2.0.0"
+    "turbo": "^2.0.0",
+    "license-checker": "^25.0.1"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
   }
 }
