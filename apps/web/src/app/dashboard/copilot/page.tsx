@@ -169,7 +169,7 @@ export default function CopilotPage() {
           </div>
           <div>
             <h1 className="text-[17px] font-semibold">AI Copilot</h1>
-            <p className="text-[13px] text-slate-500">DeepSeek V4 Pro via NVIDIA NIM</p>
+            <p className="text-[13px] text-slate-500">DeepSeek V4 Flash via OpenCode Zen</p>
           </div>
         </div>
       </div>
