@@ -38,6 +38,8 @@ import {
   type AssetStatus,
   type AssetType,
   SEED_ASSETS,
+  apiAssetsToViewerAssets,
+  type ApiAssetShape,
   floorLabel,
   METRIC_LABEL,
   DETAIL_LABEL,
@@ -1835,11 +1837,14 @@ export interface DigitalTwinViewer3DProps {
   showMarkers?: boolean;
   /** When true, the camera slowly orbits the building. */
   autoRotate?: boolean;
+  /** Real assets from the API. When provided, replaces the internal SEED_ASSETS. */
+  assets?: ApiAssetShape[];
 }
 
 export function DigitalTwinViewer3D({
   showMarkers = true,
   autoRotate = false,
+  assets,
 }: DigitalTwinViewer3DProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneStateRef = useRef<{
@@ -1880,6 +1885,9 @@ export function DigitalTwinViewer3D({
   function getLiveStatus(asset: Asset): AssetStatus {
     return assetStatuses[asset.id] ?? asset.status;
   }
+
+  // ─── Data: real API assets or SEED_ASSETS fallback ───
+  const allAssets = assets ? apiAssetsToViewerAssets(assets) : SEED_ASSETS;
 
   // ─── Mount Three.js scene ───
   useEffect(() => {
@@ -1970,7 +1978,7 @@ export function DigitalTwinViewer3D({
     scene.add(buildHVAC());
 
     // Markers (only when showMarkers=true)
-    const handles = showMarkers ? SEED_ASSETS.map(buildMarker) : [];
+    const handles = showMarkers ? allAssets.map(buildMarker) : [];
     handles.forEach((h) => scene.add(h.group));
 
     // Raycaster
@@ -2220,7 +2228,7 @@ export function DigitalTwinViewer3D({
   }, [assetStatuses]);
 
   // ─── Filtered assets for status panel (live status aware) ───
-  const visibleAssets = SEED_ASSETS.filter((a) => {
+  const visibleAssets = allAssets.filter((a) => {
     const floorOk = selectedFloor === "ALL" || a.floor === selectedFloor;
     const typeOk = selectedType === "ALL" || a.type === selectedType;
     return floorOk && typeOk;
