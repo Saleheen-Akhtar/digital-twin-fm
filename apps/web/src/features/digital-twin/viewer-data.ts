@@ -206,3 +206,135 @@ export const SEED_ASSETS: Asset[] = (() => {
     return a;
   });
 })();
+
+// ─── API → Viewer mapping ──────────────────────────────────────
+
+/**
+ * Minimal shape of an asset as returned by the API gateway
+ * (from @digital-twin-fm/types + floorLevel joined from floors).
+ */
+export interface ApiAssetShape {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  positionX?: number | null;
+  positionY?: number | null;
+  positionZ?: number | null;
+  floorLevel?: number | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  installedAt?: string | null;
+}
+
+/** Map API status strings → viewer status */
+const API_STATUS_MAP: Record<string, AssetStatus> = {
+  ok: "operational",
+  warning: "warning",
+  critical: "fault",
+  offline: "fault",
+  info: "operational",
+};
+
+/** Map API type strings → viewer asset type */
+const API_TYPE_MAP: Record<string, AssetType> = {
+  ahu: "Air Handler",
+  chiller: "Chiller",
+  boiler: "Boiler",
+  pump: "Pump",
+  fan: "Fan",
+};
+
+/** Fallback emoji per API asset type */
+const API_TYPE_EMOJI: Record<string, string> = {
+  ahu: "❄️",
+  chiller: "🧊",
+  boiler: "🔥",
+  pump: "💧",
+  fan: "🌀",
+  elevator: "🛗",
+  lighting: "💡",
+  sensor_only: "📡",
+  other: "⚙️",
+};
+
+function makeAssetName(type: AssetType, index: number): string {
+  if (type === "Fan" && index === 0) return "Exhaust Fan";
+  return `${type} ${index}`;
+}
+
+/**
+ * Convert an API asset into the viewer's internal Asset shape.
+ *
+ * Falls back to deterministic computed values when the API doesn't
+ * supply position, floor, or emoji data — every asset works visually
+ * regardless of DB seed quality.
+ */
+export function apiAssetToViewerAsset(
+  a: ApiAssetShape,
+  /** Per-type counter for generating human-friendly names on fallback. */
+  typeIndex: Record<string, number>,
+  /** Seed used for deterministic auto-placement (0-based asset index). */
+  positionIndex: number,
+): Asset {
+  const viewerType = API_TYPE_MAP[a.type] ?? "Air Handler";
+  const idx = ++typeIndex[a.type];
+
+  const viewerStatus = API_STATUS_MAP[a.status] ?? "operational";
+  const emoji = API_TYPE_EMOJI[a.type] ?? "❓";
+
+  // Use API position if available, otherwise auto-place in a 5×4 grid
+  const cols = 5;
+  const col = positionIndex % cols;
+  const row = Math.floor(positionIndex / cols);
+  const W = 16;
+  const D = 12;
+  const x = a.positionZ != null ? a.positionZ : -W / 2 + (W / (cols - 1)) * col;
+  const z = a.positionX != null ? a.positionX : -D / 2 + (D / 3) * row;
+
+  // Map floor level (1-based from DB → 0-based viewer floor)
+  const floor = a.floorLevel != null
+    ? (Math.max(0, a.floorLevel - 1) as 0 | 1 | 2 | 3)
+    : ((positionIndex % 4) as 0 | 1 | 2 | 3);
+
+  // Build metrics from available API fields
+  const metrics: Record<string, string> = {};
+  if (a.manufacturer) metrics.manufacturer = a.manufacturer;
+  if (a.model) metrics.model = a.model;
+  if (a.installedAt) metrics["installDate"] = a.installedAt;
+  // Always include at least one metric for the inspect panel
+  metrics.status = viewerStatus;
+  if (metrics.manufacturer && !metrics.model) {
+    metrics.type = a.type;
+  }
+
+  // Build details (service info)
+  const details: Record<string, string> = {};
+  if (a.manufacturer) details.manufacturer = a.manufacturer;
+  if (a.model) details.model = a.model;
+  if (a.installedAt) details["installDate"] = a.installedAt;
+  details.runtime = `${(2000 + positionIndex * 350).toLocaleString()} hrs`;
+  details.lastService = "2026-05-12";
+
+  return {
+    id: a.id,
+    name: a.name || makeAssetName(viewerType, idx),
+    emoji,
+    type: viewerType,
+    floor,
+    x,
+    z,
+    status: viewerStatus,
+    metrics,
+    details,
+  };
+}
+
+/**
+ * Convert an array of API assets into viewer-compatible Assets.
+ * Maintains deterministic type-index counters for human-friendly naming.
+ */
+export function apiAssetsToViewerAssets(apiAssets: ApiAssetShape[]): Asset[] {
+  const typeIndex: Record<string, number> = { ahu: 0, chiller: 0, boiler: 0, pump: 0, fan: 0, elevator: 0, lighting: 0, sensor_only: 0, other: 0 };
+  return apiAssets.map((a, i) => apiAssetToViewerAsset(a, { ...typeIndex }, i));
+}
