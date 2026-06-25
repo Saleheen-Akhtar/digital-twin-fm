@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { BuildingService } from './building.service';
 import { Public } from '../auth/jwt-auth.guard';
 
@@ -15,7 +15,7 @@ export class BuildingController {
   async getSnapshot(
     @Query('buildingId') buildingId?: string,
   ) {
-    const id = buildingId ?? '16ba133e-8c30-4335-a12d-31542f3cfe52';
+    const id = buildingId ?? '9a83477a-4b19-444a-9345-0e07f90d16b0';
     const snapshot = await this.service.getLatestSnapshot(id);
     if (!snapshot) {
       return { found: false, message: 'No building data found' };
@@ -33,7 +33,7 @@ export class BuildingController {
     @Query('buildingId') buildingId?: string,
     @Query('hours') hours?: string,
   ) {
-    const id = buildingId ?? '16ba133e-8c30-4335-a12d-31542f3cfe52';
+    const id = buildingId ?? '9a83477a-4b19-444a-9345-0e07f90d16b0';
     const h = hours ? parseInt(hours, 10) : 24;
     const history = await this.service.getSnapshotHistory(id, h);
     return { history };

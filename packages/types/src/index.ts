@@ -50,6 +50,7 @@ export interface Asset {
   positionX?: number | null; // for 3D marker
   positionY?: number | null;
   positionZ?: number | null;
+  floorLevel?: number | null; // floor level (1-based, from floors table)
   createdAt: string;
   updatedAt: string;
 }

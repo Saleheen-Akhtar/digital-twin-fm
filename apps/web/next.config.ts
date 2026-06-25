@@ -93,7 +93,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 const csp = [
   "default-src 'self'",
   // Next.js fast refresh requires unsafe-eval in development
-  `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval' blob:" : ""}`,
+  `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",

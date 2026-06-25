@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=[".env", "../.env"],
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -23,9 +23,15 @@ class Settings(BaseSettings):
     # LLM Provider — abstracted via LiteLLM. Set one of these.
     # Examples: "gpt-4o-mini" (openai), "claude-3-5-sonnet-20240620" (anthropic),
     # "ollama/llama3.2" (local), "bedrock/anthropic.claude-3-sonnet-..."
-    litellm_model: str = "gpt-4o-mini"
-    openai_api_key: str | None = None
-    anthropic_api_key: str | None = None
+    litellm_model: str = "openai/deepseek-v4-flash-free"
+
+    # Custom API base for LiteLLM (OpenAI-compatible). Set when using a
+    # proxy or self-hosted endpoint like OpenCode Zen, LiteLLM proxy, etc.
+    litellm_api_base: str = "https://opencode.ai/zen/v1"
+    litellm_api_key: str | None = Field(
+        default=None,
+        validation_alias="OPENCODE_ZEN_API_KEY",
+    )
 
     # Internal
     api_gateway_url: str = "http://localhost:4000"

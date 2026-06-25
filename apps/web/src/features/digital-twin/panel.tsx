@@ -89,7 +89,7 @@ export function DigitalTwinPanel({
           </div>
         </header>
       ) : null}
-      <Viewer />
+      <Viewer assets={assets} />
     </section>
   );
 }

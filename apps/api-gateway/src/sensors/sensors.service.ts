@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { sensors, sensorReadings } from '@digital-twin-fm/db';
 import { SensorDto, SensorReadingDto } from './dto/sensor.dto';
 

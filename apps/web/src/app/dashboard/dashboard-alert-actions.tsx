@@ -4,13 +4,7 @@ import { createBrowserApiClient } from '@/lib/browser-api-client';
 import type { Alert, WorkOrder } from '@digital-twin-fm/types';
 import { useCallback, useState, useMemo } from 'react';
 
-const alertTypes: Record<string, string> = {
-  temperature: 'Cooling',
-  humidity: 'Humidity',
-  co2: 'Ventilation',
-  power: 'Electrical',
-  occupancy: 'Occupancy',
-};
+
 
 function smartShortId(id: string): string {
   if (!id) return '—';
@@ -27,17 +21,6 @@ function friendlyAlertMessage(raw: string): string {
     return `${label} ${m[3]} ${m[4]} — ${m[1]}${m[2]} (target ${m[4] === 'low' ? '≥' : '≤'} ${m[5]}${m[2]})`;
   }
   return raw;
-}
-
-function determineTypeFromMessage(msg: string): string {
-  const lower = msg.toLowerCase();
-  if (lower.includes('temperature') || lower.includes('temp') || lower.includes('°c') || lower.includes('c,'))
-    return 'corrective';
-  if (lower.includes('co₂') || lower.includes('co2') || lower.includes('ppm'))
-    return 'corrective';
-  if (lower.includes('humidity') || lower.includes('%'))
-    return 'corrective';
-  return 'preventive';
 }
 
 function generateWOTitle(alert: Alert): string {
