@@ -3,7 +3,7 @@ Digital Twin FM — AI service main entrypoint.
 
 Endpoints:
   GET  /health                      liveness
-  POST /ai/copilot/query            (stub) chat over facility data
+  POST /ai/copilot/query            chat over live facility data
 """
 import os
 from contextlib import asynccontextmanager

@@ -1,10 +1,12 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { BuildingService } from './building.service';
 import { Public } from '../auth/jwt-auth.guard';
 
 @Controller('building')
 export class BuildingController {
-  constructor(private readonly service: BuildingService) {}
+  constructor(
+    private readonly buildingService: BuildingService,
+  ) {}
 
   /**
    * GET /building/snapshot?buildingId=xxx
@@ -16,7 +18,7 @@ export class BuildingController {
     @Query('buildingId') buildingId?: string,
   ) {
     const id = buildingId ?? '9a83477a-4b19-444a-9345-0e07f90d16b0';
-    const snapshot = await this.service.getLatestSnapshot(id);
+    const snapshot = await this.buildingService.getLatestSnapshot(id);
     if (!snapshot) {
       return { found: false, message: 'No building data found' };
     }
@@ -35,7 +37,22 @@ export class BuildingController {
   ) {
     const id = buildingId ?? '9a83477a-4b19-444a-9345-0e07f90d16b0';
     const h = hours ? parseInt(hours, 10) : 24;
-    const history = await this.service.getSnapshotHistory(id, h);
+    const history = await this.buildingService.getSnapshotHistory(id, h);
     return { history };
+  }
+
+  /**
+   * GET /building/context/:buildingId
+   * Public endpoint returning combined building context (snapshot + top alerts).
+   * Used by the AI service to build rich context for copilot queries.
+   */
+  @Public()
+  @Get('context/:buildingId')
+  async getContext(@Param('buildingId') buildingId: string) {
+    const context = await this.buildingService.buildAiContext(buildingId);
+    if (!context) {
+      return { found: false, message: 'No building data found' };
+    }
+    return { found: true, ...context };
   }
 }

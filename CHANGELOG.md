@@ -6,7 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- **London Skyscraper 3D GLB Integration** — Extracted the high-fidelity London Skyscraper model (OBJ/MTL and textures) from `free-london-skyscraper.zip`, renamed space-containing subfolders to resolve space-splitting parser limitations, and compiled a single, self-contained binary `free_london_skyscraper.glb` using `obj2gltf`. The model loads into the 3D Digital Twin Viewer with auto-scaling, auto-centering, and shadow casting.
+
+### Changed
+- **Dashboard De-cluttering & Live Data Fix** — Removed the large Digital Twin panel and redundant floor levels card from the main dashboard, leaving it clean and focused. Refactored Live Monitoring into a beautiful, highly interactive 2x2 grid displaying all 4 sensor charts simultaneously. Built SVG-based focusable tooltips for keyboard accessibility and hover details. Fixed UTC timezone query mismatches in the api-gateway to restore live telemetry updates (uptime %, health score %, average energy kW) on the top KPI cards.
+- **Procedural Building Fallback** — Organized the procedural building elements (observer elevators, atrium escalators, stairwells, interior walls, and HVAC ducts) to serve as a robust fallback system if the GLB model fails to load.
+
 ### Fixed
+- **CSP Block on GLB Textures** — Added `blob:` to the `connect-src` CSP header directive in `next.config.ts` to allow Three.js `GLTFLoader` to fetch blob URLs containing embedded model textures, resolving model loading failures, missing textures, and broken mouse/orbit controls in Chrome.
+- **GLTFLoader Jest parsing** — Added a mock for `three/examples/jsm/loaders/GLTFLoader.js` in unit tests to avoid `SyntaxError: Cannot use import statement outside a module` errors in Jest, allowing the test suite to pass successfully.
 - **Dashboard and 3D Viewer Tests (Phase 6)** — Fixed Jest test drifts, typecheck mismatches, and promise rejection loops in `apps/web/src/app/dashboard/page.test.tsx` and `apps/web/src/features/digital-twin/viewer-3d.test.tsx` using `MockData<T>` helper type constraints.
 - **API proxy auth bypass** — `/auth/login` and `/auth/refresh` now pass through the proxy without requiring a session, allowing unauthenticated users to reach the api-gateway login endpoint.
 - **PostgreSQL password auth failure** — Uncovered that the `dtfm_user` password hash in the persistent Postgres data directory was stale (initialized with a different value than `.env`). Reset via `ALTER USER dtfm_user WITH PASSWORD '...'` to match the Infisical/`.env` value.

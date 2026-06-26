@@ -144,7 +144,7 @@ export const fontWeight = {
 
 /** Building geometry constants (3D model only). */
 export const building = {
-  // Singapore Expo convention centre proportions
+  // Convention centre proportions
   // Wide, low-rise — exhibition hall scale, NOT an office tower
   towerW: 36,           // wide exhibition hall footprint
   towerD: 24,           // deep — column-free hall depth
@@ -153,14 +153,14 @@ export const building = {
   podiumH: 0.5,         // low base, convention centre sits near ground
 
   // ── Exterior wall system (light panels + strategic glass, no full curtain wall) ──
-  // Singapore Expo has distinctive white/light panel facade with recessed windows
+  // White/light panel facade with recessed windows
   panelCols: 9,         // number of vertical wall panels along width
   panelRows: 3,         // horizontal panel divisions per floor
 
   slabT: 0.4,           // thicker slabs for exhibition hall spans
   columnSize: 0.6,      // larger columns for column-free spans
 
-  // ── Sawtooth roof (Singapore Expo signature feature) ──
+  // ── Sawtooth roof (signature feature) ──
   roofRidgeCount: 6,    // more ridges for wider building
   roofRidgeH: 3.0,      // taller ridge peaks (more dramatic)
   roofRidgeW: 6.0,      // width of each ridge base (towerW / ridgeCount)
@@ -203,8 +203,8 @@ export const camera = {
   near: 0.1,
   far: 250,
   defaultPosition: [50, 18, 45] as [number, number, number],
-  defaultTarget: [0, 7, 0] as [number, number, number],
-  minDistance: 10,
+  defaultTarget: [0, 12, 0] as [number, number, number],
+  minDistance: 2,
   maxDistance: 120,
   minPolarAngle: 0,
   maxPolarAngle: Math.PI * 0.85,
