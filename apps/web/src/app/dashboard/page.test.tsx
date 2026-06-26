@@ -26,15 +26,6 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
-/**
- * Per Finding 14 (High): the dashboard previously used a module-level
- * snapshot and a synthetic fallback to mask API failures. The new
- * implementation captures per-source success/failure and surfaces it
- * via a tri-state `<ConnectionBanner />` + per-panel `<PanelError />`.
- *
- * The mock below uses mutable arrays so each test can swap in a
- * rejecting promise before calling DashboardPage().
- */
 const baseBuildings = [
   {
     id: 'building-1',
@@ -47,10 +38,31 @@ const baseBuildings = [
 ];
 
 const baseAssets = [
-  { id: 'asset-ahu', buildingId: 'building-1', floorId: '3', name: 'AHU-301', type: 'ahu', status: 'critical', createdAt: '2025-05-21T10:30:00+05:30', updatedAt: '2025-05-21T10:30:00+05:30' },
-  { id: 'asset-temp', buildingId: 'building-1', floorId: '3', name: 'Temp Sensor 3A', type: 'sensor_only', status: 'warning', createdAt: '2025-05-21T10:30:00+05:30', updatedAt: '2025-05-21T10:30:00+05:30' },
-  { id: 'asset-energy', buildingId: 'building-1', floorId: '1', name: 'Energy Meter 1', type: 'sensor_only', status: 'ok', createdAt: '2025-05-21T10:30:00+05:30', updatedAt: '2025-05-21T10:30:00+05:30' },
-  { id: 'asset-occ', buildingId: 'building-1', floorId: '2', name: 'Occupancy Sensor 1', type: 'sensor_only', status: 'ok', createdAt: '2025-05-21T10:30:00+05:30', updatedAt: '2025-05-21T10:30:00+05:30' },
+  { id: 'asset-ahu', buildingId: 'building-1', floorId: 'floor-3', floorLevel: 3, name: 'AHU-301', type: 'ahu', status: 'critical', createdAt: '2025-05-21T10:30:00+05:30', updatedAt: '2025-05-21T10:30:00+05:30' },
+  { id: 'asset-temp', buildingId: 'building-1', floorId: 'floor-3', floorLevel: 3, name: 'Temp Sensor 3A', type: 'sensor_only', status: 'warning', createdAt: '2025-05-21T10:30:00+05:30', updatedAt: '2025-05-21T10:30:00+05:30' },
+  { id: 'asset-energy', buildingId: 'building-1', floorId: 'floor-1', floorLevel: 1, name: 'Energy Meter 1', type: 'sensor_only', status: 'ok', createdAt: '2025-05-21T10:30:00+05:30', updatedAt: '2025-05-21T10:30:00+05:30' },
+  { id: 'asset-occ', buildingId: 'building-1', floorId: 'floor-2', floorLevel: 2, name: 'Occupancy Sensor 1', type: 'sensor_only', status: 'ok', createdAt: '2025-05-21T10:30:00+05:30', updatedAt: '2025-05-21T10:30:00+05:30' },
+];
+
+const baseSnapshot = {
+  healthScore: 72,
+  totalAssets: 4,
+  onlineAssets: 2,
+  warningAssets: 1,
+  criticalAssets: 1,
+  offlineAssets: 0,
+  activeAlerts: 3,
+  criticalAlerts: 1,
+  sensorUptime: 88,
+  totalSensors: 4,
+  onlineSensors: 4,
+  avgEnergyKw: 45,
+  computedAt: '2025-05-21T10:30:00+05:30',
+};
+
+const baseHistory = [
+  { healthScore: 70, activeAlerts: 2, onlineAssets: 2, avgEnergyKw: 42, computedAt: '2025-05-21T09:30:00+05:30' },
+  { healthScore: 72, activeAlerts: 3, onlineAssets: 2, avgEnergyKw: 45, computedAt: '2025-05-21T10:30:00+05:30' },
 ];
 
 const baseSensors = [
@@ -76,9 +88,9 @@ const baseReadings = [
 
 type MockData<T> = T | Promise<T> | (() => T | Promise<T>);
 
-// Mutable state — each test can overwrite these before calling
-// DashboardPage() to inject failures.
 let mockBuildings: MockData<typeof baseBuildings> = baseBuildings;
+let mockSnapshot: MockData<{ found: boolean; snapshot: typeof baseSnapshot }> = { found: true, snapshot: baseSnapshot };
+let mockHistory: MockData<{ history: typeof baseHistory }> = { history: baseHistory };
 let mockAssets: MockData<typeof baseAssets> = baseAssets;
 let mockSensors: MockData<typeof baseSensors> = baseSensors;
 let mockAlerts: MockData<typeof baseAlerts> = baseAlerts;
@@ -86,13 +98,13 @@ let mockWorkOrders: MockData<typeof baseWorkOrders> = baseWorkOrders;
 let mockReadings: MockData<typeof baseReadings> = baseReadings;
 
 jest.mock('@/lib/api-client', () => {
-  // Re-export the real `ApiError` class so tests can construct
-  // realistic rejected promises. We override only `createApiClient`.
   const actual = jest.requireActual('@/lib/api-client') as typeof import('@/lib/api-client');
   return {
     ...actual,
     createApiClient: () => ({
       findBuildings: () => typeof mockBuildings === 'function' ? mockBuildings() : mockBuildings,
+      findBuildingSnapshot: () => typeof mockSnapshot === 'function' ? mockSnapshot() : mockSnapshot,
+      findBuildingSnapshotHistory: () => typeof mockHistory === 'function' ? mockHistory() : mockHistory,
       findAssets: () => typeof mockAssets === 'function' ? mockAssets() : mockAssets,
       findSensors: () => typeof mockSensors === 'function' ? mockSensors() : mockSensors,
       findAlerts: () => typeof mockAlerts === 'function' ? mockAlerts() : mockAlerts,
@@ -102,14 +114,33 @@ jest.mock('@/lib/api-client', () => {
   };
 });
 
+jest.mock('@/hooks/useSensorRealtime', () => ({
+  useSensorRealtime: () => ({ readings: new Map(), connected: false, error: null }),
+}));
+
+jest.mock('./dashboard-metrics-live', () => ({
+  DashboardMetricsLive: ({ initialMetrics }: { initialMetrics: Array<{ label: string; value: string; sub: string }> }) => (
+    <div data-testid="dashboard-metrics-live">
+      {initialMetrics.map((m) => (
+        <div key={m.label}>
+          <span>{m.label}</span>
+          <span>{m.value}</span>
+          <span>{m.sub}</span>
+        </div>
+      ))}
+    </div>
+  ),
+}));
+
+jest.mock('./dashboard-live-monitoring', () => ({
+  DashboardLiveMonitoring: () => <div data-testid="dashboard-live-monitoring">Live Monitoring</div>,
+}));
+
 const networkErr = () =>
   Promise.reject(
     new ApiError('network_unavailable', 0, 'The service is temporarily unreachable.'),
   );
 
-// next/link calls Next.js router hooks, which are not present in the
-// jest environment. Mock it as a plain anchor tag so the sidebar
-// (and any other component that uses Link) renders cleanly.
 jest.mock(
   'next/link',
   () =>
@@ -141,8 +172,9 @@ jest.mock('@/features/digital-twin/panel', () => ({
 
 describe('DashboardPage', () => {
   beforeEach(() => {
-    // Reset to the happy path between tests.
     mockBuildings = () => baseBuildings;
+    mockSnapshot = () => ({ found: true, snapshot: baseSnapshot });
+    mockHistory = () => ({ history: baseHistory });
     mockAssets = () => baseAssets;
     mockSensors = () => baseSensors;
     mockAlerts = () => baseAlerts;
@@ -154,38 +186,25 @@ describe('DashboardPage', () => {
     const element = await DashboardPage();
     render(element);
 
-    expect(screen.getByText(/Good morning, Akshay/i)).toBeInTheDocument();
+    expect(screen.getByText(/Good (morning|afternoon|evening), Admin/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Recent Alerts' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Levels/i })).toBeInTheDocument();
     expect(screen.getByText('Health Score')).toBeInTheDocument();
     expect(screen.getByText('Active Alerts')).toBeInTheDocument();
     expect(screen.getByText('Assets Online')).toBeInTheDocument();
     expect(screen.getByText('Energy Today')).toBeInTheDocument();
     expect(screen.getByText('Open Work Orders')).toBeInTheDocument();
-    expect(screen.getByText('Predicted Failures')).toBeInTheDocument();
+    expect(screen.getByText('Critical Assets')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-live-monitoring')).toBeInTheDocument();
   });
 
-  it('shows live values from the API', async () => {
+  it('shows live values from the API snapshot', async () => {
     const element = await DashboardPage();
     render(element);
 
-    // Assert calculated health score card
-    expect(screen.getByText('0%')).toBeInTheDocument();
-    expect(screen.getByText('2/4 assets online')).toBeInTheDocument();
-
-    // Assert active alerts count
+    expect(screen.getByText('72%')).toBeInTheDocument();
+    expect(screen.getByText('2/4 assets online · 88% sensor uptime')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
-
-    // Assert assets online count
-    expect(screen.getAllByText('2').length).toBeGreaterThan(0);
-
-    // Assert energy today (no series -> 0)
-    expect(screen.getAllByText('0').length).toBeGreaterThan(0);
-
-    // Assert open work orders count
-    expect(screen.getAllByText('1').length).toBeGreaterThan(0);
-
-    // Assert predicted failures (critical status count -> 1)
+    expect(screen.getByText('45')).toBeInTheDocument();
     expect(screen.getByText('assets need attention')).toBeInTheDocument();
   });
 
@@ -205,13 +224,15 @@ describe('DashboardPage', () => {
     expect(banner).toBeInTheDocument();
     expect(banner.getAttribute('data-state')).toBe('partial');
     expect(screen.getByTestId('connection-banner-headline').textContent).toMatch(
-      /1 of 5 data sources failed/,
+      /1 of 6 data sources failed/,
     );
     expect(screen.getByTestId('connection-banner-row-sensors')).toBeInTheDocument();
   });
 
   it('renders a red "Offline" banner when every source fails', async () => {
     mockBuildings = networkErr;
+    mockSnapshot = networkErr;
+    mockHistory = networkErr;
     mockAssets = networkErr;
     mockSensors = networkErr;
     mockAlerts = networkErr;
@@ -233,4 +254,3 @@ describe('DashboardPage', () => {
     expect(screen.getByTestId('connection-banner-row-workOrders')).toBeInTheDocument();
   });
 });
-

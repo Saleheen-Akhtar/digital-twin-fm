@@ -97,8 +97,10 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  // Allow connecting to the API gateway and dev websockets in development
-  `connect-src 'self' ${isDev ? "http://localhost:4000 ws://localhost:4000 ws://localhost:3000" : ""}`,
+  // Allow connecting to the API gateway, dev websockets, and blob: for loading 3D textures
+  `connect-src 'self' blob: ${isDev ? "http://localhost:4000 ws://localhost:4000 ws://localhost:3000" : ""}`,
+  "worker-src 'self' blob:",
+  "child-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

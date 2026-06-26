@@ -21,16 +21,11 @@ export interface DashboardTwinPanelProps {
   assets: Asset[];
   alert: FocusAlert;
   assetReadingsById?: Record<string, string>;
-}
-
-function floorNumberFromAsset(asset: Asset): number | null {
-  if (asset.floorId == null) return null;
-  const match = String(asset.floorId).match(/\d+/);
-  return match ? Number(match[0]) : null;
+  assetsError?: { status: 'error'; code: string; message: string } | null;
 }
 
 function assetFloor(asset: Asset, fallback = 1) {
-  return floorNumberFromAsset(asset) ?? fallback;
+  return asset.floorLevel ?? fallback;
 }
 
 function floorLabel(level: LevelRow, index: number) {
@@ -43,8 +38,9 @@ export function DashboardTwinPanel({
   assets,
   alert,
   assetReadingsById,
+  assetsError,
 }: DashboardTwinPanelProps) {
-  const floorLevels = levels.filter((level) => level.name.toLowerCase().startsWith("level "));
+  const floorLevels = levels.length > 0 ? levels : [];
 
   const [selectedFloor, setSelectedFloor] = useState<number>(() => {
     const criticalIndex = floorLevels.findIndex((level) => level.status === "critical");
@@ -80,7 +76,7 @@ export function DashboardTwinPanel({
     <section className="xl:col-span-3 rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-[18px] font-medium tracking-[-0.03em] text-slate-950">Digital Twin</h2>
+          <h2 className="text-[18px] font-medium tracking-[-0.03em] text-slate-950">Digital Twin & Levels</h2>
           <p className="text-[13px] text-slate-500">
             {buildingName} · {assets.length} assets · click a floor or a marker
           </p>
@@ -100,7 +96,7 @@ export function DashboardTwinPanel({
           </div>
           <div className="mt-2 space-y-1">
             {floorLevels.map((level, index) => {
-              const floor = index + 1;
+              const floor = Number(level.name.replace(/\D/g, '')) || index + 1;
               const isSelected = selectedFloor === floor;
               const count = assets.filter((asset) => assetFloor(asset) === floor).length;
               const hasCritical = assets.some((asset) => assetFloor(asset) === floor && asset.status === "critical");
@@ -150,7 +146,20 @@ export function DashboardTwinPanel({
         </div>
 
         <div className="space-y-3">
-          <DigitalTwinPanel
+          {assetsError ? (
+            <div
+              role="alert"
+              data-testid="panel-error-assets-twin"
+              className="rounded-[18px] border border-red-100 bg-red-50/70 px-4 py-3 text-[13px] text-red-800"
+            >
+              Could not load assets: {assetsError.message}
+            </div>
+          ) : assets.length === 0 ? (
+            <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-8 text-center text-[14px] text-slate-500">
+              No assets found. Run the simulator after seeding the database.
+            </div>
+          ) : (
+            <DigitalTwinPanel
             assets={assets}
             selectedId={selectedAssetId}
             onSelectAsset={(id) => {
@@ -163,6 +172,7 @@ export function DashboardTwinPanel({
             showHeader={false}
             assetReadingsById={assetReadingsById}
           />
+          )}
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-[18px] border border-slate-200 bg-[#fbfcff] p-3">
