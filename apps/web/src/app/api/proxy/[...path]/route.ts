@@ -66,6 +66,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getServerEnv } from '@/env';
+import { appendFileSync } from 'fs';
 
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -237,11 +238,13 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path?: string[]
     // eslint-disable-next-line no-console
     console.error(`[proxy] upstream network error on ${req.method} ${targetUrl}:`, err);
     try {
-      require('fs').appendFileSync(
+      appendFileSync(
         'c:/Users/sahil/Projects/Digital-Twinn/proxy-error.log',
         `[${new Date().toISOString()}] Error on ${req.method} ${targetUrl}:\nStack: ${err?.stack || err}\nMessage: ${err?.message}\nCause: ${err?.cause?.stack || err?.cause?.message || err?.cause}\nHeaders: ${JSON.stringify(Array.from(headers.entries()))}\n\n`
       );
-    } catch {}
+    } catch {
+      // Best-effort debug log; ignore write failures.
+    }
     return NextResponse.json(
       { error: 'UpstreamUnavailable' },
       { status: 502 },
