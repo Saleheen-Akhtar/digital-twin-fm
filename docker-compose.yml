@@ -45,10 +45,13 @@ services:
       - --requirepass
       - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - --bind
-      - 127.0.0.1
+      - 0.0.0.0
     volumes:
       - valkey_data:/data
-    # Per Finding 16: bind to 127.0.0.1 instead of 0.0.0.0.
+    # Per Finding 16: host port mapping 127.0.0.1:6379 already restricts
+    # access to host-loopback only. The container --bind must be 0.0.0.0
+    # so Docker port forwarding (host 127.0.0.1:6379 → container eth0:6379)
+    # can actually reach the server.
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:

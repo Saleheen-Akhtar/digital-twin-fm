@@ -66,6 +66,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getServerEnv } from '@/env';
+import { appendFileSync } from 'fs';
 
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -77,6 +78,7 @@ const STRIPPED_REQUEST_HEADERS = new Set([
   'origin',
   'referer',
   'content-length', // fetch will set the correct value
+  'expect',         // prevent Undici NotSupportedError: expect header not supported
 ]);
 
 /** Headers we never forward back to the client. */
@@ -169,11 +171,13 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path?: string[]
   //    authenticate before a session exists.
   const { path } = await ctx.params;
   const PUBLIC_PATHS = new Set(['/auth/login', '/auth/refresh']);
+  const PUBLIC_PREFIXES = ['/ai/'];
   const requestPath = `/${(path ?? []).join('/')}`;
 
   let accessToken: string | null = null;
-  if (PUBLIC_PATHS.has(requestPath)) {
-    // Pass through without auth — the api-gateway handles it (login/refresh)
+  if (PUBLIC_PATHS.has(requestPath) || PUBLIC_PREFIXES.some((p) => requestPath.startsWith(p))) {
+    // Pass through without auth — upstream handles it (login/refresh
+    // or public endpoints like /ai/... which are @Public() on the api-gateway)
     accessToken = null;
   } else {
     const session = await getSession();
@@ -216,20 +220,31 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path?: string[]
     cache: 'no-store',
   };
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    // Pass the body through as a stream. Node's fetch supports
-    // ReadableStream bodies when `duplex: 'half'` is set.
-    init.body = req.body;
-    init.duplex = 'half';
+    // Read the body as text and forward it directly. This avoids chunked transfer
+    // encoding and stream-duplex issues with NestJS/Express body parsers, ensuring
+    // a standard Content-Length is sent.
+    const bodyText = await req.text();
+    if (bodyText) {
+      init.body = bodyText;
+    }
   }
 
   let upstream: Response;
   try {
     upstream = await fetch(targetUrl, init);
-  } catch (err) {
+  } catch (err: any) {
     // Network-level failure (api-gateway down, DNS, etc.). Return a
     // sanitized error — never echo the URL or stack to the client.
     // eslint-disable-next-line no-console
     console.error(`[proxy] upstream network error on ${req.method} ${targetUrl}:`, err);
+    try {
+      appendFileSync(
+        'c:/Users/sahil/Projects/Digital-Twinn/proxy-error.log',
+        `[${new Date().toISOString()}] Error on ${req.method} ${targetUrl}:\nStack: ${err?.stack || err}\nMessage: ${err?.message}\nCause: ${err?.cause?.stack || err?.cause?.message || err?.cause}\nHeaders: ${JSON.stringify(Array.from(headers.entries()))}\n\n`
+      );
+    } catch {
+      // Best-effort debug log; ignore write failures.
+    }
     return NextResponse.json(
       { error: 'UpstreamUnavailable' },
       { status: 502 },

@@ -18,6 +18,7 @@
  *   - Applies a per-IP rate limit on /ingest/* endpoints.
  *   - CORS allowlist is opt-in via `INGESTION_CORS_ORIGIN`.
  */
+import 'dotenv/config';
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
@@ -25,10 +26,10 @@ import { z } from "zod";
 import { Redis } from "ioredis";
 import mqtt from "mqtt";
 import { randomBytes } from "crypto";
+import { createRedisOptions } from "./redis-config";
 
 const PORT = Number(process.env.INGESTION_PORT) || Number(process.env.PORT) || 4100;
 const HOST = process.env.INGESTION_HOST || "127.0.0.1";
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 const MQTT_URL = process.env.MQTT_URL || ""; // empty = MQTT disabled (MVP)
 const CORS_ORIGIN = (process.env.INGESTION_CORS_ORIGIN || "")
   .split(",")
@@ -92,10 +93,7 @@ const app = Fastify({ logger: { level: process.env.LOG_LEVEL || "info" } });
 // is synchronous and we want the instance available to module-scope route
 // declarations below.
 
-const redis = new Redis(REDIS_URL, {
-  maxRetriesPerRequest: 3,
-  lazyConnect: false,
-});
+const redis = new Redis(createRedisOptions());
 redis.on("error", (err) => app.log.error({ err }, "redis error"));
 
 async function publish(reading: z.infer<typeof SensorReading>) {

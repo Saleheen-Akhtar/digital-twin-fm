@@ -2,7 +2,7 @@
 /**
  * Digital Twin FM — Database seed script
  *
- * Populates a realistic Singapore Expo-like demo:
+ * Populates a realistic convention centre demo:
  *   1 building → 5 floors → 10 rooms → 20 assets → 60 sensors → 1000 readings → 5 alerts → 8 work orders
  *
  * Run with:  pnpm --filter @digital-twin-fm/db seed
@@ -116,8 +116,8 @@ async function main() {
   const [building] = await db
     .insert(buildings)
     .values({
-      name: "Singapore Expo — Hall 7",
-      address: "1 Expo Drive, Singapore 486150",
+      name: "Singapore Convention Centre — Hall 7",
+      address: "1 Convention Drive, Singapore 486150",
       totalFloors: 5,
     })
     .returning();
