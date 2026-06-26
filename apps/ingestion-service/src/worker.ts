@@ -7,14 +7,15 @@
  * checks thresholds and creates alerts if needed,
  * publishes `asset.updated` events to `asset.updates` channel.
  */
+import 'dotenv/config';
 import { Redis } from "ioredis";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { sensorReadings, sensors, alerts } from "@digital-twin-fm/db";
 import { eq, and } from "drizzle-orm";
+import { createRedisOptions, describeRedisTarget } from "./redis-config";
 
 const POSTGRES_URL = process.env.POSTGRES_URL || "postgresql://dtfm_user:t3stp4ss@localhost:5432/dtfm_db";
-const REDIS_URL = process.env.REDIS_URL || "redis://:dtfm_redis_pass_2024@localhost:6379/0";
 
 interface SensorReadingMessage {
   sensorId: string;
@@ -95,10 +96,10 @@ async function publishAssetUpdate(pubRedis: Redis, assetId: string) {
 
 async function main() {
   console.log("[worker] Starting ingestion worker...");
-  console.log(`[worker] Redis: ${REDIS_URL}`);
+  console.log(`[worker] Redis: ${describeRedisTarget()}`);
 
-  const redis = new Redis({ host: 'localhost', port: 6379, password: process.env.REDIS_PASSWORD || 'dtfm_redis_pass_2024', maxRetriesPerRequest: 3, lazyConnect: false });
-  const pubRedis = new Redis({ host: 'localhost', port: 6379, password: process.env.REDIS_PASSWORD || 'dtfm_redis_pass_2024', maxRetriesPerRequest: 3, lazyConnect: false });
+  const redis = new Redis(createRedisOptions());
+  const pubRedis = new Redis(createRedisOptions());
   const pool = new Pool({ connectionString: POSTGRES_URL });
   const db = drizzle(pool);
 

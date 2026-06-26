@@ -88,6 +88,30 @@ export type {
   WorkOrder
 };
 
+export interface BuildingSnapshot {
+  healthScore: number;
+  totalAssets: number;
+  onlineAssets: number;
+  warningAssets: number;
+  criticalAssets: number;
+  offlineAssets: number;
+  activeAlerts: number;
+  criticalAlerts: number;
+  sensorUptime: number;
+  totalSensors: number;
+  onlineSensors: number;
+  avgEnergyKw: number;
+  computedAt: string;
+}
+
+export interface SnapshotHistoryEntry {
+  healthScore: number;
+  activeAlerts: number;
+  onlineAssets: number;
+  avgEnergyKw: number;
+  computedAt: string;
+}
+
 // ────────────────────────── Client ──────────────────────────
 export function createApiClient(opts: ApiClientOptions, deps: ApiClientDeps = {}) {
   const base = opts.baseUrl.replace(/\/$/, '');
@@ -194,6 +218,22 @@ export function createApiClient(opts: ApiClientOptions, deps: ApiClientDeps = {}
       call<Building[]>('/buildings', { method: 'GET' }, callDeps),
     findBuilding: (id: string, callDeps: ApiClientDeps = {}) =>
       call<Building>(`/buildings/${id}`, { method: 'GET' }, callDeps),
+    findBuildingSnapshot: (buildingId: string, callDeps: ApiClientDeps = {}) =>
+      call<{ found: boolean; snapshot?: BuildingSnapshot; message?: string }>(
+        `/building/snapshot?buildingId=${encodeURIComponent(buildingId)}`,
+        { method: 'GET' },
+        callDeps,
+      ),
+    findBuildingSnapshotHistory: (
+      buildingId: string,
+      hours = 24,
+      callDeps: ApiClientDeps = {},
+    ) =>
+      call<{ history: SnapshotHistoryEntry[] }>(
+        `/building/snapshot/history?buildingId=${encodeURIComponent(buildingId)}&hours=${hours}`,
+        { method: 'GET' },
+        callDeps,
+      ),
 
     // ───── Assets ─────
     findAssets: (

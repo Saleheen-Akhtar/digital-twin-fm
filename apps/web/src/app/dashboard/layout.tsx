@@ -22,6 +22,7 @@ function BrandMark() {
 
 const navItems: Array<{ label: string; icon: (p: any) => React.ReactNode; href: string; badge?: string }> = [
   { label: 'Dashboard', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>, href: '/dashboard' },
+  { label: 'AI Copilot', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16.08c0 .74-.6 1.34-1.34 1.34H8.34c-.74 0-1.34-.6-1.34-1.34V5.34c0-.74.6-1.34 1.34-1.34h11.32c.74 0 1.34.6 1.34 1.34v10.74z"/><path d="M7 8.5h12"/><path d="M7 12h12"/><path d="M4 8H2v10c0 1.1.9 2 2 2h13v-2H4V8z"/></svg>, href: '/dashboard/copilot' },
   { label: 'Digital Twin', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>, href: '/dashboard/twin' },
   { label: 'Monitoring', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>, href: '/dashboard/monitoring' },
   { label: 'Alerts', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>, href: '/dashboard/alerts' },
@@ -33,6 +34,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [alertBadge, setAlertBadge] = useState<string | null>(null);
   const [pendingApprovals, setPendingApprovals] = useState<number>(0);
+  const [buildingSubtitle, setBuildingSubtitle] = useState('Facility Management');
 
   useEffect(() => {
     const api = createBrowserApiClient();
@@ -40,16 +42,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     Promise.all([
       api.get<Alert[]>('/alerts'),
       api.get<WorkOrder[]>('/work-orders'),
-    ]).then(([alertsData, wosData]) => {
+      api.get<Array<{ name: string }>>('/buildings'),
+    ]).then(([alertsData, wosData, buildingsData]) => {
       if (cancelled) return;
       const arr = Array.isArray(alertsData) ? alertsData : [];
       const openCount = arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed').length;
       setAlertBadge(String(openCount));
-      // Pending approvals = alerts without linked work orders
       const woAlertIds = new Set(
         (Array.isArray(wosData) ? wosData : []).filter((wo) => wo.alertId).map((wo) => wo.alertId)
       );
       setPendingApprovals(arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed' && !woAlertIds.has(a.id)).length);
+      const buildings = Array.isArray(buildingsData) ? buildingsData : [];
+      if (buildings[0]?.name) {
+        setBuildingSubtitle(buildings[0].name);
+      }
     })
       .catch(() => {
         if (!cancelled) { setAlertBadge(null); setPendingApprovals(0); }
@@ -68,7 +74,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               </div>
               <div>
                 <div className="text-[23px] font-semibold tracking-[-0.04em] text-slate-950">Digital Twin FM</div>
-                <div className="text-[13px] text-blue-600">Singapore</div>
+                <div className="text-[13px] text-blue-600">{buildingSubtitle}</div>
               </div>
             </Link>
           </div>
