@@ -17,7 +17,7 @@ and streams/returns the answer back up the chain.
 import json
 import logging
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 import litellm
 from litellm import acompletion
