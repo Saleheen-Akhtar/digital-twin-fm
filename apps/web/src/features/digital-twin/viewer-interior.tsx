@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -332,7 +332,7 @@ export function StorageCrate({ position, rotation }: { position: [number, number
 // ─── MEP (Mechanical, Electrical, Piping) Systems ─────────────────
 
 // Render stylized ceiling HVAC ducts and plumbing pipes
-export function MepSystems({ width, depth, yBase, height }: { width: number; depth: number; yBase: number; height: number }) {
+export function MepSystems({ width, depth: _depth, yBase, height }: { width: number; depth: number; yBase: number; height: number }) {
   const ductY = yBase + height - 0.9;
   const pipeY = yBase + height - 0.7;
 
@@ -418,7 +418,7 @@ interface RoomInteriorProps {
 }
 
 export function RoomInterior({
-  floorLevel,
+  floorLevel: _floorLevel,
   zoneId,
   cx,
   cz,

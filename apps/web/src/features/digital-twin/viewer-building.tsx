@@ -11,7 +11,7 @@
  * the dashboard light theme.
  */
 
-import { useRef, useState, useMemo, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html, Edges, Grid } from "@react-three/drei";
 import * as THREE from "three";
@@ -58,7 +58,6 @@ const D = B.towerD;       // 24
 const HALF_W = W / 2;
 const HALF_D = D / 2;
 const SLAB_T = 0.4;
-const WALL_T = 0.08;
 
 /**
  * Demo default: Singapore Expo Hall 7 — 2-floor convention centre.
@@ -165,7 +164,7 @@ interface ZoneBoxProps {
   onSelect: (zoneId: string) => void;
 }
 
-function ZoneBox({ zone, floorY, floorHeight, selected, onSelect }: ZoneBoxProps) {
+function ZoneBox({ zone, floorY, floorHeight: _floorHeight, selected, onSelect }: ZoneBoxProps) {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const baseColor = zone.color ?? "#3b82f6";
@@ -1055,7 +1054,7 @@ function RoofParapet({ yBase }: { yBase: number }) {
   );
 }
 
-function LiveFan({ status, color }: { status: string; color: number }) {
+function LiveFan({ status, color: _color }: { status: string; color: number }) {
   const bladeRef = useRef<THREE.Mesh>(null);
   
   useFrame((state) => {
@@ -1304,9 +1303,8 @@ export function AssetMarker3D({ asset, selected, onClick }: {
   selected: boolean;
   onClick: (id: string) => void;
 }) {
-  const color = STATUS_COLORS[asset.status] ?? "#22c55e";
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
-  const [hovered, setHovered] = useState(false);
+  const setHovered = useState(false)[1];
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
 

@@ -257,15 +257,6 @@ export interface ApiAssetShape {
   installedAt?: string | null;
 }
 
-/** Map API status strings → viewer status */
-const API_STATUS_MAP: Record<string, AssetStatus> = {
-  ok: "ok",
-  warning: "warning",
-  critical: "critical",
-  offline: "offline",
-  info: "info",
-};
-
 /** Map API type strings → viewer asset type */
 const API_TYPE_MAP: Record<string, AssetType> = {
   ahu: "Air Handler",

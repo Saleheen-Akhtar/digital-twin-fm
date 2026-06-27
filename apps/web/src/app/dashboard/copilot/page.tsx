@@ -149,7 +149,6 @@ export default function CopilotPage() {
     loadingRef.current = true;
 
     // Add a placeholder assistant message that will be filled incrementally
-    const msgIdx = messages.length + 1; // after the user message we're about to add
     setMessages((prev) => [...prev, { role: 'assistant', text: '' }]);
 
     const body = JSON.stringify({

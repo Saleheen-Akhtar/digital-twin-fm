@@ -25,27 +25,19 @@ import {
   useState,
   useEffect,
   useCallback,
-  useMemo,
-  type FC,
 } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
   CameraControls,
-  Html,
   ContactShadows,
   Environment,
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { useViewerStore } from "./viewer-store";
-import { createBrowserApiClient } from "@/lib/browser-api-client";
 import {
-  colors,
-  building as B,
   camera as CAM,
-  light as LIGHT,
-  fog as FOG,
 } from "@/design-system/tokens";
 import {
   Building,
@@ -55,9 +47,6 @@ import {
 } from "./viewer-building";
 import type {
   Asset,
-  AssetStatus,
-  AssetType,
-  ApiAssetShape,
 } from "./viewer-data";
 import { SEED_ASSETS, apiAssetsToViewerAssets } from "./viewer-data";
 
@@ -112,7 +101,7 @@ export interface DigitalTwinViewer3DProps {
  */
 function CameraAnimator({
   selectedFloor,
-  walkMode,
+  walkMode: _walkMode,
 }: {
   selectedFloor: FloorFilter;
   walkMode: boolean;
@@ -734,7 +723,7 @@ export function DigitalTwinViewer3D({
   assets,
   onSelectAsset,
 }: DigitalTwinViewer3DProps) {
-  const { selectedFloor, setSelectedFloor, selectedAsset } = useViewerStore();
+  const { selectedFloor, setSelectedFloor } = useViewerStore();
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [walkMode, setWalkMode] = useState(false);
 
