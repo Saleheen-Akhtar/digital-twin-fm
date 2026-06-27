@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-06-26
+
+### Added
+- **Digital Twin Overlays** — Added Building Health Score, Mini KPI Bar, Live Event Feed, and floating AI Copilot button to the 3D Digital Twin dashboard.
+- **Layers Control Panel** — Added toggles for Facade, Furniture, Systems, and Zones layers directly in the 3D dashboard.
+- **Always-Visible Asset Status Badges** — Added HTML status tags (emoji + name + status) hovering directly above assets in 3D.
+- **Real AI Copilot Backend Integration** — Integrated the floating AI Copilot button with the real Python FastAPI AI Service, supporting query loading state, real-time responses, and fallback to simulation.
+
+### Changed
+- **Click-to-Inspect State Flow** — Connected 3D asset clicks to the parent Next.js client component to open the Asset Detail sidebar, and wired the Zustand store selected state to highlight clicked assets.
+- **Asset Positioning & Scaling** — Adjusted seed asset positions to a building-safe 4×3 grid (24m×16m) to prevent out-of-bounds wall clipping, and scaled equipment models 1.5× for high visibility.
+- **Condition Animations** — Added vertical glowing status poles with pulsing beacons and floor rings that animate based on telemetry (rapid red blink/wobble for critical, slow amber pulse for warning).
+- **Scene Realism** — Added ACESFilmicToneMapping, directional sun light shadow bias adjustments, back rim backlight for silhouette depth, and sky gradient background.
+
 ### Added
 - **London Skyscraper 3D GLB Integration** — Extracted the high-fidelity London Skyscraper model (OBJ/MTL and textures) from `free-london-skyscraper.zip`, renamed space-containing subfolders to resolve space-splitting parser limitations, and compiled a single, self-contained binary `free_london_skyscraper.glb` using `obj2gltf`. The model loads into the 3D Digital Twin Viewer with auto-scaling, auto-centering, and shadow casting.
 

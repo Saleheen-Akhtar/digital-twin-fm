@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # LLM Provider — abstracted via LiteLLM. Set one of these.
     # Examples: "gpt-4o-mini" (openai), "claude-3-5-sonnet-20240620" (anthropic),
     # "ollama/llama3.2" (local), "bedrock/anthropic.claude-3-sonnet-..."
-    litellm_model: str = "openai/deepseek-v4-flash-free"
+    litellm_model: str = "openai/north-mini-code-free"
 
     # Custom API base for LiteLLM (OpenAI-compatible). Set when using a
     # proxy or self-hosted endpoint like OpenCode Zen, LiteLLM proxy, etc.
