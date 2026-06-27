@@ -32,7 +32,7 @@ import { Pool } from "pg";
 import { faker } from "@faker-js/faker";
 import * as argon2 from "argon2";
 import { randomBytes } from "crypto";
-import type { WorkOrderType } from "@digital-twin-fm/types";
+import type { WorkOrderType, SensorType } from "@digital-twin-fm/types";
 import {
   buildings,
   floors,
@@ -322,7 +322,7 @@ async function main() {
       assetRows.flatMap((a) =>
         SENSORS_BY_TYPE[a.type as AssetTypeDb].map((st) => ({
           assetId: a.id,
-          type: st.type,
+          type: st.type as SensorType,
           unit: st.unit,
           thresholdLow: st.lo,
           thresholdHigh: st.hi,
