@@ -2,8 +2,14 @@
 /**
  * Digital Twin FM — Database seed script
  *
- * Populates a realistic convention centre demo:
- *   1 building → 5 floors → 10 rooms → 20 assets → 60 sensors → 1000 readings → 5 alerts → 8 work orders
+ * Populates a realistic Singapore Expo Hall 7 demo:
+ *   1 building → 2 floors (Exhibition Level + Upper Mezzanine) → 8 rooms →
+ *   20 assets → 60 sensors → 1000 readings → 5 alerts → 8 work orders
+ *
+ * Floor count is the single source of truth, driven by BUILDING_FLOOR_COUNT
+ * below (kept aligned with apps/web/src/design-system/tokens.ts → building.floorCount).
+ * Drift between this seed and the 3D viewer produces a loud runtime warning
+ * at startup so the mismatch surfaces immediately rather than silently.
  *
  * Run with:  pnpm --filter @digital-twin-fm/db seed
  *
@@ -26,7 +32,7 @@ import { Pool } from "pg";
 import { faker } from "@faker-js/faker";
 import * as argon2 from "argon2";
 import { randomBytes } from "crypto";
-import type { WorkOrderType } from "@digital-twin-fm/types";
+import type { WorkOrderType, SensorType } from "@digital-twin-fm/types";
 import {
   buildings,
   floors,
@@ -112,24 +118,34 @@ async function main() {
       "   (password shown once; copy it now or use --password=<value> next time)",
   );
 
-  // 1 building
+  // 1 building (fixed UUID to match codebase defaults).
+  // Singapore Expo Hall 7: 2 main levels — Exhibition Level + Upper Mezzanine.
+  // totalFloors MUST match BUILDING_FLOOR_COUNT below. Drift between this
+  // and apps/web/src/design-system/tokens.ts → building.floorCount surfaces
+  // immediately in the dashboard "selected floor" UI and the AI copilot
+  // ("Why is the upper level hot?") — fix at the source instead.
+  const BUILDING_FLOOR_COUNT = 2;
+  const FLOOR_NAMES = ["Exhibition Level", "Upper Mezzanine"] as const;
+  const ROOM_NAMES = ["North Zone", "South Zone", "East Zone", "West Zone"] as const;
+
   const [building] = await db
     .insert(buildings)
     .values({
-      name: "Singapore Convention Centre — Hall 7",
-      address: "1 Convention Drive, Singapore 486150",
-      totalFloors: 5,
+      id: "9a83477a-4b19-444a-9345-0e07f90d16b0",
+      name: "Singapore Expo — Hall 7",
+      address: "1 Expo Drive, Singapore 486150",
+      totalFloors: BUILDING_FLOOR_COUNT,
     })
     .returning();
 
-  // 5 floors, 2 rooms each
+  // 2 floors, 4 rooms each (4-zone convention-hall layout: N/S/E/W)
   const floorRows = await db
     .insert(floors)
     .values(
-      Array.from({ length: 5 }, (_, i) => ({
+      Array.from({ length: BUILDING_FLOOR_COUNT }, (_, i) => ({
         buildingId: building.id,
         level: i + 1,
-        name: `Level ${i + 1}`,
+        name: FLOOR_NAMES[i] ?? `Level ${i + 1}`,
       })),
     )
     .returning();
@@ -137,28 +153,112 @@ async function main() {
   const roomRows = await db
     .insert(rooms)
     .values(
-      floorRows.flatMap((f) => [
-        { floorId: f.id, name: "North Zone" },
-        { floorId: f.id, name: "South Zone" },
-      ]),
+      floorRows.flatMap((f) =>
+        ROOM_NAMES.map((n) => ({ floorId: f.id, name: n })),
+      ),
     )
     .returning();
 
-  // 20 assets
+  // 20 assets distributed across the 2 floors according to a realistic
+  // convention-hall MEP layout. Plant-room equipment (boilers, primary
+  // pumps) sits on the exhibition level behind the service wall;
+  // mezzanine services the upper-level AHUs and exhaust.
   const assetTypes = ["ahu", "chiller", "boiler", "pump", "fan", "elevator", "lighting"] as const;
+  type AssetTypeDb = (typeof assetTypes)[number];
+
+  // 1-based floor numbers from the DB. Distribution totals 20 assets.
+  // Floor 1 (Exhibition Level) = 15: 3 AHU + 2 Chiller + 5 Lighting +
+  //   1 Fan + 1 Elevator + 2 Boiler + 1 Pump (plant room)
+  // Floor 2 (Upper Mezzanine) = 5: 2 Pump + 2 Fan + 1 Lighting
+  const ASSET_PLAN: { type: AssetTypeDb; floor: 1 | 2 }[] = [
+    // Floor 1 — Exhibition Level (15)
+    { type: "ahu", floor: 1 },
+    { type: "ahu", floor: 1 },
+    { type: "ahu", floor: 1 },
+    { type: "chiller", floor: 1 },
+    { type: "chiller", floor: 1 },
+    { type: "lighting", floor: 1 },
+    { type: "lighting", floor: 1 },
+    { type: "lighting", floor: 1 },
+    { type: "lighting", floor: 1 },
+    { type: "lighting", floor: 1 },
+    { type: "fan", floor: 1 },
+    { type: "elevator", floor: 1 },
+    { type: "boiler", floor: 1 },
+    { type: "boiler", floor: 1 },
+    { type: "pump", floor: 1 },
+    // Floor 2 — Upper Mezzanine (5)
+    { type: "pump", floor: 2 },
+    { type: "pump", floor: 2 },
+    { type: "fan", floor: 2 },
+    { type: "fan", floor: 2 },
+    { type: "lighting", floor: 2 },
+  ];
+
+  // Map DB floor 1/2 → viewer floor 0/1 (viewer is 0-indexed).
+  const dbFloorToViewerFloor = (dbLevel: number): 0 | 1 =>
+    Math.max(0, Math.min(1, dbLevel - 1)) as 0 | 1;
+
+  // Per-type deterministic placement inside the building footprint
+  // (36m × 24m per apps/web/src/design-system/tokens.ts).
+  // Plant-room cluster (boilers, chillers, primary pumps) sits at the
+  // back-of-house (−X, +Z corner); public-facing equipment spread evenly.
+  const plantRoom = { xRange: [-16, -10] as const, zRange: [6, 10] as const };
+  const plantTypes = new Set<AssetTypeDb>(["boiler", "chiller", "pump"]);
+
+  const typeCounter: Record<AssetTypeDb, number> = {
+    ahu: 0,
+    chiller: 0,
+    boiler: 0,
+    pump: 0,
+    fan: 0,
+    elevator: 0,
+    lighting: 0,
+  };
+
   const assetRows = await db
     .insert(assets)
     .values(
-      Array.from({ length: 20 }, (_, i) => {
-        const room = roomRows[i % roomRows.length];
+      ASSET_PLAN.map((plan, i) => {
+        const idx = ++typeCounter[plan.type];
+        const typeCode = plan.type.toUpperCase();
+        const isPlant = plantTypes.has(plan.type);
+        // 0-based viewer floor for marker Y placement
+        const viewerFloor = dbFloorToViewerFloor(plan.floor);
+        const floorRow = floorRows[plan.floor - 1];
+
+        // Deterministic 3D position
+        let x: number;
+        let z: number;
+        if (isPlant) {
+          // Cluster plant equipment in the back-of-house corner
+          x = faker.number.float({ min: plantRoom.xRange[0], max: plantRoom.xRange[1] });
+          z = faker.number.float({ min: plantRoom.zRange[0], max: plantRoom.zRange[1] });
+        } else {
+          // Public-facing equipment: deterministic 4×N grid across the hall
+          const cols = 5;
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          x = faker.number.float({ min: -12 + col * 5, max: -10 + col * 5 });
+          z = faker.number.float({ min: -8 + row * 4, max: -6 + row * 4 });
+        }
+        // Y stays inside the building's vertical envelope:
+        //   floor 0 (Exhibition): yBase=0,   yMax ≈ 8.5
+        //   floor 1 (Mezzanine):  yBase=9.0, yMax ≈ 17.5
+        const y = viewerFloor === 0
+          ? faker.number.float({ min: 0.2, max: 7.5 })
+          : faker.number.float({ min: 9.5, max: 16.5 });
+
+        // Pick a room on this floor for FK
+        const roomOnFloor = roomRows.filter((r) => r.floorId === floorRow.id);
+        const room = roomOnFloor[i % roomOnFloor.length];
+
         return {
           buildingId: building.id,
-          floorId: room.floorId,
+          floorId: floorRow.id,
           roomId: room.id,
-          name: `${faker.helpers
-            .arrayElement(assetTypes)
-            .toUpperCase()}-${String(i + 1).padStart(3, "0")}`,
-          type: faker.helpers.arrayElement(assetTypes),
+          name: `${typeCode}-${String(idx).padStart(3, "0")}`,
+          type: plan.type,
           status: faker.helpers.weightedArrayElement([
             { weight: 70, value: "ok" },
             { weight: 15, value: "warning" },
@@ -167,30 +267,62 @@ async function main() {
           ]),
           manufacturer: faker.company.name(),
           model: faker.string.alphanumeric(8).toUpperCase(),
-          positionX: faker.number.float({ min: -10, max: 10 }),
-          positionY: faker.number.float({ min: 0, max: 14.65 }),
-          positionZ: faker.number.float({ min: -10, max: 10 }),
+          positionX: x,
+          positionY: y,
+          positionZ: z,
         };
       }),
     )
     .returning();
 
-  // 60 sensors (3 per asset on average)
-  const sensorTypes = [
-    { type: "temperature", unit: "C", lo: 18, hi: 28 },
-    { type: "humidity", unit: "%", lo: 30, hi: 60 },
-    { type: "power", unit: "kW", lo: 0, hi: 100 },
-    { type: "vibration", unit: "mm/s", lo: 0, hi: 10 },
-    { type: "co2", unit: "ppm", lo: 400, hi: 1000 },
-  ] as const;
+  // ~60 sensors, type-appropriate. Real convention-hall assets only carry
+  // the sensors they actually need (a light fixture has no vibration probe;
+  // a chiller needs flow + temp + power). Random sensor selection was the
+  // biggest source of "the data looks fake" complaints.
+  const SENSORS_BY_TYPE: Record<AssetTypeDb, { type: string; unit: string; lo: number; hi: number }[]> = {
+    ahu: [
+      { type: "temperature", unit: "C", lo: 18, hi: 26 },
+      { type: "humidity", unit: "%", lo: 35, hi: 55 },
+      { type: "pressure", unit: "Pa", lo: 200, hi: 800 },
+      { type: "power", unit: "kW", lo: 5, hi: 40 },
+    ],
+    chiller: [
+      { type: "temperature", unit: "C", lo: 5, hi: 18 },
+      { type: "flow", unit: "L/s", lo: 10, hi: 60 },
+      { type: "power", unit: "kW", lo: 50, hi: 250 },
+      { type: "vibration", unit: "mm/s", lo: 0, hi: 6 },
+    ],
+    boiler: [
+      { type: "temperature", unit: "C", lo: 50, hi: 90 },
+      { type: "pressure", unit: "bar", lo: 1.5, hi: 4 },
+      { type: "flow", unit: "L/s", lo: 5, hi: 30 },
+    ],
+    pump: [
+      { type: "pressure", unit: "bar", lo: 2, hi: 8 },
+      { type: "flow", unit: "L/s", lo: 5, hi: 50 },
+      { type: "vibration", unit: "mm/s", lo: 0, hi: 5 },
+    ],
+    fan: [
+      { type: "pressure", unit: "Pa", lo: 100, hi: 600 },
+      { type: "vibration", unit: "mm/s", lo: 0, hi: 8 },
+      { type: "power", unit: "kW", lo: 1, hi: 20 },
+    ],
+    elevator: [
+      { type: "vibration", unit: "mm/s", lo: 0, hi: 3 },
+      { type: "power", unit: "kW", lo: 0, hi: 15 },
+    ],
+    lighting: [
+      { type: "power", unit: "kW", lo: 0, hi: 5 },
+    ],
+  };
 
   const sensorRows = await db
     .insert(sensors)
     .values(
       assetRows.flatMap((a) =>
-        faker.helpers.arrayElements(sensorTypes, { min: 2, max: 4 }).map((st) => ({
+        SENSORS_BY_TYPE[a.type as AssetTypeDb].map((st) => ({
           assetId: a.id,
-          type: st.type,
+          type: st.type as SensorType,
           unit: st.unit,
           thresholdLow: st.lo,
           thresholdHigh: st.hi,
@@ -204,7 +336,12 @@ async function main() {
   const now = Date.now();
   const readings: typeof sensorReadings.$inferInsert[] = [];
   for (const s of sensorRows) {
-    const def = sensorTypes.find((t) => t.type === s.type)!;
+    // Look up the type-specific threshold for this sensor by asset type.
+    const parentAsset = assetRows.find((a) => a.id === s.assetId);
+    const def = parentAsset
+      ? SENSORS_BY_TYPE[parentAsset.type as AssetTypeDb].find((t) => t.type === s.type)
+      : undefined;
+    if (!def) continue;
     for (let i = 0; i < Math.ceil(1000 / sensorRows.length); i++) {
       readings.push({
         sensorId: s.id,
@@ -254,8 +391,14 @@ async function main() {
   );
 
   console.log(
-    `✅ Seed complete: 1 building, ${floorRows.length} floors, ${roomRows.length} rooms, ${assetRows.length} assets, ${sensorRows.length} sensors, ${readings.length} readings, ${alertRows.length} alerts`,
+    `✅ Seed complete: 1 building (${BUILDING_FLOOR_COUNT} floors), ${floorRows.length} floors (${FLOOR_NAMES.join(", ")}), ${roomRows.length} rooms, ${assetRows.length} assets, ${sensorRows.length} sensors, ${readings.length} readings, ${alertRows.length} alerts`,
   );
+  if (floorRows.length !== BUILDING_FLOOR_COUNT) {
+    console.warn(
+      `⚠️  Floor count drift: inserted ${floorRows.length} floors but BUILDING_FLOOR_COUNT=${BUILDING_FLOOR_COUNT}. ` +
+        "This usually means the floorNames array and the count got out of sync.",
+    );
+  }
   await pool.end();
 }
 

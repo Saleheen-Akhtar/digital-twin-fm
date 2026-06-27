@@ -26,9 +26,8 @@ if [ -f .env ]; then
   set -a; source .env; set +a
 fi
 
-# 3. Export overrides
+# 3. Export overrides (per‑service only)
 export AI_SERVICE_URL=${AI_SERVICE_URL:-http://localhost:8010}
-export PORT=${PORT:-8010}
 
 # 4. Start each service in background, logs to .logs/
 echo "  [start] ai-service          → port 8010"
@@ -42,7 +41,7 @@ pnpm --filter @digital-twin-fm/web dev > "$LOGDIR/web.log" 2>&1 &
 WEB_PID=$!
 
 echo "  [start] api-gateway         → port 4000"
-AI_SERVICE_URL=http://localhost:8010 pnpm --filter @digital-twin-fm/api-gateway dev > "$LOGDIR/api-gateway.log" 2>&1 &
+AI_SERVICE_URL=http://localhost:8010 PORT=4000 pnpm --filter @digital-twin-fm/api-gateway dev > "$LOGDIR/api-gateway.log" 2>&1 &
 API_PID=$!
 
 echo "  [start] ingestion-service   → port 4100"
