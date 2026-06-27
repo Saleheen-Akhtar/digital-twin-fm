@@ -42,7 +42,7 @@ export function DigitalTwinPanel({
   // The props above are kept for API compatibility with the dashboard
   // and the asset-detail panel, but the viewer reads from its own
   // SEED_ASSETS / Zustand store.
-  const [_liveReadings, setLiveReadings] = useState<Record<string, string>>({});
+  const setLiveReadings = useState<Record<string, string>>({})[1];
 
   // Connect to the realtime WebSocket for live asset status updates
   useRealtime();

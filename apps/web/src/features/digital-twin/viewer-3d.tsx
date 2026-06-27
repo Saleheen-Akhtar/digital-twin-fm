@@ -25,6 +25,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import {
@@ -47,6 +48,7 @@ import {
 } from "./viewer-building";
 import type {
   Asset,
+  ApiAssetShape,
 } from "./viewer-data";
 import { SEED_ASSETS, apiAssetsToViewerAssets } from "./viewer-data";
 
@@ -772,16 +774,6 @@ export function DigitalTwinViewer3D({
     // Also notify parent (opens sidebar detail panel)
     onSelectAsset?.(asset.id);
   }, [onSelectAsset]);
-
-  // Find the selected zone's full data
-  const selectedZoneData = useMemo(() => {
-    if (!selectedZone) return null;
-    for (const floor of BUILDING_FLOORS) {
-      const zone = floor.zones.find((z) => z.id === selectedZone);
-      if (zone) return { zone, floor: floor.name };
-    }
-    return null;
-  }, [selectedZone]);
 
   const isShowcase = mode === "showcase";
   const isOpen = (k: OverlayKey) => openOverlays.has(k);
