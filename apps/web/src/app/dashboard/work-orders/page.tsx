@@ -63,7 +63,7 @@ export default function WorkOrdersPage() {
     setTimeout(() => setToast(null), 2500);
   }, []);
 
-  const fetchOrders = useCallback(async () => {
+  const _fetchOrders = useCallback(async () => {
     try {
       const data = await api.get<WorkOrder[]>("/work-orders");
       setOrders(Array.isArray(data) ? data : []);
@@ -73,7 +73,7 @@ export default function WorkOrdersPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchAssets = useCallback(async () => {
+  const _fetchAssets = useCallback(async () => {
     try {
       const data = await api.get<Asset[]>("/assets");
       setAssets(Array.isArray(data) ? data : []);
