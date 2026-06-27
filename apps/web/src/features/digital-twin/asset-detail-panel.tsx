@@ -29,22 +29,22 @@ const STATUS_COLOR: Record<string, string> = {
   info: "bg-blue-500",
 };
 
-/**
- * 30-second local staleTime, in the spirit of TanStack Query's
- * `staleTime` option. The previous version of this panel re-issued
- * the full /sensors + /alerts + /sensors/:id/readings waterfall
- * every time the user opened the panel — even if they had just
- * closed it 5 seconds ago and re-clicked the same marker. With 4
- * sensors, that is 1 + 1 + 4 = 6 API calls per open. At 300
- * requests/min for sustained polling, this is well under the
- * throttler ceiling, but it is still wasteful and produces visible
- * "Loading…" flash.
- *
- * The cache stores the in-memory snapshot of `{ sensors, readings,
- * alerts }` keyed by `assetId` with a 30-second TTL. Re-opening the
- * same asset within that window renders the cached data
- * synchronously and skips the network entirely.
- */
+const STATUS_BG: Record<string, string> = {
+  ok: "bg-green-50",
+  warning: "bg-amber-50",
+  critical: "bg-red-50",
+  offline: "bg-neutral-50",
+  info: "bg-blue-50",
+};
+
+const STATUS_TEXT: Record<string, string> = {
+  ok: "text-green-700",
+  warning: "text-amber-700",
+  critical: "text-red-700",
+  offline: "text-neutral-600",
+  info: "text-blue-700",
+};
+
 const STALE_MS = 30_000;
 
 interface AssetDetailCacheEntry {
@@ -74,18 +74,9 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Module-scoped cache: persists across mount/unmount within the same
-  // browser session. useRef is used (not useState) so a cache write
-  // does not trigger a re-render.
   const cacheRef = useRef<Map<string, AssetDetailCacheEntry>>(new Map());
+  const panelRef = useRef<HTMLDivElement>(null);
 
-  // Fetch sensors + recent alerts when an asset is selected. Gated on
-  // a fresh `asset` reference — if the user re-selects the same asset
-  // within STALE_MS, the cached snapshot is hydrated synchronously and
-  // the network is skipped. There is only ONE useEffect here (per
-  // Finding 14 the dashboard previously had a stale `dashboardSnapshot`
-  // module-level variable; this is the smaller, panel-scoped version
-  // of the same idea, with an explicit TTL).
   useEffect(() => {
     if (!asset) {
       setSensors([]);
@@ -96,7 +87,6 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
 
     const cached = cacheRef.current.get(asset.id);
     if (cached && Date.now() - cached.fetchedAt < STALE_MS) {
-      // Hydrate from cache — no spinner, no network.
       setSensors(cached.sensors);
       setReadingsBySensor(cached.readingsBySensor);
       setAlerts(cached.alerts);
@@ -108,11 +98,6 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
     setLoading(true);
     (async () => {
       try {
-        // The browser cannot read the httpOnly `dtfm_token` cookie, so we
-        // cannot attach `Authorization: Bearer` from here. Instead we hit
-        // the same-origin proxy at `/api/proxy/...`, which reads the
-        // cookie server-side and forwards the request to the api-gateway
-        // with the Bearer token. The browser never sees the JWT.
         const api = createBrowserApiClient();
         const [allSensors, allAlerts] = await Promise.all([
           api.get<Sensor[]>("/sensors"),
@@ -121,7 +106,6 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
         const assetSensors = allSensors.filter((s) => s.assetId === asset.id);
         if (cancelled) return;
 
-        // Fetch latest readings for each sensor (max 4)
         const readings: Record<string, SensorReading[]> = {};
         await Promise.all(
           assetSensors.slice(0, 4).map(async (s) => {
@@ -154,152 +138,169 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
     };
   }, [asset]);
 
+  // Close on Escape / click outside
+  useEffect(() => {
+    if (!asset) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    const handleClick = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKey);
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [asset, onClose]);
+
   if (!asset) return null;
 
+  const criticalCount = alerts.filter((a) => a.severity === "critical").length;
+  const latestReading =
+    sensors.length > 0 && readingsBySensor[sensors[0]?.id]?.[0]
+      ? `${readingsBySensor[sensors[0].id][0].value.toFixed(2)} ${sensors[0].unit}`
+      : null;
+
   return (
-    <aside
-      data-testid="asset-detail-panel"
-      className="fixed top-0 right-0 h-full w-96 bg-neutral-900 border-l border-neutral-800 shadow-2xl z-50 overflow-y-auto"
-    >
-      {/* Header */}
-      <header className="sticky top-0 bg-neutral-900 border-b border-neutral-800 p-4 flex items-start justify-between z-10">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`w-2 h-2 rounded-full ${STATUS_COLOR[asset.status]}`} />
-            <span className="text-xs uppercase tracking-wider text-neutral-400">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 pointer-events-none">
+      <div
+        ref={panelRef}
+        data-testid="asset-detail-panel"
+        className="pointer-events-auto w-[340px] max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95"
+        style={{ animationDuration: "150ms" }}
+      >
+        {/* Header */}
+        <div className={`px-4 py-3 border-b border-slate-100 ${STATUS_BG[asset.status] ?? ""}`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_COLOR[asset.status]}`} />
+              <div className="min-w-0">
+                <h2
+                  className="text-sm font-semibold text-slate-900 truncate"
+                  data-testid="asset-detail-name"
+                >
+                  {friendlyName(asset)}
+                </h2>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {TYPE_LABEL[asset.type] ?? asset.type} · {asset.name}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 ml-2">
+              {latestReading && (
+                <span className="text-xs font-semibold text-slate-800 whitespace-nowrap">
+                  {latestReading}
+                </span>
+              )}
+              <button
+                onClick={onClose}
+                className="text-slate-400 hover:text-slate-700 p-0.5"
+                aria-label="Close"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className={`text-[10px] font-semibold uppercase tracking-wider ${STATUS_TEXT[asset.status] ?? "text-slate-600"}`}>
               {asset.status}
             </span>
-          </div>
-          <h2 className="text-lg font-semibold text-white" data-testid="asset-detail-name">
-            {friendlyName(asset)}
-          </h2>
-          <p className="text-xs text-neutral-500">
-            {TYPE_LABEL[asset.type] ?? asset.type} · {asset.name}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-neutral-400 hover:text-white p-1"
-          aria-label="Close"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </header>
-
-      {/* Content */}
-      <div className="p-4 space-y-4">
-        {/* Details */}
-        <section>
-          <h3 className="text-xs uppercase tracking-wider text-neutral-400 mb-2">Details</h3>
-          <dl className="space-y-1 text-sm">
             {asset.manufacturer && (
-              <div className="flex justify-between">
-                <dt className="text-neutral-400">Manufacturer</dt>
-                <dd className="text-neutral-200">{asset.manufacturer}</dd>
-              </div>
+              <span className="text-[10px] text-slate-400">· {asset.manufacturer}</span>
             )}
             {asset.model && (
-              <div className="flex justify-between">
-                <dt className="text-neutral-400">Model</dt>
-                <dd className="text-neutral-200 font-mono text-xs">{asset.model}</dd>
-              </div>
+              <span className="text-[10px] text-slate-400">· {asset.model}</span>
             )}
-            <div className="flex justify-between">
-              <dt className="text-neutral-400">Position</dt>
-              <dd className="text-neutral-200 font-mono text-xs">
-                {(asset.positionX ?? 0).toFixed(1)}, {(asset.positionY ?? 0).toFixed(1)},{" "}
-                {(asset.positionZ ?? 0).toFixed(1)}
-              </dd>
-            </div>
-          </dl>
-        </section>
+          </div>
+        </div>
 
-        {/* Sensors */}
-        <section>
-          <h3 className="text-xs uppercase tracking-wider text-neutral-400 mb-2">
-            Sensors ({sensors.length})
-          </h3>
-          {loading ? (
-            <p className="text-sm text-neutral-500">Loading…</p>
-          ) : sensors.length === 0 ? (
-            <p className="text-sm text-neutral-500">No sensors attached.</p>
-          ) : (
-            <ul className="space-y-2">
-              {sensors.map((s) => {
-                const readings = readingsBySensor[s.id] ?? [];
-                const latest = readings[0];
+        {/* Content */}
+        <div className="px-4 py-3 space-y-3">
+          {/* Sensors summary row */}
+          {sensors.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {sensors.slice(0, 4).map((s) => {
+                const latest = readingsBySensor[s.id]?.[0];
                 return (
-                  <li
+                  <div
                     key={s.id}
-                    className="border border-neutral-800 rounded p-2 bg-neutral-950"
+                    className="flex-1 min-w-[70px] bg-slate-50 rounded-lg px-2.5 py-1.5 text-center"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm text-neutral-200 capitalize">{s.type}</span>
-                      <span className="text-base font-mono font-semibold text-white">
-                        {latest ? latest.value.toFixed(2) : "—"}
-                        <span className="text-xs text-neutral-500 ml-1">{s.unit}</span>
-                      </span>
+                    <div className="text-[9px] uppercase tracking-wider text-slate-400 truncate">{s.type}</div>
+                    <div className="text-xs font-semibold text-slate-800 mt-0.5">
+                      {loading ? "—" : latest ? latest.value.toFixed(1) : "—"}
+                      <span className="text-[9px] text-slate-400 ml-0.5">{s.unit}</span>
                     </div>
-                    {s.thresholdLow != null && s.thresholdHigh != null && (
-                      <div className="text-xs text-neutral-500">
-                        Normal range: {s.thresholdLow}–{s.thresholdHigh} {s.unit}
-                      </div>
-                    )}
-                    {readings.length > 1 && (
-                      <div className="mt-2">
-                        <Sparkline values={readings.map((r) => r.value).reverse()} />
-                        <div className="text-[10px] text-neutral-500 mt-1">
-                          Last {readings.length} readings
-                        </div>
-                      </div>
-                    )}
-                  </li>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )}
-        </section>
 
-        {/* Recent alerts */}
-        <section>
-          <h3 className="text-xs uppercase tracking-wider text-neutral-400 mb-2">
-            Recent Alerts ({alerts.length})
-          </h3>
-          {loading ? (
-            <p className="text-sm text-neutral-500">Loading…</p>
-          ) : alerts.length === 0 ? (
-            <p className="text-sm text-neutral-500">No alerts in history. ✓</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {alerts.map((a) => (
-                <li
-                  key={a.id}
-                  className="text-sm border-l-2 pl-2"
-                  style={{
-                    borderColor:
-                      a.severity === "critical" ? "#ef4444" :
-                      a.severity === "high" ? "#fb923c" :
-                      a.severity === "medium" ? "#f59e0b" : "#737373",
-                  }}
-                >
-                  <div className="text-neutral-200">{a.message}</div>
-                  <div className="text-xs text-neutral-500">
-                    {a.severity} · {a.status}
-                  </div>
-                </li>
-              ))}
-            </ul>
+          {/* Sparkline for first sensor */}
+          {sensors.length > 0 && readingsBySensor[sensors[0].id]?.length > 1 && !loading && (
+            <div className="bg-slate-50 rounded-lg p-2">
+              <div className="text-[9px] uppercase tracking-wider text-slate-400 mb-1">
+                {sensors[0].type} trend
+              </div>
+              <Sparkline values={readingsBySensor[sensors[0].id].map((r) => r.value).reverse()} />
+            </div>
           )}
-        </section>
+
+          {/* Alerts */}
+          {alerts.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Alerts {criticalCount > 0 ? `(${criticalCount} critical)` : ""}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {alerts.slice(0, 3).map((a) => (
+                  <div
+                    key={a.id}
+                    className="text-[11px] border-l-2 pl-2 py-0.5"
+                    style={{
+                      borderColor:
+                        a.severity === "critical" ? "#ef4444" :
+                        a.severity === "high" ? "#fb923c" :
+                        a.severity === "medium" ? "#f59e0b" : "#d4d4d4",
+                    }}
+                  >
+                    <div className="text-slate-700 truncate">{a.message}</div>
+                    <div className="text-[9px] text-slate-400">{a.severity}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loading state */}
+          {loading && (
+            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+              <span className="w-3 h-3 rounded-full border-2 border-slate-300 border-t-blue-500 animate-spin" />
+              Loading details…
+            </div>
+          )}
+
+          {/* Empty sensor state */}
+          {!loading && sensors.length === 0 && (
+            <p className="text-[11px] text-slate-400">No sensors attached.</p>
+          )}
+        </div>
       </div>
-    </aside>
+    </div>
   );
 }
 
 // ──── Mini sparkline (inline SVG, no deps) ────
-function Sparkline({ values, width = 320, height = 36 }: { values: number[]; width?: number; height?: number }) {
+function Sparkline({ values, width = 320, height = 28 }: { values: number[]; width?: number; height?: number }) {
   if (values.length < 2) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
