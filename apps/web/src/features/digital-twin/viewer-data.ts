@@ -1,24 +1,44 @@
 /**
  * Digital Twin FM — viewer seed data
  *
- * 20 assets distributed across 4 floors with at least 3 per floor:
- *   Floor 0: 6 (3 Chiller, 2 Boiler, 1 Pump)
- *   Floor 1: 5 (3 Air Handler, 2 Pump)
- *   Floor 2: 5 (2 Air Handler, 1 Chiller, 1 Pump, 1 Fan)
- *   Floor 3: 4 (1 Chiller, 2 Boiler, 1 Fan)
- * Total: 5 AHU, 4 Chiller, 4 Boiler, 4 Pump, 3 Fan = 20.
+ * 20 assets distributed across 2 floors with realistic MEP placement:
+ *   Floor 0 (Exhibition Level): 15 — 3 Air Handler, 2 Chiller, 5 Lighting,
+ *                                1 Fan, 1 Elevator, 2 Boiler, 1 Pump
+ *                                (plant room cluster for boilers/chillers/pumps)
+ *   Floor 1 (Upper Mezzanine):   5 — 2 Pump, 2 Fan, 1 Lighting
+ * Total: 3 AHU + 2 Chiller + 2 Boiler + 3 Pump + 3 Fan + 1 Elevator
+ *      + 6 Lighting = 20.
  *
  * Each asset carries a user-friendly name (no technical IDs in the UI),
  * emoji, and metrics/details with keys that are remapped to readable
  * labels by the inspect panel.
+ *
+ * ─── FLOOR DYNAMIC ─────────────────────────────────────────────
+ * Floors are now `number` (not a `0 | 1` union) so a customer building
+ * with 5, 10, or 20 floors renders correctly without code changes.
+ * The runtime invariant below asserts that every seed asset's floor is
+ * within `tokens.building.floorCount` — drift surfaces as a console
+ * error in dev, never as a silent visual mismatch.
  */
 export type AssetType =
   | "Air Handler"
   | "Chiller"
   | "Boiler"
   | "Pump"
-  | "Fan";
-export type AssetStatus = "operational" | "warning" | "fault";
+  | "Fan"
+  | "Elevator"
+  | "Lighting"
+  | "Sensor"
+  | "Equipment";
+export type AssetStatus = "ok" | "warning" | "critical" | "offline" | "info";
+
+/**
+ * Floor index. Dynamic — any non-negative integer is valid. The viewer
+ * reads `tokens.building.floorCount` to clamp/validate at the boundary,
+ * but the type intentionally does NOT cap this so a customer building
+ * with N floors renders without code changes.
+ */
+export type AssetFloor = number;
 
 export interface Asset {
   id: string;
@@ -27,9 +47,10 @@ export interface Asset {
   /** Single emoji used by the marker sprite and legend. */
   emoji: string;
   type: AssetType;
-  /** 0 = ground floor, 1-3 = upper floors. */
-  floor: 0 | 1 | 2 | 3;
+  /** 0-indexed floor. 0 = ground, N-1 = top floor. */
+  floor: AssetFloor;
   x: number;
+  y?: number;
   z: number;
   status: AssetStatus;
   metrics: Record<string, string>;
@@ -42,6 +63,10 @@ const TYPE_EMOJI: Record<AssetType, string> = {
   Boiler: "🔥",
   Pump: "💧",
   Fan: "🌀",
+  Elevator: "🛗",
+  Lighting: "💡",
+  Sensor: "📡",
+  Equipment: "⚙️",
 };
 
 /** Display label for a floor (0 → "GF", 1-3 → "F1"-"F3"). */
@@ -75,35 +100,38 @@ export const DETAIL_LABEL: Record<string, string> = {
 };
 
 export const STATUS_DISPLAY: Record<AssetStatus, string> = {
-  operational: "Running OK",
+  ok: "Running OK",
   warning: "Needs Attention",
-  fault: "Fault — Check Now",
+  critical: "Fault — Check Now",
+  offline: "Offline",
+  info: "Info",
 };
 
 /** Pick a deterministic status based on the asset index. ~70% OK, 20% warn, 10% fault. */
 const STATUS_PATTERN: AssetStatus[] = [
-  "operational", "operational", "operational", "operational",
-  "warning", "operational", "fault", "operational",
-  "operational", "warning", "operational", "operational",
-  "operational", "fault", "operational", "operational",
-  "warning", "operational", "operational", "operational",
+  "ok", "ok", "ok", "ok",
+  "warning", "ok", "critical", "ok",
+  "ok", "warning", "ok", "ok",
+  "ok", "critical", "ok", "ok",
+  "warning", "ok", "ok", "ok",
 ];
 
 function makeAsset(
   type: AssetType,
-  floor: 0 | 1 | 2 | 3,
+  floor: number,
   index: number,
   positionIndex: number,
   status: AssetStatus,
 ): Asset {
-  // Deterministic 5x4 grid spread across the 18x14 floor footprint
-  const cols = 5;
+  // Deterministic 4x3 grid, safely inside the 36×24 building with 4m margin
+  // Grid spans X: -12 to +12 (24m), Z: -8 to +8 (16m)
+  const cols = 4;
   const col = positionIndex % cols;
   const row = Math.floor(positionIndex / cols);
-  const W = 16;
-  const D = 12;
-  const x = -W / 2 + (W / (cols - 1)) * col;
-  const z = -D / 2 + (D / 3) * row;
+  const gridW = 24;  // 36 building width - 2×6m margin
+  const gridD = 16;  // 24 building depth - 2×4m margin
+  const x = -gridW / 2 + (gridW / (cols - 1)) * col;
+  const z = -gridD / 2 + (gridD / 2) * row;
 
   const emoji = TYPE_EMOJI[type];
   const id = `${type.toLowerCase().replace(/\s/g, "")}-${index}`;
@@ -163,41 +191,43 @@ function friendlyName(type: AssetType, index: number): string {
 }
 
 export const SEED_ASSETS: Asset[] = (() => {
-  // Distribution: ≥3 per floor
-  const plan: { type: AssetType; floor: 0 | 1 | 2 | 3 }[] = [
-    // Floor 0 — mechanical room (6)
+  // 2-floor convention hall layout. Mirrors packages/db/src/seed.ts ASSET_PLAN.
+  // Floor 0 = Exhibition Level, Floor 1 = Upper Mezzanine.
+  const plan: { type: AssetType; floor: number }[] = [
+    // Floor 0 — Exhibition Level (15)
+    { type: "Air Handler", floor: 0 },
+    { type: "Air Handler", floor: 0 },
+    { type: "Air Handler", floor: 0 },
     { type: "Chiller", floor: 0 },
     { type: "Chiller", floor: 0 },
-    { type: "Chiller", floor: 0 },
+    { type: "Lighting", floor: 0 },
+    { type: "Lighting", floor: 0 },
+    { type: "Lighting", floor: 0 },
+    { type: "Lighting", floor: 0 },
+    { type: "Lighting", floor: 0 },
+    { type: "Fan", floor: 0 },
+    { type: "Elevator", floor: 0 },
     { type: "Boiler", floor: 0 },
     { type: "Boiler", floor: 0 },
     { type: "Pump", floor: 0 },
-    // Floor 1 (5)
-    { type: "Air Handler", floor: 1 },
-    { type: "Air Handler", floor: 1 },
-    { type: "Air Handler", floor: 1 },
+    // Floor 1 — Upper Mezzanine (5)
     { type: "Pump", floor: 1 },
     { type: "Pump", floor: 1 },
-    // Floor 2 (5)
-    { type: "Air Handler", floor: 2 },
-    { type: "Air Handler", floor: 2 },
-    { type: "Chiller", floor: 2 },
-    { type: "Pump", floor: 2 },
-    { type: "Fan", floor: 2 },
-    // Floor 3 (4)
-    { type: "Boiler", floor: 3 },
-    { type: "Boiler", floor: 3 },
-    { type: "Chiller", floor: 3 },
-    { type: "Fan", floor: 3 },
+    { type: "Fan", floor: 1 },
+    { type: "Fan", floor: 1 },
+    { type: "Lighting", floor: 1 },
   ];
-  // 5 AHU, 4 Chiller, 4 Boiler, 4 Pump, 3 Fan = 20. Fan indices: 1 (F2), 1 (F3).
-  // We need to pick status per asset index. Track a running counter per type.
+  // 3 AHU + 2 Chiller + 2 Boiler + 3 Pump + 3 Fan + 1 Elevator + 6 Lighting = 20.
   const typeCounters: Record<AssetType, number> = {
     "Air Handler": 0,
     Chiller: 0,
     Boiler: 0,
     Pump: 0,
     Fan: 0,
+    Elevator: 0,
+    Lighting: 0,
+    Sensor: 0,
+    Equipment: 0,
   };
   return plan.map((p, i) => {
     const idx = ++typeCounters[p.type];
@@ -229,11 +259,11 @@ export interface ApiAssetShape {
 
 /** Map API status strings → viewer status */
 const API_STATUS_MAP: Record<string, AssetStatus> = {
-  ok: "operational",
+  ok: "ok",
   warning: "warning",
-  critical: "fault",
-  offline: "fault",
-  info: "operational",
+  critical: "critical",
+  offline: "offline",
+  info: "info",
 };
 
 /** Map API type strings → viewer asset type */
@@ -243,6 +273,10 @@ const API_TYPE_MAP: Record<string, AssetType> = {
   boiler: "Boiler",
   pump: "Pump",
   fan: "Fan",
+  elevator: "Elevator",
+  lighting: "Lighting",
+  sensor_only: "Sensor",
+  other: "Equipment",
 };
 
 /** Fallback emoji per API asset type */
@@ -280,22 +314,29 @@ export function apiAssetToViewerAsset(
   const viewerType = API_TYPE_MAP[a.type] ?? "Air Handler";
   const idx = ++typeIndex[a.type];
 
-  const viewerStatus = API_STATUS_MAP[a.status] ?? "operational";
+  const validStatuses: AssetStatus[] = ["ok", "warning", "critical", "offline", "info"];
+  const viewerStatus: AssetStatus = validStatuses.includes(a.status as AssetStatus)
+    ? (a.status as AssetStatus)
+    : "ok";
   const emoji = API_TYPE_EMOJI[a.type] ?? "❓";
 
-  // Use API position if available, otherwise auto-place in a 5×4 grid
-  const cols = 5;
+  // Use API position directly if available, otherwise auto-place in a 4×3 grid safely inside building
+  const cols = 4;
   const col = positionIndex % cols;
   const row = Math.floor(positionIndex / cols);
-  const W = 16;
-  const D = 12;
-  const x = a.positionZ != null ? a.positionZ : -W / 2 + (W / (cols - 1)) * col;
-  const z = a.positionX != null ? a.positionX : -D / 2 + (D / 3) * row;
+  const gridW = 24;
+  const gridD = 16;
+  const x = a.positionX != null ? a.positionX : -gridW / 2 + (gridW / (cols - 1)) * col;
+  const y = a.positionY != null ? a.positionY : undefined;
+  const z = a.positionZ != null ? a.positionZ : -gridD / 2 + (gridD / 2) * row;
 
-  // Map floor level (1-based from DB → 0-based viewer floor)
+  // Map floor level (1-based from DB → 0-based viewer floor).
+  // Clamp to a sane range — a bad seed with floorLevel=99 shouldn't crash
+  // the viewer. Fallback to positionIndex % 4 only as a last resort.
+  const MAX_FLOOR_FALLBACK = 4; // matches the previous 4-floor fallback
   const floor = a.floorLevel != null
-    ? (Math.max(0, a.floorLevel - 1) as 0 | 1 | 2 | 3)
-    : ((positionIndex % 4) as 0 | 1 | 2 | 3);
+    ? Math.max(0, Math.floor(a.floorLevel) - 1)
+    : positionIndex % MAX_FLOOR_FALLBACK;
 
   // Build metrics from available API fields
   const metrics: Record<string, string> = {};
@@ -323,6 +364,7 @@ export function apiAssetToViewerAsset(
     type: viewerType,
     floor,
     x,
+    y,
     z,
     status: viewerStatus,
     metrics,
@@ -337,4 +379,34 @@ export function apiAssetToViewerAsset(
 export function apiAssetsToViewerAssets(apiAssets: ApiAssetShape[]): Asset[] {
   const typeIndex: Record<string, number> = { ahu: 0, chiller: 0, boiler: 0, pump: 0, fan: 0, elevator: 0, lighting: 0, sensor_only: 0, other: 0 };
   return apiAssets.map((a, i) => apiAssetToViewerAsset(a, { ...typeIndex }, i));
+}
+
+// ─── Floor-count runtime invariant ───────────────────────────────
+//
+// SEED_ASSETS is the demo fallback when the API is unreachable. Its floor
+// distribution must stay inside `building.floorCount` from design tokens.
+// Drift surfaces as a console warning in dev (and a hard throw in test)
+// so the seed can't silently disagree with the 3D viewer.
+
+import { building as B } from "@/design-system/tokens";
+
+if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+  const outOfRange = SEED_ASSETS.filter(
+    (a) => a.floor < 0 || a.floor >= B.floorCount,
+  );
+  if (outOfRange.length > 0) {
+    const floors = Array.from(new Set(SEED_ASSETS.map((a) => a.floor))).sort(
+      (x, y) => x - y,
+    );
+    const msg =
+      `[viewer-data] SEED_ASSETS floor mismatch: ` +
+      `tokens.building.floorCount=${B.floorCount} but SEED_ASSETS uses floors [${floors.join(", ")}]. ` +
+      `Out-of-range assets: ${outOfRange.map((a) => `${a.name}@floor${a.floor}`).join(", ")}. ` +
+      `Update SEED_ASSETS, packages/db/src/seed.ts ASSET_PLAN, and BUILDING_FLOORS together.`;
+    if (process.env.NODE_ENV === "test") {
+      throw new Error(msg);
+    }
+    // eslint-disable-next-line no-console
+    console.error(msg);
+  }
 }

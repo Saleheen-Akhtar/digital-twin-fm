@@ -45,25 +45,26 @@ export function LandingHero() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left: text */}
           <div className="animate-fade-in-up">
-            {/* Badge */}
+            {/* Live status badge */}
             <div
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium mb-6"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium mb-6"
               style={{
-                background: "rgba(53,95,229,0.08)",
-                color: "#355fe5",
-                border: "1px solid rgba(53,95,229,0.15)",
+                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(34,197,94,0.2)",
               }}
             >
-              <span
-                className="h-1.5 w-1.5 rounded-full animate-pulse-soft"
-                style={{ background: "#22c55e" }}
-              />
-              {HERO.badge}
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
+              </span>
+              <span style={{ color: "#16a34a" }}>{HERO.badge}</span>
+              <span style={{ color: "#94a3b8" }}>·</span>
+              <span style={{ color: "#475569" }}>{HERO.badgeStatus}</span>
             </div>
 
             {/* Headline */}
             <h1
-              className="text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight mb-4"
+              className="text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight mb-5"
               style={{ color: "#0f172a" }}
             >
               {HERO.headline.split("\n").map((line, i) => (
@@ -76,36 +77,49 @@ export function LandingHero() {
 
             {/* Subtitle */}
             <p
-              className="text-base md:text-lg max-w-lg mb-8 leading-relaxed"
+              className="text-base md:text-lg max-w-lg mb-6 leading-relaxed"
               style={{ color: "#475569" }}
             >
               {HERO.subtitle}
             </p>
 
+            {/* Live indicator */}
+            <div
+              className="flex items-center gap-2 mb-8 text-xs"
+              style={{ color: "#64748b" }}
+            >
+              <span className="font-mono">
+                <span style={{ color: "#355fe5" }}>●</span>{" "}
+                {HERO.liveLabel}
+              </span>
+            </div>
+
             {/* CTAs */}
             <div className="flex items-center gap-3">
               <Link
                 href={HERO.cta.href}
-                className="px-6 py-2.5 text-sm font-semibold rounded-xl no-underline transition-all"
+                className="px-6 py-3 text-sm font-semibold rounded-xl no-underline transition-all"
                 style={{
                   background: "linear-gradient(135deg, #355fe5, #3c73ff)",
                   color: "#ffffff",
+                  boxShadow: "0 4px 16px rgba(53,95,229,0.25)",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.boxShadow =
-                    "0 6px 20px rgba(53,95,229,0.35)";
+                    "0 8px 24px rgba(53,95,229,0.4)";
                   e.currentTarget.style.transform = "translateY(-1px)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.boxShadow =
+                    "0 4px 16px rgba(53,95,229,0.25)";
                   e.currentTarget.style.transform = "none";
                 }}
               >
-                {HERO.cta.label}
+                {HERO.cta.label} →
               </Link>
               <Link
                 href={HERO.secondaryCta.href}
-                className="px-6 py-2.5 text-sm font-semibold rounded-xl no-underline transition-all"
+                className="px-6 py-3 text-sm font-semibold rounded-xl no-underline transition-all"
                 style={{
                   color: "#355fe5",
                   background: "#ffffff",
@@ -123,6 +137,25 @@ export function LandingHero() {
                 {HERO.secondaryCta.label}
               </Link>
             </div>
+
+            {/* Trust strip */}
+            <div
+              className="flex items-center gap-4 mt-8 pt-6 border-t border-slate-200/60 text-[11px]"
+              style={{ color: "#94a3b8" }}
+            >
+              <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                MIT licensed
+              </span>
+              <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                Runs on your hardware
+              </span>
+              <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                No vendor lock-in
+              </span>
+            </div>
           </div>
 
           {/* Right: 3D viewer */}
@@ -138,7 +171,8 @@ export function LandingHero() {
               }}
             >
               <div className="aspect-[4/3] w-full">
-                <Viewer showMarkers={false} autoRotate={true} />
+                {/* Showcase mode: bare building, auto-rotate, no overlays */}
+                <Viewer mode="showcase" showMarkers={false} autoRotate={true} />
               </div>
             </div>
 

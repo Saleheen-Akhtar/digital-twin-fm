@@ -11,6 +11,7 @@ import { createBrowserApiClient } from '@/lib/browser-api-client';
 interface Message {
   role: 'user' | 'assistant';
   text: string;
+  reasoning?: string;
 }
 
 interface CopilotResponse {
@@ -171,6 +172,8 @@ export default function CopilotPage() {
       }
 
       let accumulated = '';
+      let accumulatedReasoning = '';
+      let lastUpdate = Date.now();
 
       for await (const event of parseSSEStream(res.body)) {
         if (event.done) {
@@ -181,6 +184,7 @@ export default function CopilotPage() {
               updated[updated.length - 1] = {
                 role: 'assistant',
                 text: accumulated,
+                reasoning: accumulatedReasoning || undefined,
               };
             }
             return updated;
@@ -188,20 +192,47 @@ export default function CopilotPage() {
           break;
         }
 
+        let updatedState = false;
+        if (event.reasoning) {
+          accumulatedReasoning += event.reasoning;
+          updatedState = true;
+        }
         if (event.token) {
           accumulated += event.token;
-          setMessages((prev) => {
-            const updated = [...prev];
-            if (updated.length > 0) {
-              updated[updated.length - 1] = {
-                role: 'assistant',
-                text: accumulated,
-              };
-            }
-            return updated;
-          });
+          updatedState = true;
+        }
+
+        if (updatedState) {
+          const now = Date.now();
+          if (now - lastUpdate > 60) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              if (updated.length > 0) {
+                updated[updated.length - 1] = {
+                  role: 'assistant',
+                  text: accumulated,
+                  reasoning: accumulatedReasoning || undefined,
+                };
+              }
+              return updated;
+            });
+            lastUpdate = now;
+          }
         }
       }
+
+      // Final message flush
+      setMessages((prev) => {
+        const updated = [...prev];
+        if (updated.length > 0) {
+          updated[updated.length - 1] = {
+            role: 'assistant',
+            text: accumulated,
+            reasoning: accumulatedReasoning || undefined,
+          };
+        }
+        return updated;
+      });
     } catch {
       // Streaming failed — fall back to non-streaming
       try {
@@ -278,16 +309,37 @@ export default function CopilotPage() {
                   <p>{msg.text}</p>
                 ) : (
                   <div className="prose prose-slate prose-sm max-w-none">
+                    {msg.reasoning && (
+                      <div className="mb-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 text-[13px] text-slate-500">
+                        <details open className="group">
+                          <summary className="flex cursor-pointer select-none items-center gap-1.5 font-medium text-slate-600 hover:text-slate-800">
+                            <svg
+                              className="h-4 w-4 animate-spin text-slate-400 group-open:animate-none"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                            >
+                              <circle cx="12" cy="12" r="10" strokeDasharray="30 10"/>
+                            </svg>
+                            <span>Thinking Process</span>
+                          </summary>
+                          <div className="mt-2 whitespace-pre-wrap font-mono text-[12px] leading-relaxed border-t border-slate-200/60 pt-2 text-slate-500/90">{msg.reasoning}</div>
+                        </details>
+                      </div>
+                    )}
                     {msg.text ? (
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
                         {msg.text}
                       </ReactMarkdown>
                     ) : (
-                      <div className="flex gap-1.5">
-                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '0ms' }} />
-                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '150ms' }} />
-                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '300ms' }} />
-                      </div>
+                      !msg.reasoning && (
+                        <div className="flex gap-1.5">
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '0ms' }} />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '150ms' }} />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      )
                     )}
                   </div>
                 )}

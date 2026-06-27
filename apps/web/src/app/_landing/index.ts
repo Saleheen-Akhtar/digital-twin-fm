@@ -1,6 +1,12 @@
 export { LandingHeader } from "./landing-header";
 export { LandingHero } from "./landing-hero";
+export { LandingLiveKpi } from "./landing-live-kpi";
 export { LandingStats } from "./landing-stats";
+export { LandingDashboardPreview } from "./landing-dashboard-preview";
 export { LandingFeatures } from "./landing-features";
+export { LandingStack } from "./landing-stack";
+export { LandingUseCases } from "./landing-use-cases";
 export { LandingHowItWorks } from "./landing-how-it-works";
+export { LandingFaq } from "./landing-faq";
+export { LandingFinalCta } from "./landing-final-cta";
 export { LandingFooter } from "./landing-footer";

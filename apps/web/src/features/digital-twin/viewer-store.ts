@@ -16,7 +16,21 @@
 import { create } from "zustand";
 import type { Asset, AssetStatus, AssetType } from "./viewer-data";
 
-export type FloorFilter = "ALL" | 0 | 1 | 2 | 3;
+/**
+ * Floor filter — 0-indexed viewer floors.
+ *
+ * DYNAMIC: the type is `number` (not a 0|1|2|3 union) so a customer
+ * building with 5, 10, or 20 floors renders without code changes.
+ * The floor selector buttons are generated from the API / BUILDING_FLOORS
+ * at runtime, not from this type. The viewer-store only constrains the
+ * special "ALL" sentinel; valid floor indices are validated against
+ * `tokens.building.floorCount` at the UI boundary.
+ *
+ * Drift between the API/seed floor count and the design-token floor count
+ * surfaces as a console warning via the runtime invariant in
+ * viewer-data.ts / viewer-building.tsx.
+ */
+export type FloorFilter = "ALL" | number;
 export type TypeFilter = "ALL" | AssetType;
 
 export interface ViewerStore {

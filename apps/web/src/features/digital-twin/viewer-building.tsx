@@ -21,6 +21,9 @@ import {
 } from "@/design-system/tokens";
 import type { Asset } from "./viewer-data";
 import type { FloorFilter } from "./viewer-store";
+import { RoomInterior, createConcreteTexture } from "./viewer-interior";
+
+const concreteBumpMap = typeof window !== "undefined" ? createConcreteTexture() : null;
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -38,8 +41,10 @@ export interface ZoneData {
 }
 
 export interface FloorData {
-  level: number;            // 0 = basement, 1 = ground, 2 = upper
+  level: number;            // 0 = basement, 1 = ground, 2 = upper, N-1 = top
   name: string;
+  /** Short label for the floor-selector button ("L1", "B1", "M", "Roof"). */
+  shortLabel?: string;
   /** Y offset of the floor slab bottom. */
   yBase: number;
   height: number;
@@ -56,27 +61,20 @@ const SLAB_T = 0.4;
 const WALL_T = 0.08;
 
 /**
- * 3-floor building suitable for a convention centre / expo hall.
- * Levels 0–2 mapped from actual Singapore Expo Hall 7 scale.
+ * Demo default: Singapore Expo Hall 7 — 2-floor convention centre.
+ * Real customer buildings are loaded from `/buildings/:id` at boot —
+ * see `loadFloorsFromApi()` below. This constant is the offline fallback
+ * used when the API is unreachable or for unit tests.
+ *
+ * Each floor carries a `shortLabel` so the floor-selector button shows
+ * "L1", "L2" instead of "Level 1", "Level 2".
  */
 export const BUILDING_FLOORS: FloorData[] = [
   {
     level: 0,
-    name: "Basement",
-    yBase: 0,
-    height: 6,
-    zones: [
-      { id: "b1", name: "Loading Dock", cx: -8, cz: -6, w: 10, d: 8, color: "#94a3b8" },
-      { id: "b2", name: "Plant Room", cx: 8, cz: -6, w: 10, d: 8, color: "#64748b" },
-      { id: "b3", name: "Storage", cx: -8, cz: 6, w: 10, d: 8, color: "#94a3b8" },
-      { id: "b4", name: "Service Corridor", cx: 8, cz: 6, w: 10, d: 8, color: "#cbd5e1" },
-      { id: "b5", name: "MEP Room", cx: 0, cz: 0, w: 8, d: 8, color: "#64748b" },
-    ],
-  },
-  {
-    level: 1,
     name: "Level 1 · Exhibition",
-    yBase: 6.5,
+    shortLabel: "L1",
+    yBase: 0,
     height: 8.5,
     zones: [
       { id: "1a", name: "Main Entrance", cx: 0, cz: -HALF_D + 4, w: 14, d: 6, color: "#3b82f6" },
@@ -85,12 +83,15 @@ export const BUILDING_FLOORS: FloorData[] = [
       { id: "1d", name: "Concourse", cx: 0, cz: -4, w: 12, d: 4, color: "#93c5fd" },
       { id: "1e", name: "Restrooms", cx: -HALF_W + 3, cz: 8, w: 4, d: 6, color: "#bfdbfe" },
       { id: "1f", name: "Meeting Rooms", cx: HALF_W - 4, cz: 8, w: 6, d: 6, color: "#bfdbfe" },
+      // Plant room (back-of-house, where the seed puts boilers/chillers/primary pumps)
+      { id: "1g", name: "Plant Room", cx: -13, cz: 8, w: 6, d: 4, color: "#64748b" },
     ],
   },
   {
-    level: 2,
-    name: "Level 2 · Upper Hall",
-    yBase: 15.5,
+    level: 1,
+    name: "Level 2 · Upper Mezzanine",
+    shortLabel: "L2",
+    yBase: 9.0,
     height: 8.5,
     zones: [
       { id: "2a", name: "Hall B — West", cx: -10, cz: 0, w: 14, d: 14, color: "#a78bfa" },
@@ -101,6 +102,53 @@ export const BUILDING_FLOORS: FloorData[] = [
     ],
   },
 ];
+
+/**
+ * Dynamic floor factory — builds N floors for an arbitrary building when
+ * the API returns rows but no zones are configured. Used as a fallback so
+ * a customer with 5 floors sees 5 clickable floor buttons even before
+ * the zone editor is built.
+ *
+ * Y-stacking: each floor sits `floorH` (8.5m) above the previous, with a
+ * 0.5m service gap. Labels follow the convention L1, L2, L3, …, LN.
+ */
+export function buildDefaultFloors(count: number): FloorData[] {
+  const safeCount = Math.max(1, Math.min(count, 64)); // cap at 64 floors
+  const result: FloorData[] = [];
+  let y = 0;
+  for (let i = 0; i < safeCount; i++) {
+    const height = 8.5;
+    result.push({
+      level: i,
+      name: `Level ${i + 1}`,
+      shortLabel: `L${i + 1}`,
+      yBase: y,
+      height,
+      zones: [],
+    });
+    y += height + 0.5;
+  }
+  return result;
+}
+
+/**
+ * Runtime invariant — warns in dev if BUILDING_FLOORS drifts from the
+ * canonical tokens. The mismatch was the root cause of "AI says 5
+ * floors, model shows 2" reports. In production this is a no-op.
+ * NOTE: this only applies to the offline fallback. When the API
+ * supplies floors at boot, those override BUILDING_FLOORS.
+ */
+if (process.env.NODE_ENV !== "production") {
+  const expected = 2;
+  if (BUILDING_FLOORS.length !== expected) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[viewer-building] BUILDING_FLOORS.length (${BUILDING_FLOORS.length}) differs from ` +
+        `design-system/tokens.ts building.floorCount (${expected}). ` +
+        `Update both, plus packages/db/src/seed.ts BUILDING_FLOOR_COUNT.`,
+    );
+  }
+}
 
 /** Roof parameters (sawtooth, from tokens). */
 const ROOF_RIDGES = B.roofRidgeCount;    // 6
@@ -148,7 +196,7 @@ function ZoneBox({ zone, floorY, floorHeight, selected, onSelect }: ZoneBoxProps
         <meshBasicMaterial
           color={selected ? "#3b82f6" : baseColor}
           transparent
-          opacity={hovered || selected ? 0.25 : 0.08}
+          opacity={hovered || selected ? 0.35 : 0.18}
           depthWrite={false}
           side={THREE.DoubleSide}
         />
@@ -160,30 +208,30 @@ function ZoneBox({ zone, floorY, floorHeight, selected, onSelect }: ZoneBoxProps
         <meshBasicMaterial
           color={selected ? "#3b82f6" : "#1e40af"}
           transparent
-          opacity={hovered ? 0.5 : selected ? 0.7 : 0.15}
+          opacity={hovered ? 0.55 : selected ? 0.75 : 0.2}
           wireframe={false}
           side={THREE.DoubleSide}
           depthWrite={false}
         />
       </mesh>
 
-      {/* Zone outline edges */}
+      {/* Zone outline edges (always faint, stronger on hover) */}
       <Edges
-        visible={hovered || selected}
-        color={selected ? "#3b82f6" : "#1e40af"}
+        visible={true}
+        color={selected ? "#3b82f6" : "#94a3b8"}
         scale={1}
       >
         <planeGeometry args={[zone.w, zone.d]} />
       </Edges>
 
-      {/* Zone label (above the floor) */}
-      {hovered && (
-        <Html position={[zone.cx, floorY + 0.5, zone.cz]} center>
-          <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-800 shadow-md pointer-events-none whitespace-nowrap">
+      {/* Zone label (always visible at low opacity, full on hover) */}
+      <Html position={[zone.cx, floorY + 0.5, zone.cz]} center>
+        <div className={`transition-opacity duration-200 ${hovered ? 'opacity-100' : 'opacity-60'}`}>
+          <div className="bg-white/90 backdrop-blur border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-800 shadow-md pointer-events-none whitespace-nowrap">
             {zone.name}
           </div>
-        </Html>
-      )}
+        </div>
+      </Html>
     </group>
   );
 }
@@ -198,60 +246,276 @@ function FloorSlab({ y, width = W, depth = D, thickness = SLAB_T, transparent = 
   transparent?: boolean;
 }) {
   return (
-    <mesh position={[0, y, 0]} receiveShadow>
-      <boxGeometry args={[width, thickness, depth]} />
-      <meshStandardMaterial
-        color={colors.building.slab}
-        transparent={transparent}
-        opacity={transparent ? 0.15 : 1}
-        roughness={0.85}
-        metalness={0.05}
-      />
-    </mesh>
+    <group>
+      {/* Main slab */}
+      <mesh position={[0, y, 0]} receiveShadow>
+        <boxGeometry args={[width, thickness, depth]} />
+        <meshStandardMaterial
+          color={colors.building.slab}
+          transparent={transparent}
+          opacity={transparent ? 0.15 : 1}
+          roughness={transparent ? 0.95 : 0.45}
+          metalness={transparent ? 0.05 : 0.15}
+          bumpMap={transparent ? undefined : concreteBumpMap ?? undefined}
+          bumpScale={0.06}
+        />
+      </mesh>
+      {/* Perimeter edge beam — subtle dark band at slab perimeter */}
+      <mesh position={[0, y - thickness / 2 + 0.05, 0]}>
+        <boxGeometry args={[width + 0.08, 0.06, 0.06]} />
+        <meshStandardMaterial color="#8a9baa" roughness={0.5} metalness={0.3}
+          transparent={transparent} opacity={transparent ? 0.25 : 1} />
+      </mesh>
+      <mesh position={[0, y - thickness / 2 + 0.05, 0]}>
+        <boxGeometry args={[0.06, 0.06, depth + 0.08]} />
+        <meshStandardMaterial color="#8a9baa" roughness={0.5} metalness={0.3}
+          transparent={transparent} opacity={transparent ? 0.25 : 1} />
+      </mesh>
+    </group>
   );
 }
 
-// ─── Perimeter walls (semi-transparent for interior visibility) ────
-
-function PerimeterWalls({ floorY, floorHeight, transparent = false }: {
+// ─── Exterior facade with panel grid + windows ────────────────────
+//
+// Solid opaque walls with architectural pilasters, ribbon windows, and
+// horizontal cornice bands so the building reads as a real convention-centre
+// exterior rather than a transparent wireframe.  In walked/isolation mode
+// the facade becomes translucent so the interior remains visible.
+//
+// Pilaster columns at regular intervals break up the flat surface and give
+// the building scale.  Window grids run the full perimeter at each floor.
+function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
   floorY: number;
   floorHeight: number;
   transparent?: boolean;
 }) {
-  const wallColor = colors.building.podium;
-  const wallOpacity = transparent ? 0.12 : 0.2;
+  const panelColor = "#d6dee8";
+  const glassColor = "#88ccee";
+  const mullionColor = "#8a9baa";
+  const pilasterColor = "#b0bec5";
+  const midBandColor = "#8899aa";
+  const baseOpacity = transparent ? 0.15 : 0.9;
   const h = floorHeight;
+  const halfW = W / 2;
+  const halfD = D / 2;
+  const wallThick = 0.12;
+  const inset = 0.2; // slight inset from perimeter
 
-  // Front and back walls have the entrance / glass areas
+  // Helper: vertical pilaster at (x, z) spanning floor
+  const PilasterComp = ({ x, z }: { x: number; z: number }) => (
+    <mesh position={[x, floorY + h / 2, z]} castShadow>
+      <boxGeometry args={[0.2, h - 0.2, 0.2]} />
+      <meshStandardMaterial
+        color={pilasterColor}
+        roughness={0.4}
+        metalness={0.35}
+        transparent
+        opacity={Math.min(baseOpacity + 0.1, 1)}
+      />
+    </mesh>
+  );
+
   return (
     <group>
-      {/* Front wall (glass-like, more transparent) */}
-      <mesh position={[0, floorY + h / 2, HALF_D]} castShadow>
-        <boxGeometry args={[W - 2, h - 0.5, WALL_T]} />
-        <meshPhysicalMaterial
-          color="#5b8fd9"
-          transparent
-          opacity={0.15}
-          roughness={0.05}
+      {/* ══ Solid wall panels ══ */}
+
+      {/* Back wall (z = -halfD) */}
+      <mesh position={[0, floorY + h / 2, -halfD]} castShadow>
+        <boxGeometry args={[W - inset * 2, h - 0.2, wallThick]} />
+        <meshStandardMaterial
+          color={panelColor}
+          roughness={0.55}
           metalness={0.1}
-          ior={1.5}
+          transparent
+          opacity={baseOpacity}
         />
       </mesh>
-      {/* Back wall */}
-      <mesh position={[0, floorY + h / 2, -HALF_D]} castShadow>
-        <boxGeometry args={[W, h - 0.5, WALL_T]} />
-        <meshStandardMaterial color={wallColor} transparent opacity={wallOpacity} roughness={0.7} />
+
+      {/* Left wall (x = -halfW) */}
+      <mesh position={[-halfW, floorY + h / 2, 0]} castShadow>
+        <boxGeometry args={[wallThick, h - 0.2, D - inset * 2]} />
+        <meshStandardMaterial
+          color={panelColor}
+          roughness={0.55}
+          metalness={0.1}
+          transparent
+          opacity={baseOpacity}
+        />
       </mesh>
-      {/* Left wall */}
-      <mesh position={[-HALF_W, floorY + h / 2, 0]} castShadow>
-        <boxGeometry args={[WALL_T, h - 0.5, D]} />
-        <meshStandardMaterial color={wallColor} transparent opacity={wallOpacity} roughness={0.7} />
+
+      {/* Right wall (x = +halfW) */}
+      <mesh position={[halfW, floorY + h / 2, 0]} castShadow>
+        <boxGeometry args={[wallThick, h - 0.2, D - inset * 2]} />
+        <meshStandardMaterial
+          color={panelColor}
+          roughness={0.55}
+          metalness={0.1}
+          transparent
+          opacity={baseOpacity}
+        />
       </mesh>
-      {/* Right wall */}
-      <mesh position={[HALF_W, floorY + h / 2, 0]} castShadow>
-        <boxGeometry args={[WALL_T, h - 0.5, D]} />
-        <meshStandardMaterial color={wallColor} transparent opacity={wallOpacity} roughness={0.7} />
+
+      {/* Front wall solid lower band (bottom 40%) */}
+      <mesh position={[0, floorY + h * 0.2, halfD]} castShadow>
+        <boxGeometry args={[W - inset * 2, h * 0.4, wallThick]} />
+        <meshStandardMaterial
+          color={panelColor}
+          roughness={0.55}
+          metalness={0.1}
+          transparent
+          opacity={baseOpacity}
+        />
       </mesh>
+
+      {/* ══ Mid-floor horizontal band (cornice) ══ */}
+      <mesh position={[0, floorY + h * 0.42, halfD]}>
+        <boxGeometry args={[W - 0.2, 0.08, 0.18]} />
+        <meshStandardMaterial color={midBandColor} roughness={0.4} metalness={0.5}
+          transparent opacity={Math.min(baseOpacity + 0.08, 1)} />
+      </mesh>
+      <mesh position={[0, floorY + h * 0.42, -halfD]}>
+        <boxGeometry args={[W - 0.2, 0.08, 0.18]} />
+        <meshStandardMaterial color={midBandColor} roughness={0.4} metalness={0.5}
+          transparent opacity={Math.min(baseOpacity + 0.08, 1)} />
+      </mesh>
+      {[-halfW, 0, halfW].map((px, i) => (
+        px !== 0 && (
+          <mesh key={`mb-side-${i}`} position={[px, floorY + h * 0.42, 0]}>
+            <boxGeometry args={[0.18, 0.08, D - 0.2]} />
+            <meshStandardMaterial color={midBandColor} roughness={0.4} metalness={0.5}
+              transparent opacity={Math.min(baseOpacity + 0.08, 1)} />
+          </mesh>
+        )
+      ))}
+
+      {/* ══ Front facade — tall glass panel (upper 55%) ══ */}
+      <mesh position={[0, floorY + h * 0.67, halfD - 0.04]}>
+        <boxGeometry args={[W - 1.2, h * 0.55, 0.03]} />
+        <meshPhysicalMaterial
+          color={glassColor}
+          transparent opacity={transparent ? 0.18 : 0.3}
+          roughness={0.05} metalness={0.9}
+          clearcoat={1.0} clearcoatRoughness={0.1}
+          transmission={transparent ? 0.8 : 0.55}
+          thickness={0.5} ior={1.5}
+          envMapIntensity={transparent ? 0.3 : 1.2}
+        />
+      </mesh>
+
+      {/* ══ Warm window emission glow behind front glass ══ */}
+      {Array.from({ length: 6 }, (_, i) => -halfW + 4 + i * 5.6).map((x) => (
+        <mesh key={`wglow-${x.toFixed(1)}`} position={[x, floorY + h * 0.67, halfD - 0.08]}>
+          <planeGeometry args={[4.0, h * 0.45]} />
+          <meshBasicMaterial color="#ffecd2" transparent opacity={0.12} side={THREE.DoubleSide} toneMapped={false} />
+        </mesh>
+      ))}
+
+      {/* ══ Front facade — vertical mullions ══ */}
+      {Array.from({ length: 8 }, (_, i) => -halfW + 3.6 + i * 4.2).map((x) => (
+        <mesh key={`vm-${x.toFixed(1)}`} position={[x, floorY + h * 0.67, halfD - 0.01]}>
+          <boxGeometry args={[0.05, h * 0.6, 0.02]} />
+          <meshStandardMaterial color={mullionColor} roughness={0.3} metalness={0.4} />
+        </mesh>
+      ))}
+
+      {/* ══ Front facade — horizontal mullions (transoms) ══ */}
+      {Array.from({ length: 3 }, (_, i) => floorY + h * 0.3 + i * h * 0.27).map((y) => (
+        <mesh key={`hm-${y.toFixed(1)}`} position={[0, y, halfD - 0.01]}>
+          <boxGeometry args={[W - 0.8, 0.035, 0.02]} />
+          <meshStandardMaterial color={mullionColor} roughness={0.3} metalness={0.4} />
+        </mesh>
+      ))}
+
+      {/* ══ Side-wall window grids (back / left / right) ══ */}
+      {/* Each side gets 4 evenly spaced tall window panes */}
+      {Array.from({ length: 4 }, (_, i) => {
+        const gap = W / 5;
+        const wx = -halfW + gap + i * gap;
+        return (
+          <mesh key={`sw-${wx.toFixed(1)}`} position={[wx, floorY + h * 0.6, -halfD - 0.02]}>
+            <planeGeometry args={[1.8, h * 0.4]} />
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.18 : 0.3}
+              roughness={0.05} metalness={0.9} clearcoat={1.0} clearcoatRoughness={0.1}
+              transmission={transparent ? 0.8 : 0.55} thickness={0.5} ior={1.5}
+              envMapIntensity={transparent ? 0.3 : 1.2} side={THREE.DoubleSide} />
+          </mesh>
+        );
+      })}
+      {Array.from({ length: 4 }, (_, i) => {
+        const gap = D / 5;
+        const wz = -halfD + gap + i * gap;
+        return (
+          <mesh key={`lw-${wz.toFixed(1)}`} position={[-halfW - 0.02, floorY + h * 0.6, wz]} rotation={[0, Math.PI / 2, 0]}>
+            <planeGeometry args={[1.8, h * 0.4]} />
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.18 : 0.3}
+              roughness={0.05} metalness={0.9} clearcoat={1.0} clearcoatRoughness={0.1}
+              transmission={transparent ? 0.8 : 0.55} thickness={0.5} ior={1.5}
+              envMapIntensity={transparent ? 0.3 : 1.2} side={THREE.DoubleSide} />
+          </mesh>
+        );
+      })}
+      {Array.from({ length: 4 }, (_, i) => {
+        const gap = D / 5;
+        const wz = -halfD + gap + i * gap;
+        return (
+          <mesh key={`rw-${wz.toFixed(1)}`} position={[halfW + 0.02, floorY + h * 0.6, wz]} rotation={[0, Math.PI / 2, 0]}>
+            <planeGeometry args={[1.8, h * 0.4]} />
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.18 : 0.3}
+              roughness={0.05} metalness={0.9} clearcoat={1.0} clearcoatRoughness={0.1}
+              transmission={transparent ? 0.8 : 0.55} thickness={0.5} ior={1.5}
+              envMapIntensity={transparent ? 0.3 : 1.2} side={THREE.DoubleSide} />
+          </mesh>
+        );
+      })}
+
+      {/* ══ Vertical pilasters (extruded facade columns) ══ */}
+      {/* Front face: 6 pilasters evenly spaced */}
+      {Array.from({ length: 6 }, (_, i) => -halfW + 2.5 + i * 6.2).filter(x => x > -halfW + 1 && x < halfW - 1).map((x) => (
+        <PilasterComp key={`pil-f-${x.toFixed(1)}`} x={x} z={halfD + 0.04} />
+      ))}
+      {/* Back face: 4 pilasters */}
+      {Array.from({ length: 4 }, (_, i) => -halfW + 3 + i * 8).filter(x => x > -halfW + 1 && x < halfW - 1).map((x) => (
+        <PilasterComp key={`pil-b-${x.toFixed(1)}`} x={x} z={-halfD - 0.04} />
+      ))}
+      {/* Side pilasters */}
+      {[-halfW, halfW].map((fx) => (
+        [0, 0].map((_, si) => (
+          <PilasterComp key={`pil-s-${fx.toFixed(0)}-${si}`} x={fx + (fx < 0 ? -0.04 : 0.04)} z={-halfD + 3 + si * (D - 6)} />
+        ))
+      ))}
+
+      {/* ══ Corner edge trim — dark vertical corners so the box reads cleanly ══ */}
+      {[
+        [-halfW, -halfD],
+        [-halfW, halfD],
+        [halfW, -halfD],
+        [halfW, halfD],
+      ].map(([cx, cz], i) => (
+        <mesh key={`corner-${i}`} position={[cx, floorY + h / 2, cz]} castShadow>
+          <boxGeometry args={[0.08, h - 0.2, 0.08]} />
+          <meshStandardMaterial color="#475569" roughness={0.3} metalness={0.7} />
+        </mesh>
+      ))}
+
+      {/* ══ Horizontal trim bands (fascia) — bottom + top ══ */}
+      {[floorY + 0.1, floorY + h - 0.1].flatMap((y) => [
+        <mesh key={`trim-bot-${y}`} position={[0, y, halfD + 0.01]}>
+          <boxGeometry args={[W + 0.2, 0.1, 0.08]} />
+          <meshStandardMaterial color="#5a6b7c" roughness={0.3} metalness={0.5} />
+        </mesh>,
+        <mesh key={`trim-bot-${y}-b`} position={[0, y, -halfD - 0.01]}>
+          <boxGeometry args={[W + 0.2, 0.1, 0.08]} />
+          <meshStandardMaterial color="#5a6b7c" roughness={0.3} metalness={0.5} />
+        </mesh>,
+        <mesh key={`trim-bot-${y}-l`} position={[-halfW - 0.01, y, 0]}>
+          <boxGeometry args={[0.08, 0.1, D + 0.2]} />
+          <meshStandardMaterial color="#5a6b7c" roughness={0.3} metalness={0.5} />
+        </mesh>,
+        <mesh key={`trim-bot-${y}-r`} position={[halfW + 0.01, y, 0]}>
+          <boxGeometry args={[0.08, 0.1, D + 0.2]} />
+          <meshStandardMaterial color="#5a6b7c" roughness={0.3} metalness={0.5} />
+        </mesh>,
+      ])}
     </group>
   );
 }
@@ -285,9 +549,25 @@ interface FloorProps {
   isolated: boolean;  // true when this is the ONLY visible floor
   selectedZone: string | null;
   onSelectZone: (zoneId: string) => void;
+  showFacade: boolean;
+  showFurniture: boolean;
+  showMEP: boolean;
+  showZones: boolean;
+  showMarkers: boolean;
 }
 
-function Floor({ data, visible, isolated, selectedZone, onSelectZone }: FloorProps) {
+function Floor({
+  data,
+  visible,
+  isolated,
+  selectedZone,
+  onSelectZone,
+  showFacade,
+  showFurniture,
+  showMEP,
+  showZones,
+  showMarkers,
+}: FloorProps) {
   const { yBase, height, zones } = data;
 
   // When isolated (other floors hidden), make walls more transparent
@@ -301,34 +581,98 @@ function Floor({ data, visible, isolated, selectedZone, onSelectZone }: FloorPro
       <FloorSlab y={yBase} />
       {/* Ceiling slab (hide when isolated so you can look into this floor) */}
       {!isolated && <FloorSlab y={yBase + height} transparent />}
-      {/* Perimeter walls */}
-      <PerimeterWalls floorY={yBase} floorHeight={height} transparent={wallsTransparent} />
+      {/* Exterior facade */}
+      {showFacade && (
+        <ExteriorWalls floorY={yBase} floorHeight={height} transparent={wallsTransparent} />
+      )}
       {/* Structural columns */}
       <Columns floorY={yBase} floorHeight={height} />
       {/* Zones */}
+      {showZones &&
+        zones.map((zone) => (
+          <ZoneBox
+            key={zone.id}
+            zone={zone}
+            floorY={yBase}
+            floorHeight={height}
+            selected={selectedZone === zone.id}
+            onSelect={onSelectZone}
+          />
+        ))}
+
+      {/* Room Interiors & MEP */}
       {zones.map((zone) => (
-        <ZoneBox
-          key={zone.id}
-          zone={zone}
+        <RoomInterior
+          key={`interior-${zone.id}`}
+          floorLevel={data.level}
+          zoneId={zone.id}
+          cx={zone.cx}
+          cz={zone.cz}
+          w={zone.w}
+          d={zone.d}
           floorY={yBase}
           floorHeight={height}
-          selected={selectedZone === zone.id}
-          onSelect={onSelectZone}
+          showFurniture={showFurniture}
+          showMEP={showMEP}
+          showFacade={showFacade}
         />
       ))}
-      {/* Floor name label (shown at the front edge) */}
-      <Html position={[0, yBase + 0.3, HALF_D + 1.2]} center>
-        <div
-          className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap shadow-sm"
+
+      {/* Terrace glass railings (zone 2d, upper mezzanine only) */}
+      {data.level === 1 && zones.some((z) => z.id === "2d") && (() => {
+        const tz = zones.find((z) => z.id === "2d")!;
+        const railY = yBase + 0.6;
+        const railH = 1.1;
+        return (
+          <group>
+            {/* Front railing */}
+            <mesh position={[tz.cx, railY, tz.cz + tz.d / 2]}>
+              <boxGeometry args={[tz.w, railH, 0.04]} />
+              <meshPhysicalMaterial color="#8fbfe8" transparent opacity={0.25} roughness={0.05} metalness={0.9} transmission={0.7} thickness={0.2} />
+            </mesh>
+            {/* Left railing */}
+            <mesh position={[tz.cx - tz.w / 2, railY, tz.cz]}>
+              <boxGeometry args={[0.04, railH, tz.d]} />
+              <meshPhysicalMaterial color="#8fbfe8" transparent opacity={0.25} roughness={0.05} metalness={0.9} transmission={0.7} thickness={0.2} />
+            </mesh>
+            {/* Right railing */}
+            <mesh position={[tz.cx + tz.w / 2, railY, tz.cz]}>
+              <boxGeometry args={[0.04, railH, tz.d]} />
+              <meshPhysicalMaterial color="#8fbfe8" transparent opacity={0.25} roughness={0.05} metalness={0.9} transmission={0.7} thickness={0.2} />
+            </mesh>
+            {/* Railing top rail (metal cap) */}
+            <mesh position={[tz.cx, railY + railH / 2, tz.cz + tz.d / 2]}>
+              <boxGeometry args={[tz.w + 0.1, 0.05, 0.06]} />
+              <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.7} />
+            </mesh>
+            <mesh position={[tz.cx - tz.w / 2, railY + railH / 2, tz.cz]}>
+              <boxGeometry args={[0.06, 0.05, tz.d + 0.1]} />
+              <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.7} />
+            </mesh>
+            <mesh position={[tz.cx + tz.w / 2, railY + railH / 2, tz.cz]}>
+              <boxGeometry args={[0.06, 0.05, tz.d + 0.1]} />
+              <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.7} />
+            </mesh>
+          </group>
+        );
+      })()}
+
+      {/* Floor name label (shown at the front-left corner) */}
+      {showMarkers && (
+        <Html position={[-HALF_W - 2.5, yBase + 0.4, HALF_D - 2]} center>
+          <div
+          className="px-2.5 py-1 rounded-lg text-[10px] font-semibold tracking-wide whitespace-nowrap shadow-sm border transition-all"
           style={{
-            background: "white",
-            border: "1px solid #c9d6ff",
+            background: "rgba(255, 255, 255, 0.9)",
+            borderColor: "#c9d6ff",
             color: "#1e4fd8",
+            backdropFilter: "blur(4px)",
           }}
         >
           {data.name}
         </div>
       </Html>
+      )}
     </group>
   );
 }
@@ -336,45 +680,56 @@ function Floor({ data, visible, isolated, selectedZone, onSelectZone }: FloorPro
 // ─── Sawtooth roof ─────────────────────────────────────────────────
 
 function SawtoothRoof({ yBase }: { yBase: number }) {
+  // Build 6 sawtooth ridges using angled roof planes, not flat boxes.
+  // Each ridge: front glass panel, slanted roof plane, flat top.
   const ridges = [];
+  const rw = ROOF_RIDGE_W;
+  const rh = ROOF_RIDGE_H;
   const startX = -HALF_W;
 
   for (let i = 0; i < ROOF_RIDGES; i++) {
-    const x = startX + ROOF_RIDGE_W * i + ROOF_RIDGE_W / 2;
+    const cx = startX + rw * i + rw / 2;
     ridges.push(
       <group key={`ridge-${i}`}>
-        {/* Slanted face 1 (front) */}
-        <mesh position={[x - ROOF_RIDGE_W / 4, yBase, 0]} castShadow>
-          <boxGeometry args={[ROOF_RIDGE_W / 2, 0.08, D]} />
+        {/* Slanted roof face — tilted box to approximate a pitched sawtooth */}
+        <mesh
+          position={[cx, yBase + rh * 0.4, 0]}
+          rotation={[0, 0, -0.35]}
+          castShadow
+        >
+          <boxGeometry args={[rw * 0.45, rh * 0.85, D]} />
           <meshStandardMaterial
-            color={colors.building.penthouse}
+            color="#b8c9d6"
+            roughness={0.5}
+            metalness={0.35}
+          />
+        </mesh>
+        {/* Flat top section */}
+        <mesh position={[cx + rw * 0.2, yBase + rh * 0.55, 0]} castShadow>
+          <boxGeometry args={[rw * 0.35, 0.08, D]} />
+          <meshStandardMaterial
+            color="#a8b9c8"
             roughness={0.6}
             metalness={0.3}
           />
         </mesh>
-        {/* Slanted face 2 (back) — lift the front half to create sawtooth */}
-        <mesh
-          position={[x + ROOF_RIDGE_W / 4, yBase + ROOF_RIDGE_H / 2, 0]}
-          rotation={[0, 0, -0.15]}
-          castShadow
-        >
-          <boxGeometry args={[ROOF_RIDGE_W / 2 + 0.3, ROOF_RIDGE_H, 0.08]} />
-          <meshStandardMaterial
-            color={colors.building.penthouse}
-            roughness={0.5}
-            metalness={0.4}
-          />
-        </mesh>
-        {/* Vertical glass panel at the front of each ridge */}
-        <mesh position={[x, yBase + ROOF_RIDGE_H * 0.4, HALF_D - 0.1]}>
-          <boxGeometry args={[0.6, ROOF_RIDGE_H * 0.8, 0.08]} />
+        {/* Front vertical glass panel for each ridge */}
+        <mesh position={[cx - rw * 0.25, yBase + rh * 0.4, HALF_D - 0.08]}>
+          <boxGeometry args={[0.05, rh * 0.8, D - 0.4]} />
           <meshPhysicalMaterial
             color="#5b8fd9"
             transparent
-            opacity={0.3}
+            opacity={0.2}
             roughness={0.05}
-            metalness={0.1}
+            metalness={0.9}
+            transmission={0.75}
+            thickness={0.2}
           />
+        </mesh>
+        {/* Horizontal cap rail on front glass */}
+        <mesh position={[cx - rw * 0.25, yBase + rh * 0.78, HALF_D - 0.08]}>
+          <boxGeometry args={[0.06, 0.04, D - 0.2]} />
+          <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.6} />
         </mesh>
       </group>,
     );
@@ -388,20 +743,540 @@ function SawtoothRoof({ yBase }: { yBase: number }) {
 function Ground() {
   return (
     <group>
-      <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[120, 120]} />
-        <meshStandardMaterial color={colors.building.ground} roughness={0.95} metalness={0} />
+      {/* Main ground plane — 90×90 with subtle colour gradient (two concentric quads) */}
+      <mesh position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[90, 90]} />
+        <meshStandardMaterial color="#e2e8ed" roughness={0.95} metalness={0} />
       </mesh>
       <Grid
-        args={[100, 100]}
-        cellSize={2}
-        cellThickness={0.3}
-        cellColor="#d4dce8"
-        sectionSize={10}
-        sectionThickness={0.6}
-        sectionColor="#c2cbdc"
-        position={[0, 0.01, 0]}
+        args={[86, 86]}
+        cellSize={4}
+        cellThickness={0.15}
+        cellColor="#d6dee5"
+        sectionSize={20}
+        sectionThickness={0.3}
+        sectionColor="#c8d0db"
+        position={[0, 0.005, 0]}
       />
+      {/* Building pad — lighter apron directly under the footprint */}
+      <mesh position={[0, -0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[42, 30]} />
+        <meshStandardMaterial color="#d1dbe5" roughness={0.9} metalness={0} />
+      </mesh>
+
+      {/* ── Access road across the front ── */}
+      <mesh position={[0, -0.008, HALF_D + 12]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[52, 7]} />
+        <meshStandardMaterial color="#94a3b8" roughness={0.92} metalness={0} />
+      </mesh>
+      {/* Road centre line */}
+      <mesh position={[0, -0.006, HALF_D + 12]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[50, 0.1]} />
+        <meshBasicMaterial color="#e5e7eb" transparent opacity={0.4} toneMapped={false} />
+      </mesh>
+      {/* Road edge lines */}
+      {[-25, 25].map((x) => (
+        <mesh key={`road-edge-${x}`} position={[x, -0.006, HALF_D + 12]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.15, 6.8]} />
+          <meshBasicMaterial color="#f3f4f6" transparent opacity={0.3} toneMapped={false} />
+        </mesh>
+      ))}
+
+      {/* Pedestrian pathway from entrance extending to road */}
+      <mesh position={[0, -0.005, HALF_D + 6]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[3, 12]} />
+        <meshStandardMaterial color="#c8d0db" roughness={0.85} metalness={0} />
+      </mesh>
+      {/* Pathway edge lines */}
+      {[-1.5, 1.5].map((x) => (
+        <mesh key={`path-edge-${x}`} position={[x, -0.003, HALF_D + 6]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.06, 12]} />
+          <meshBasicMaterial color="#d1d5db" toneMapped={false} />
+        </mesh>
+      ))}
+
+      {/* Hedges along the pathway */}
+      {[-1, 0, 1].map((i) => (
+        <group key={`hedge-pair-${i}`}>
+          <mesh position={[-2, 0.2, HALF_D + 2 + i * 3]} castShadow>
+            <boxGeometry args={[0.5, 0.35, 1.2]} />
+            <meshStandardMaterial color="#15803d" roughness={0.85} metalness={0.05} />
+          </mesh>
+          <mesh position={[2, 0.2, HALF_D + 2 + i * 3]} castShadow>
+            <boxGeometry args={[0.5, 0.35, 1.2]} />
+            <meshStandardMaterial color="#15803d" roughness={0.85} metalness={0.05} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Parking lot area (left side) with defined layout */}
+      <mesh position={[-HALF_W - 9, -0.008, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[12, 20]} />
+        <meshStandardMaterial color="#a0adb9" roughness={0.92} metalness={0} />
+      </mesh>
+      {/* Parking lot curb/paint edge */}
+      <mesh position={[-HALF_W - 9, -0.006, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[12.2, 20.2]} />
+        <meshBasicMaterial color="#e5e7eb" transparent opacity={0.15} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+      {/* Parking lot individual stall markings */}
+      {Array.from({ length: 6 }, (_, i) => -7 + i * 3).map((z) => (
+        <mesh key={`pline-${z}`} position={[-HALF_W - 9, -0.004, z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[10, 0.08]} />
+          <meshBasicMaterial color="#e5e7eb" toneMapped={false} />
+        </mesh>
+      ))}
+      {/* Parking lot centre lane */}
+      <mesh position={[-HALF_W - 9, -0.004, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.1, 18]} />
+        <meshBasicMaterial color="#d1d5db" transparent opacity={0.4} toneMapped={false} />
+      </mesh>
+
+      {/* Streetlights (simple poles at the front) */}
+      {[-16, 16].map((x) => (
+        <group key={`light-${x}`}>
+          <mesh position={[x, 0, HALF_D + 9]} castShadow>
+            <cylinderGeometry args={[0.07, 0.09, 5.5, 8]} />
+            <meshStandardMaterial color="#475569" roughness={0.4} metalness={0.6} />
+          </mesh>
+          <mesh position={[x, 5.6, HALF_D + 9]} castShadow>
+            <sphereGeometry args={[0.15, 8, 8]} />
+            <meshStandardMaterial color="#d1d5db" emissive="#fef3c7" emissiveIntensity={0.15} roughness={0.2} metalness={0.8} />
+          </mesh>
+          <mesh position={[x, 5.5, HALF_D + 9]} rotation={[0, 0, Math.PI / 2]}>
+            <boxGeometry args={[0.02, 0.5, 0.02]} />
+            <meshStandardMaterial color="#64748b" roughness={0.4} metalness={0.5} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+// ─── Entrance canopy (front door feature) ─────────────────────────
+
+function EntranceCanopy({ yBase, showMarkers }: { yBase: number; showMarkers: boolean }) {
+  return (
+    <group position={[0, yBase, HALF_D]}>
+      {/* Canopy roof — wider/deeper than before */}
+      <mesh position={[0, 3.8, 4]} castShadow>
+        <boxGeometry args={[18, 0.1, 7]} />
+        <meshStandardMaterial color="#8899aa" roughness={0.35} metalness={0.55} />
+      </mesh>
+      {/* Canopy roof edge trim */}
+      <mesh position={[0, 3.8, 4.1]}>
+        <boxGeometry args={[18.2, 0.04, 0.15]} />
+        <meshStandardMaterial color="#475569" roughness={0.3} metalness={0.7} />
+      </mesh>
+      {/* Canopy underside panel (soffit) */}
+      <mesh position={[0, 3.75, 4]}>
+        <boxGeometry args={[16, 0.03, 6.5]} />
+        <meshStandardMaterial color="#cbd5e1" roughness={0.6} metalness={0.1} />
+      </mesh>
+
+      {/* Support columns — 4 instead of 2 */}
+      {[-7, -3, 3, 7].map((x) => (
+        <mesh key={`canopy-col-${x}`} position={[x, 1.9, 4]} castShadow>
+          <cylinderGeometry args={[0.1, 0.13, 3.6, 8]} />
+          <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.5} />
+        </mesh>
+      ))}
+
+      {/* Glass panels between supports */}
+      <mesh position={[0, 2.0, 3.9]}>
+        <boxGeometry args={[14, 3.2, 0.02]} />
+        <meshPhysicalMaterial
+          color="#8fbfe8"
+          transparent
+          opacity={0.25}
+          roughness={0.05}
+          metalness={0.9}
+          clearcoat={1.0}
+          clearcoatRoughness={0.1}
+          transmission={0.75}
+          thickness={0.3}
+          ior={1.5}
+        />
+      </mesh>
+
+      {/* Glass panel mullions (vertical) */}
+      {[-6, -2, 2, 6].map((x) => (
+        <mesh key={`entrance-mullion-${x}`} position={[x, 2.0, 3.92]}>
+          <boxGeometry args={[0.04, 3.4, 0.01]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.3} metalness={0.5} />
+        </mesh>
+      ))}
+
+      {/* Side walls flanking the entrance */}
+      <mesh position={[-8.5, 2.0, 3.2]}>
+        <boxGeometry args={[0.12, 4.0, 5]} />
+        <meshStandardMaterial color="#b0bec5" roughness={0.5} metalness={0.1} />
+      </mesh>
+      <mesh position={[8.5, 2.0, 3.2]}>
+        <boxGeometry args={[0.12, 4.0, 5]} />
+        <meshStandardMaterial color="#b0bec5" roughness={0.5} metalness={0.1} />
+      </mesh>
+
+      {/* Entrance doorway recess — darker panel at ingress */}
+      <mesh position={[0, 2.0, 3.7]}>
+        <boxGeometry args={[3.5, 3.0, 0.08]} />
+        <meshPhysicalMaterial
+          color="#1e293b"
+          roughness={0.3}
+          metalness={0.4}
+          transparent
+          opacity={0.7}
+        />
+      </mesh>
+      {/* Warm light from inside the entrance */}
+      <mesh position={[0, 2.0, 3.65]}>
+        <planeGeometry args={[3.0, 2.5]} />
+        <meshBasicMaterial color="#fef3c7" transparent opacity={0.25} toneMapped={false} />
+      </mesh>
+
+      {/* Building signage */}
+      {showMarkers && (
+        <Html position={[0, 4.0, 4.2]} center transform>
+          <div
+            className="pointer-events-none whitespace-nowrap"
+            style={{
+              fontSize: "16px",
+              fontWeight: 800,
+              letterSpacing: "0.3em",
+              color: "#1e3a5f",
+              textShadow: "0 2px 6px rgba(0,0,0,0.2)",
+              fontFamily: "system-ui, sans-serif",
+            }}
+          >
+            DIGITAL TWIN FM
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+// ─── Rooftop equipment (HVAC, vents) ───────────────────────────────
+
+function SpinningFan({ position }: { position: [number, number, number] }) {
+  const fanRef = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    if (fanRef.current) {
+      fanRef.current.rotation.y = state.clock.getElapsedTime() * 4.0;
+    }
+  });
+  return (
+    <group position={position}>
+      {/* Fan casing */}
+      <mesh position={[0, 0.05, 0]}>
+        <cylinderGeometry args={[0.4, 0.42, 0.08, 12]} />
+        <meshStandardMaterial color="#334155" roughness={0.5} metalness={0.6} />
+      </mesh>
+      {/* Rotating blades */}
+      <mesh ref={fanRef} position={[0, 0.08, 0]}>
+        <boxGeometry args={[0.7, 0.01, 0.08]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.4} metalness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+function RooftopEquipment({ yBase }: { yBase: number }) {
+  const units = [
+    { x: -10, z: -8, w: 3, d: 2.5, h: 1.6, color: "#94a3b8", fans: [[-0.6, 0.8, 0], [0.6, 0.8, 0]] },
+    { x: -3, z: -8, w: 3, d: 2.5, h: 1.4, color: "#94a3b8", fans: [[0, 0.7, 0]] },
+    { x: 4, z: -8, w: 2.5, d: 2.5, h: 1.8, color: "#94a3b8", fans: [[-0.5, 0.9, -0.5], [0.5, 0.9, 0.5]] },
+    { x: 11, z: -8, w: 2, d: 2.5, h: 1.5, color: "#94a3b8", fans: [] },
+    { x: -8, z: 8, w: 2.5, d: 2, h: 1.2, color: "#a8b5c8", fans: [[0, 0.6, 0]] },
+    { x: 8, z: 8, w: 3.5, d: 2, h: 1.3, color: "#a8b5c8", fans: [[-0.8, 0.65, 0], [0.8, 0.65, 0]] },
+  ];
+
+  return (
+    <group position={[0, yBase, 0]}>
+      {units.map((u, i) => (
+        <group key={`rooftop-${i}`} position={[u.x, 0, u.z]}>
+          <mesh position={[0, u.h / 2, 0]} castShadow>
+            <boxGeometry args={[u.w, u.h, u.d]} />
+            <meshStandardMaterial color={u.color} roughness={0.6} metalness={0.2} />
+          </mesh>
+          {/* Vents or spinning fans */}
+          {u.fans.length > 0 ? (
+            u.fans.map((fanPos, idx) => (
+              <SpinningFan key={`fan-${idx}`} position={[fanPos[0], u.h / 2 + fanPos[1], fanPos[2]] as [number, number, number]} />
+            ))
+          ) : (
+            <mesh position={[0, u.h + 0.08, 0]}>
+              <boxGeometry args={[u.w * 0.6, 0.05, u.d * 0.6]} />
+              <meshStandardMaterial color="#64748b" roughness={0.5} metalness={0.3} />
+            </mesh>
+          )}
+        </group>
+      ))}
+      {/* Exhaust vent pipes */}
+      {[
+        { x: -12, z: 0, h: 2.0 },
+        { x: 13, z: 0, h: 1.8 },
+      ].map((p, i) => (
+        <mesh key={`vent-${i}`} position={[p.x, p.h / 2, p.z]}>
+          <cylinderGeometry args={[0.2, 0.25, p.h, 8]} />
+          <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.5} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ─── Parapet / roof edge detail ────────────────────────────────────
+
+function RoofParapet({ yBase }: { yBase: number }) {
+  return (
+    <group position={[0, yBase, 0]}>
+      {/* Front edge */}
+      <mesh position={[0, 0.5, HALF_D]}>
+        <boxGeometry args={[W + 0.4, 0.5, 0.15]} />
+        <meshStandardMaterial color="#a8b5c8" roughness={0.6} metalness={0.2} />
+      </mesh>
+      {/* Back edge */}
+      <mesh position={[0, 0.5, -HALF_D]}>
+        <boxGeometry args={[W + 0.4, 0.5, 0.15]} />
+        <meshStandardMaterial color="#a8b5c8" roughness={0.6} metalness={0.2} />
+      </mesh>
+      {/* Left edge */}
+      <mesh position={[-HALF_W, 0.5, 0]}>
+        <boxGeometry args={[0.15, 0.5, D + 0.4]} />
+        <meshStandardMaterial color="#a8b5c8" roughness={0.6} metalness={0.2} />
+      </mesh>
+      {/* Right edge */}
+      <mesh position={[HALF_W, 0.5, 0]}>
+        <boxGeometry args={[0.15, 0.5, D + 0.4]} />
+        <meshStandardMaterial color="#a8b5c8" roughness={0.6} metalness={0.2} />
+      </mesh>
+    </group>
+  );
+}
+
+function LiveFan({ status, color }: { status: string; color: number }) {
+  const bladeRef = useRef<THREE.Mesh>(null);
+  
+  useFrame((state) => {
+    if (bladeRef.current) {
+      const t = state.clock.getElapsedTime();
+      let speed = 0;
+      let wobble = 0;
+      
+      if (status === "ok" || status === "info") {
+        speed = t * 14.0;
+      } else if (status === "warning") {
+        speed = t * 3.5;
+        wobble = Math.sin(t * 8.0) * 0.03;
+      }
+      
+      bladeRef.current.rotation.z = speed;
+      bladeRef.current.position.y = wobble;
+    }
+  });
+
+  const isOffline = status === "offline";
+  const housingColor = isOffline ? "#78716c" : status === "critical" ? "#ef4444" : "#475569";
+  const bladeColor = isOffline ? "#57534e" : "#0f172a";
+
+  return (
+    <group>
+      {/* Outer Housing */}
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[1.3, 1.3, 0.8]} />
+        <meshStandardMaterial color={housingColor} roughness={0.4} metalness={isOffline ? 0.1 : 0.5} />
+      </mesh>
+      {/* Shroud */}
+      <mesh position={[0, 0, 0.41]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.5, 0.5, 0.05, 16]} />
+        <meshStandardMaterial color={isOffline ? "#57534e" : "#1e293b"} roughness={0.3} metalness={isOffline ? 0.1 : 0.7} />
+      </mesh>
+      {/* Fan Blades */}
+      <group position={[0, 0, 0.42]}>
+        <mesh ref={bladeRef} castShadow>
+          <boxGeometry args={[0.85, 0.12, 0.02]} />
+          <meshStandardMaterial color={bladeColor} roughness={0.5} />
+        </mesh>
+        <mesh ref={bladeRef} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <boxGeometry args={[0.85, 0.12, 0.02]} />
+          <meshStandardMaterial color={bladeColor} roughness={0.5} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+function LivePump({ status, color }: { status: string; color: number }) {
+  const flowBeadRef = useRef<THREE.Mesh>(null);
+  
+  useFrame((state) => {
+    if (flowBeadRef.current && (status === "ok" || status === "info")) {
+      const t = state.clock.getElapsedTime();
+      flowBeadRef.current.position.y = -0.8 + ((t * 2.5) % 1.6);
+    }
+  });
+
+  const isOffline = status === "offline";
+  const bodyColor = isOffline ? 0x78716c : color;
+
+  return (
+    <group>
+      {/* Pump Motor Base */}
+      <mesh position={[0, -0.35, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.9, 0.15, 0.5]} />
+        <meshStandardMaterial color={isOffline ? "#57534e" : "#1e293b"} roughness={0.6} />
+      </mesh>
+      {/* Centrifugal Casing */}
+      <mesh position={[-0.2, 0.05, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.3, 0.3, 0.35, 12]} />
+        <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={isOffline ? 0.1 : 0.5} />
+      </mesh>
+      {/* Motor Cylinder */}
+      <mesh position={[0.2, 0.05, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.22, 0.22, 0.45, 12]} />
+        <meshStandardMaterial color={isOffline ? "#57534e" : "#475569"} roughness={0.5} metalness={isOffline ? 0.1 : 0.7} />
+      </mesh>
+      {/* Outlet Pipe */}
+      <mesh position={[-0.2, 0.75, 0]} castShadow>
+        <cylinderGeometry args={[0.07, 0.07, 0.9, 8]} />
+        <meshStandardMaterial color={isOffline ? "#57534e" : "#94a3b8"} roughness={0.2} metalness={isOffline ? 0.1 : 0.8} />
+      </mesh>
+      {/* Flow Indicator bead inside outlet pipe */}
+      {(status === "ok" || status === "info") && (
+        <mesh ref={flowBeadRef} position={[-0.2, 0, 0]}>
+          <sphereGeometry args={[0.09, 8, 8]} />
+          <meshBasicMaterial color="#38bdf8" toneMapped={false} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function LiveBoiler({ status, color }: { status: string; color: number }) {
+  const furnaceRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  useFrame((state) => {
+    if (furnaceRef.current && (status === "ok" || status === "info")) {
+      const t = state.clock.getElapsedTime();
+      furnaceRef.current.opacity = 0.4 + Math.sin(t * 6.0) * 0.2;
+    }
+  });
+
+  const isOffline = status === "offline";
+  const bodyColor = isOffline ? 0x78716c : color;
+
+  return (
+    <group>
+      {/* Boiler Tank */}
+      <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.5, 0.5, 1.1, 16]} />
+        <meshStandardMaterial color={bodyColor} roughness={0.3} metalness={isOffline ? 0.1 : 0.3} />
+      </mesh>
+      {/* Domed top */}
+      <mesh position={[0, 0.8, 0]} castShadow>
+        <sphereGeometry args={[0.5, 16, 8]} />
+        <meshStandardMaterial color={bodyColor} roughness={0.3} metalness={isOffline ? 0.1 : 0.3} />
+      </mesh>
+      {/* Fire/Glow ring at base */}
+      {(status === "ok" || status === "info") && (
+        <group>
+          <mesh position={[0, -0.3, 0]}>
+            <cylinderGeometry args={[0.52, 0.52, 0.08, 12]} />
+            <meshBasicMaterial ref={furnaceRef} color="#f97316" transparent opacity={0.6} toneMapped={false} />
+          </mesh>
+          <pointLight position={[0, -0.35, 0]} intensity={1.5} distance={3} color="#f97316" />
+        </group>
+      )}
+      {/* Flue pipe */}
+      <mesh position={[0.2, 0.95, 0.2]} castShadow>
+        <cylinderGeometry args={[0.07, 0.07, 0.55, 8]} />
+        <meshStandardMaterial color={isOffline ? "#57534e" : "#475569"} roughness={0.2} metalness={isOffline ? 0.1 : 0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+function LiveChiller({ status, color }: { status: string; color: number }) {
+  const coolingAuraRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  useFrame((state) => {
+    if (coolingAuraRef.current && (status === "ok" || status === "info")) {
+      const t = state.clock.getElapsedTime();
+      coolingAuraRef.current.opacity = 0.2 + Math.sin(t * 3.0) * 0.1;
+    }
+  });
+
+  const isOffline = status === "offline";
+  const bodyColor = isOffline ? 0x78716c : color;
+
+  return (
+    <group>
+      {/* Condenser barrels */}
+      {[-0.28, 0.28].map((z, idx) => (
+        <mesh key={idx} position={[0, 0, z]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.3, 0.3, 1.5, 12]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={isOffline ? 0.1 : 0.6} />
+        </mesh>
+      ))}
+      {/* End plates */}
+      {[-0.75, 0.75].map((x, idx) => (
+        <mesh key={idx} position={[x, 0, 0]} castShadow>
+          <boxGeometry args={[0.05, 0.65, 0.9]} />
+          <meshStandardMaterial color={isOffline ? "#57534e" : "#334155"} roughness={0.3} metalness={isOffline ? 0.1 : 0.7} />
+        </mesh>
+      ))}
+      {/* Cooling aura bands */}
+      {(status === "ok" || status === "info") && (
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[1.1, 0.7, 0.95]} />
+          <meshBasicMaterial ref={coolingAuraRef} color="#06b6d4" transparent opacity={0.25} wireframe toneMapped={false} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function LiveAirHandler({ status, color }: { status: string; color: number }) {
+  const fanRef = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (fanRef.current && (status === "ok" || status === "info")) {
+      fanRef.current.rotation.z = state.clock.getElapsedTime() * 11.0;
+    }
+  });
+
+  const isOffline = status === "offline";
+  const bodyColor = isOffline ? 0x78716c : color;
+
+  return (
+    <group>
+      {/* Cabinet */}
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[1.5, 1.1, 0.85]} />
+        <meshStandardMaterial color={bodyColor} roughness={0.5} metalness={isOffline ? 0.1 : 0.7} />
+      </mesh>
+      {/* Filter panel */}
+      <mesh position={[0, 0, 0.435]}>
+        <boxGeometry args={[1.1, 0.75, 0.02]} />
+        <meshStandardMaterial color={isOffline ? "#57534e" : "#1e293b"} roughness={0.8} />
+      </mesh>
+      {/* Fan window */}
+      <mesh position={[-0.35, 0, 0.44]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.26, 0.26, 0.01, 16]} />
+        <meshPhysicalMaterial color="#ffffff" transparent opacity={0.2} transmission={0.9} roughness={0.1} />
+      </mesh>
+      {/* Fan inside window */}
+      <group position={[-0.35, 0, 0.41]}>
+        <mesh ref={fanRef}>
+          <boxGeometry args={[0.45, 0.06, 0.01]} />
+          <meshStandardMaterial color={isOffline ? "#57534e" : "#0f172a"} roughness={0.3} />
+        </mesh>
+        <mesh ref={fanRef} rotation={[0, 0, Math.PI / 2]}>
+          <boxGeometry args={[0.45, 0.06, 0.01]} />
+          <meshStandardMaterial color={isOffline ? "#57534e" : "#0f172a"} roughness={0.3} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -409,15 +1284,19 @@ function Ground() {
 // ─── Asset Marker (adapted from old viewer.tsx) ────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  operational: "#22c55e",
-  warning: "#eab308",
-  fault: "#ef4444",
+  ok: "#22c55e",
+  warning: "#f59e0b",
+  critical: "#ef4444",
+  offline: "#737373",
+  info: "#3b82f6",
 };
 
 const STATUS_COLORS_HEX: Record<string, number> = {
-  operational: 0x22c55e,
-  warning: 0xeab308,
-  fault: 0xef4444,
+  ok: 0x22c55e,
+  warning: 0xf59e0b,
+  critical: 0xef4444,
+  offline: 0x737373,
+  info: 0x3b82f6,
 };
 
 export function AssetMarker3D({ asset, selected, onClick }: {
@@ -427,60 +1306,85 @@ export function AssetMarker3D({ asset, selected, onClick }: {
 }) {
   const color = STATUS_COLORS[asset.status] ?? "#22c55e";
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
+  const [hovered, setHovered] = useState(false);
+  const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
 
-  // Map asset (x, z) floor coords to 3D position
-  // The asset's x, z are relative to the floor's 0-center (width=D, depth=D coordinate system)
-  // In the old viewer, the building was 16x12. Now it's 36x24, so we scale.
-  const pos: [number, number, number] = [
-    asset.x * (W / 16),     // scale from old 16-wide to new 36-wide
-    (BUILDING_FLOORS[asset.floor]?.yBase ?? 6.5) + 0.5,
-    asset.z * (D / 12),     // scale from old 12-deep to new 24-deep
-  ];
+  // Gentle pulse animation based on status
+  useFrame((state) => {
+    if (groupRef.current) {
+      const t = state.clock.getElapsedTime();
+      const pulseSpeed = asset.status === "critical" ? 3.5 : 1.8;
+      const pulseAmp = asset.status === "critical" ? 0.12 : 0.05;
+      const baseScale = selected ? 1.2 : 1.0;
+      const scale = baseScale + Math.sin(t * pulseSpeed) * pulseAmp;
+      groupRef.current.scale.set(scale, scale, scale);
+
+      // Wobble if critical!
+      if (asset.status === "critical") {
+        groupRef.current.rotation.y = Math.sin(t * 14.0) * 0.08;
+        groupRef.current.rotation.z = Math.cos(t * 14.0) * 0.06;
+      } else {
+        groupRef.current.rotation.set(0, 0, 0);
+      }
+    }
+  });
+
+  // Map asset (x, y, z) floor coords to 3D position
+  // Seed coords are already in building-safe range (X: -12..+12, Z: -8..+8)
+  // DB coords are used directly if positionY is present
+  const floorY = (BUILDING_FLOORS[asset.floor]?.yBase ?? 6.5) + 1.0;
+  const pos: [number, number, number] = asset.y !== undefined
+    ? [asset.x, asset.y, asset.z]
+    : [
+        asset.x,    // already in -12..+12 range
+        floorY,
+        asset.z,    // already in -8..+8 range
+      ];
+
+  // Status condition badge color
+  const conditionRingColor = STATUS_COLORS[asset.status] ?? "#22c55e";
+  const conditionRingOpacity = asset.status === "offline" ? 0.25 : 0.55;
+  const showConditionGlow = asset.status === "critical" || asset.status === "warning";
 
   const renderShape = () => {
-    const emissiveIntensity = selected ? 0.5 : 0.15;
     switch (asset.type) {
       case "Air Handler":
-        return (
-          <mesh ref={meshRef} castShadow>
-            <boxGeometry args={[1.6, 1.4, 0.8]} />
-            <meshStandardMaterial color={hexColor} emissive={hexColor} emissiveIntensity={emissiveIntensity} />
-          </mesh>
-        );
+        return <LiveAirHandler status={asset.status} color={hexColor} />;
       case "Chiller":
-        return (
-          <mesh ref={meshRef} castShadow>
-            <cylinderGeometry args={[0.7, 0.7, 1.6, 12]} />
-            <meshStandardMaterial color={hexColor} emissive={hexColor} emissiveIntensity={emissiveIntensity} />
-          </mesh>
-        );
+        return <LiveChiller status={asset.status} color={hexColor} />;
       case "Boiler":
-        return (
-          <mesh ref={meshRef} castShadow>
-            <sphereGeometry args={[0.7, 16, 16]} />
-            <meshStandardMaterial color={hexColor} emissive={hexColor} emissiveIntensity={emissiveIntensity} />
-          </mesh>
-        );
+        return <LiveBoiler status={asset.status} color={hexColor} />;
       case "Pump":
+        return <LivePump status={asset.status} color={hexColor} />;
+      case "Fan":
+        return <LiveFan status={asset.status} color={hexColor} />;
+      case "Elevator":
         return (
           <mesh ref={meshRef} castShadow>
-            <torusGeometry args={[0.4, 0.15, 8, 16]} />
-            <meshStandardMaterial color={hexColor} emissive={hexColor} emissiveIntensity={emissiveIntensity} />
+            <boxGeometry args={[0.8, 0.8, 0.8]} />
+            <meshStandardMaterial color={hexColor} roughness={0.3} metalness={0.8} />
           </mesh>
         );
-      case "Fan":
+      case "Lighting":
         return (
-          <mesh ref={meshRef} castShadow rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.4, 0.15, 8, 16]} />
-            <meshStandardMaterial color={hexColor} emissive={hexColor} emissiveIntensity={emissiveIntensity} />
+          <mesh ref={meshRef} castShadow>
+            <sphereGeometry args={[0.3, 16, 16]} />
+            <meshStandardMaterial color={hexColor} roughness={0.2} emissive={hexColor} emissiveIntensity={asset.status === "ok" ? 0.6 : 0.1} />
+          </mesh>
+        );
+      case "Sensor":
+        return (
+          <mesh ref={meshRef} castShadow>
+            <cylinderGeometry args={[0.15, 0.15, 0.5, 8]} />
+            <meshStandardMaterial color={hexColor} roughness={0.5} />
           </mesh>
         );
       default:
         return (
           <mesh ref={meshRef} castShadow>
             <sphereGeometry args={[0.4, 12, 12]} />
-            <meshStandardMaterial color={hexColor} emissive={hexColor} emissiveIntensity={emissiveIntensity} />
+            <meshStandardMaterial color={hexColor} emissive={hexColor} emissiveIntensity={0.15} roughness={0.3} metalness={0.2} />
           </mesh>
         );
     }
@@ -488,28 +1392,226 @@ export function AssetMarker3D({ asset, selected, onClick }: {
 
   return (
     <group
+      ref={groupRef}
       position={pos}
+      onPointerOver={(e: ThreeEvent<PointerEvent>) => {
+        e.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+      }}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation();
         onClick(asset.id);
       }}
     >
-      {renderShape()}
+      {/* Status condition ring on floor beneath asset */}
+      <mesh position={[0, -0.9, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.8, 1.2, 24]} />
+        <meshBasicMaterial
+          color={conditionRingColor}
+          transparent
+          opacity={conditionRingOpacity}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Inner solid dot */}
+      <mesh position={[0, -0.89, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.55, 16]} />
+        <meshBasicMaterial
+          color={conditionRingColor}
+          transparent
+          opacity={conditionRingOpacity * 0.4}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* ── Vertical status beacon pole + emissive sphere ── */}
+      {/* Thin pole */}
+      <mesh position={[0, 0.6, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, 3.0, 8]} />
+        <meshStandardMaterial color={conditionRingColor} roughness={0.3} metalness={0.5} />
+      </mesh>
+      {/* Glowing sphere at top of pole */}
+      <mesh position={[0, 2.1, 0]}>
+        <sphereGeometry args={[0.18, 16, 16]} />
+        <meshStandardMaterial
+          color={conditionRingColor}
+          emissive={conditionRingColor}
+          emissiveIntensity={asset.status === "critical" ? 2.0 : asset.status === "offline" ? 0.3 : 1.0}
+          roughness={0.2}
+          metalness={0.1}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* Point light at beacon top */}
+      <pointLight
+        position={[0, 2.1, 0]}
+        intensity={asset.status === "ok" || asset.status === "info" ? 1.5 : asset.status === "critical" ? 3.0 : asset.status === "warning" ? 0.5 : 0}
+        distance={4}
+        color={conditionRingColor}
+      />
+
+      {/* Glow point-light for critical / warning */}
+      {showConditionGlow && (
+        <pointLight
+          position={[0, 0, 0]}
+          intensity={asset.status === "critical" ? 2.5 : 0.8}
+          distance={3.5}
+          color={conditionRingColor}
+        />
+      )}
+      {/* Scaled-up equipment model */}
+      <group scale={1.5}>
+        {renderShape()}
+      </group>
       {selected && (
         <mesh>
           <sphereGeometry args={[1.4, 16, 16]} />
           <meshBasicMaterial color="#3b82f6" transparent opacity={0.15} />
         </mesh>
       )}
-      <Html distanceFactor={8} position={[0, 1.2, 0]} center>
+      {/* Always-visible compact status badge */}
+      <Html distanceFactor={8} position={[0, 3.5, 0]} center>
         <div
-          className={`px-2 py-1 text-xs rounded whitespace-nowrap pointer-events-none ${
-            selected ? "bg-blue-600 text-white font-medium" : "bg-black/80 text-white"
-          }`}
+          className="px-1.5 py-0.5 rounded text-[9px] whitespace-nowrap pointer-events-none"
+          style={{
+            background: "rgba(0,0,0,0.55)",
+            color: "#fff",
+            lineHeight: 1.3,
+            textAlign: "center",
+          }}
         >
-          {asset.name}
+          <div className="font-medium">{asset.name}</div>
+          <div style={{ color: conditionRingColor }}>
+            ● {asset.status.toUpperCase()}
+          </div>
         </div>
       </Html>
+    </group>
+  );
+}
+
+function Elevator() {
+  const cabRef = useRef<THREE.Group>(null);
+
+  useFrame((state) => {
+    if (cabRef.current) {
+      const time = state.clock.getElapsedTime();
+      const y = 8 + 7.8 * Math.sin(time * 0.4);
+      cabRef.current.position.y = y;
+    }
+  });
+
+  return (
+    <group position={[0, 0, 0]}>
+      {/* Vertical support rails — inside building near back-left corner */}
+      {[-0.9, 0.9].map((z) => (
+        <mesh key={`rail-${z}`} position={[-HALF_W + 2.5, 12, z]}>
+          <cylinderGeometry args={[0.08, 0.08, 24, 8]} />
+          <meshStandardMaterial color="#475569" roughness={0.1} metalness={0.8} />
+        </mesh>
+      ))}
+
+      {/* Glass Elevator Cab */}
+      <group ref={cabRef} position={[-HALF_W + 2.5, 8, 0]}>
+        <mesh position={[0, 0.05, 0]} castShadow>
+          <boxGeometry args={[1.8, 0.1, 1.8]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.6} />
+        </mesh>
+        <mesh position={[0, 3.15, 0]} castShadow>
+          <boxGeometry args={[1.8, 0.1, 1.8]} />
+          <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.6} />
+        </mesh>
+        
+        {/* Cab glass walls */}
+        <mesh position={[0, 1.6, 0.85]}>
+          <boxGeometry args={[1.6, 3.0, 0.02]} />
+          <meshPhysicalMaterial
+            color="#8fbfe8"
+            transparent
+            opacity={0.3}
+            roughness={0.05}
+            metalness={0.9}
+            transmission={0.7}
+            thickness={0.2}
+          />
+        </mesh>
+        <mesh position={[0.85, 1.6, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <boxGeometry args={[1.6, 3.0, 0.02]} />
+          <meshPhysicalMaterial
+            color="#8fbfe8"
+            transparent
+            opacity={0.3}
+            roughness={0.05}
+            metalness={0.9}
+            transmission={0.7}
+            thickness={0.2}
+          />
+        </mesh>
+        <mesh position={[-0.85, 1.6, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <boxGeometry args={[1.6, 3.0, 0.02]} />
+          <meshPhysicalMaterial
+            color="#8fbfe8"
+            transparent
+            opacity={0.3}
+            roughness={0.05}
+            metalness={0.9}
+            transmission={0.7}
+            thickness={0.2}
+          />
+        </mesh>
+
+        {/* Columns */}
+        {[-0.85, 0.85].map((cx) =>
+          [-0.85, 0.85].map((cz) => (
+            <mesh key={`cab-col-${cx}-${cz}`} position={[cx, 1.6, cz]}>
+              <cylinderGeometry args={[0.05, 0.05, 3.0, 8]} />
+              <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.2} />
+            </mesh>
+          ))
+        )}
+
+        <mesh position={[0, 3.08, 0]}>
+          <boxGeometry args={[1.2, 0.02, 1.2]} />
+          <meshBasicMaterial color="#ffffff" toneMapped={false} />
+        </mesh>
+        <pointLight position={[0, 2.9, 0]} intensity={1.5} distance={5} color="#60a5fa" />
+      </group>
+    </group>
+  );
+}
+
+function ArchitecturalTree({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 1.0, 0]} castShadow>
+        <cylinderGeometry args={[0.06, 0.1, 2.0, 8]} />
+        <meshStandardMaterial color="#57534e" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 2.3, 0]} castShadow>
+        <sphereGeometry args={[0.9, 12, 12]} />
+        <meshStandardMaterial
+          color="#15803d"
+          transparent
+          opacity={0.8}
+          roughness={0.8}
+          metalness={0.1}
+        />
+      </mesh>
+      <mesh position={[0.2, 2.8, 0.1]} castShadow>
+        <sphereGeometry args={[0.6, 12, 12]} />
+        <meshStandardMaterial
+          color="#166534"
+          transparent
+          opacity={0.85}
+          roughness={0.8}
+          metalness={0.1}
+        />
+      </mesh>
     </group>
   );
 }
@@ -527,9 +1629,25 @@ export interface BuildingProps {
   onZoneInfo?: (info: { name: string; floor: string } | null) => void;
   /** Whether walls should be extra transparent (walk mode) */
   walkMode?: boolean;
+  showFacade?: boolean;
+  showFurniture?: boolean;
+  showMEP?: boolean;
+  showZones?: boolean;
+  /** When false, hides data labels (floor names, signage) — used on landing page */
+  showMarkers?: boolean;
 }
 
-export function Building({ selectedFloor, selectedZone, onSelectZone, walkMode = false }: BuildingProps) {
+export function Building({
+  selectedFloor,
+  selectedZone,
+  onSelectZone,
+  walkMode = false,
+  showFacade = true,
+  showFurniture = true,
+  showMEP = true,
+  showZones = true,
+  showMarkers = true,
+}: BuildingProps) {
   const roofY = BUILDING_FLOORS[BUILDING_FLOORS.length - 1].yBase + BUILDING_FLOORS[BUILDING_FLOORS.length - 1].height;
 
   return (
@@ -546,11 +1664,38 @@ export function Building({ selectedFloor, selectedZone, onSelectZone, walkMode =
             isolated={isolated || walkMode}
             selectedZone={selectedZone}
             onSelectZone={onSelectZone}
+            showFacade={showFacade}
+            showFurniture={showFurniture}
+            showMEP={showMEP}
+            showZones={showZones}
+            showMarkers={showMarkers}
           />
         );
       })}
       {/* Sawtooth roof */}
-      <SawtoothRoof yBase={roofY} />
+      {showFacade && <SawtoothRoof yBase={roofY} />}
+      {/* Roof parapet + equipment */}
+      {showFacade && <RoofParapet yBase={roofY} />}
+      {showMEP && <RooftopEquipment yBase={roofY} />}
+      {/* Entrance canopy (ground/exhibition floor) */}
+      {showFacade && <EntranceCanopy yBase={BUILDING_FLOORS[0].yBase} showMarkers={showMarkers} />}
+
+      {/* Moving Observation Elevator */}
+      {selectedFloor === "ALL" && <Elevator />}
+
+      {/* Surrounding landscape trees */}
+      {selectedFloor === "ALL" && (
+        <group>
+          <ArchitecturalTree position={[-12, 0, HALF_D + 5]} />
+          <ArchitecturalTree position={[-16, 0, HALF_D + 4]} />
+          <ArchitecturalTree position={[12, 0, HALF_D + 5]} />
+          <ArchitecturalTree position={[16, 0, HALF_D + 4]} />
+          <ArchitecturalTree position={[-HALF_W - 4, 0, -4]} />
+          <ArchitecturalTree position={[HALF_W + 4, 0, -6]} />
+          <ArchitecturalTree position={[-8, 0, -HALF_D - 5]} />
+          <ArchitecturalTree position={[8, 0, -HALF_D - 5]} />
+        </group>
+      )}
     </group>
   );
 }

@@ -89,7 +89,14 @@ export function DigitalTwinPanel({
           </div>
         </header>
       ) : null}
-      <Viewer assets={assets} />
+      {/* Operator mode — all overlays available via the icon rail.
+          KPI strip and floor selector are always-on by default; events,
+          layers, AI, and health are one click away. */}
+      <Viewer
+        mode="operator"
+        assets={assets}
+        onSelectAsset={_onSelectAsset}
+      />
     </section>
   );
 }
