@@ -102,7 +102,7 @@ def _format_context_for_prompt(ctx: dict | None) -> str | None:
     ]
     if attention:
         asset_lines = []
-        for a in attention[:15]:
+        for a in attention[:6]:
             floor = a.get("floorLevel")
             floor_label = f"floor {floor}" if floor is not None else "unknown floor"
             asset_lines.append(
@@ -115,7 +115,7 @@ def _format_context_for_prompt(ctx: dict | None) -> str | None:
     live_sensors = [s for s in sensors if s.get("isLive")]
     if live_sensors:
         sensor_lines = []
-        for s in live_sensors[:20]:
+        for s in live_sensors[:6]:
             value = s.get("lastValue")
             unit = s.get("unit", "")
             value_label = f"{value} {unit}".strip() if value is not None else "no value"
@@ -137,7 +137,7 @@ def _format_context_for_prompt(ctx: dict | None) -> str | None:
     alerts = ctx.get("alerts", [])
     if alerts:
         alert_lines = []
-        for a in alerts[:15]:
+        for a in alerts[:6]:
             asset_label = a.get("assetName") or a.get("assetId") or "N/A"
             alert_lines.append(
                 f"  - [{a.get('severity', 'unknown').upper()}] "
@@ -149,7 +149,7 @@ def _format_context_for_prompt(ctx: dict | None) -> str | None:
     work_orders = ctx.get("workOrders", [])
     if work_orders:
         wo_lines = []
-        for wo in work_orders[:10]:
+        for wo in work_orders[:4]:
             asset_label = wo.get("assetName") or wo.get("assetId") or "N/A"
             wo_lines.append(
                 f"  - [{wo.get('priority', 'medium').upper()}] "
@@ -212,7 +212,7 @@ async def query(req: CopilotQueryRequest) -> CopilotQueryResponse:
                 {"role": "user", "content": req.question},
             ],
             temperature=0.3,
-            max_tokens=4096,
+            max_tokens=1024,
         )
 
         answer = response.choices[0].message.content or ""
@@ -273,16 +273,21 @@ async def query_stream(req: CopilotQueryRequest):
                     {"role": "user", "content": req.question},
                 ],
                 temperature=0.3,
-                max_tokens=4096,
+                max_tokens=1024,
                 stream=True,
             )
 
             async for chunk in response:
                 delta = chunk.choices[0].delta if chunk.choices else None
-                if delta and delta.content:
-                    yield f"data: {json.dumps({'token': delta.content})}\n\n"
-                if delta and getattr(delta, 'model', None):
-                    model_used = delta.model
+                if delta:
+                    content = getattr(delta, 'content', None)
+                    reasoning = getattr(delta, 'reasoning_content', None)
+                    if content:
+                        yield f"data: {json.dumps({'token': content})}\n\n"
+                    if reasoning:
+                        yield f"data: {json.dumps({'reasoning': reasoning})}\n\n"
+                    if getattr(delta, 'model', None):
+                        model_used = delta.model
 
         except Exception as e:
             logger.error("streaming error: %s", e)
