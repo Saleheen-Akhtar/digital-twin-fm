@@ -79,10 +79,10 @@ describe("DigitalTwinViewer3D", () => {
     expect(screen.getByTestId("viewer-icon-rail")).toBeInTheDocument();
   });
 
-  it("operator mode shows KPI strip + floor selector by default, hides events/layers/AI", () => {
+  it("operator mode shows KPI strip by default, floor selector closed until clicked", () => {
     const { container } = render(<DigitalTwinViewer3D mode="operator" />);
     expect(container.querySelector('[data-overlay="kpis"]')).not.toBeNull();
-    expect(container.querySelector('[data-overlay="floors"]')).not.toBeNull();
+    expect(container.querySelector('[data-overlay="floors"]')).toBeNull();
     expect(container.querySelector('[data-overlay="events"]')).toBeNull();
     expect(container.querySelector('[data-overlay="layers"]')).toBeNull();
     expect(container.querySelector('[data-overlay="ai"]')).toBeNull();
@@ -111,6 +111,8 @@ describe("DigitalTwinViewer3D", () => {
 
   it("shows floor selector with All Floors + L1 + L2 buttons", () => {
     render(<DigitalTwinViewer3D />);
+    // Open floor selector via icon rail first
+    fireEvent.click(screen.getByTitle("Floor selector"));
     expect(screen.getByText("All Floors")).toBeInTheDocument();
     expect(screen.getByText("L1")).toBeInTheDocument();
     expect(screen.getByText("L2")).toBeInTheDocument();
@@ -129,6 +131,8 @@ describe("DigitalTwinViewer3D", () => {
   it("highlights the active floor button when one is selected", () => {
     useViewerStore.setState({ selectedFloor: 0 });
     render(<DigitalTwinViewer3D />);
+    // Open floor selector via icon rail (no longer open by default)
+    fireEvent.click(screen.getByTitle("Floor selector"));
     const l1 = screen.getByText("L1");
     expect(l1.className).toContain("bg-blue-600");
   });
