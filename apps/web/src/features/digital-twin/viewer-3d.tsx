@@ -222,8 +222,49 @@ function SceneContent({
       />
       <hemisphereLight args={["#f0f4ff", "#c0cfe0", 0.55]} />
       
-      {/* Real HDRI environment map — glass/metal get proper reflections instead of plastic */}
-      <Environment preset="city" />
+      {/* Procedural environment map — no network fetch, gives glass/metal real things to reflect */}
+      <Environment resolution={256}>
+        {/* Sky dome */}
+        <mesh position={[0, 25, 0]}>
+          <sphereGeometry args={[12, 16, 16]} />
+          <meshBasicMaterial color="#e8f0fe" toneMapped={false} />
+        </mesh>
+        {/* Ground plane reflection */}
+        <mesh position={[0, -3, 0]}>
+          <sphereGeometry args={[14, 16, 16]} />
+          <meshBasicMaterial color="#d5dce6" toneMapped={false} />
+        </mesh>
+        {/* Warm key light */}
+        <mesh position={[22, 12, 22]}>
+          <sphereGeometry args={[5, 12, 12]} />
+          <meshBasicMaterial color="#ffe3b8" toneMapped={false} />
+        </mesh>
+        {/* Cool fill */}
+        <mesh position={[-22, 10, -18]}>
+          <sphereGeometry args={[5, 12, 12]} />
+          <meshBasicMaterial color="#b8d4ff" toneMapped={false} />
+        </mesh>
+        {/* Warm back rim */}
+        <mesh position={[-18, 8, 24]}>
+          <sphereGeometry args={[4, 12, 12]} />
+          <meshBasicMaterial color="#ffd494" toneMapped={false} />
+        </mesh>
+        {/* Cool back rim */}
+        <mesh position={[20, 6, -22]}>
+          <sphereGeometry args={[4, 12, 12]} />
+          <meshBasicMaterial color="#94c4ff" toneMapped={false} />
+        </mesh>
+        {/* Top center fill */}
+        <mesh position={[0, 30, 0]}>
+          <sphereGeometry args={[6, 12, 12]} />
+          <meshBasicMaterial color="#dce8ff" toneMapped={false} />
+        </mesh>
+        {/* Side accent */}
+        <mesh position={[0, 5, 28]}>
+          <sphereGeometry args={[3, 12, 12]} />
+          <meshBasicMaterial color="#ffe8c8" toneMapped={false} />
+        </mesh>
+      </Environment>
 
       {/* Fog — push far so building details aren't washed out */}
       <fog attach="fog" args={[0xf0f4fb, 100, 220]} />
