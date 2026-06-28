@@ -222,29 +222,8 @@ function SceneContent({
       />
       <hemisphereLight args={["#f0f4ff", "#c0cfe0", 0.55]} />
       
-      {/* Studio lighting environment map reflections (procedural virtual lights, no network requests) */}
-      <Environment>
-        {/* Soft overhead light dome */}
-        <mesh position={[0, 18, 0]}>
-          <sphereGeometry args={[10, 16, 16]} />
-          <meshBasicMaterial color="#ffffff" toneMapped={false} />
-        </mesh>
-        {/* Warm key light */}
-        <mesh position={[20, 10, 20]}>
-          <sphereGeometry args={[5, 12, 12]} />
-          <meshBasicMaterial color="#ffe3c2" toneMapped={false} />
-        </mesh>
-        {/* Cool fill light */}
-        <mesh position={[-20, 10, -20]}>
-          <sphereGeometry args={[5, 12, 12]} />
-          <meshBasicMaterial color="#c2e3ff" toneMapped={false} />
-        </mesh>
-        {/* Ground reflection fill */}
-        <mesh position={[0, -5, 0]}>
-          <sphereGeometry args={[8, 12, 12]} />
-          <meshBasicMaterial color="#e8eef7" toneMapped={false} />
-        </mesh>
-      </Environment>
+      {/* Real HDRI environment map — glass/metal get proper reflections instead of plastic */}
+      <Environment preset="city" />
 
       {/* Fog — push far so building details aren't washed out */}
       <fog attach="fog" args={[0xf0f4fb, 100, 220]} />
