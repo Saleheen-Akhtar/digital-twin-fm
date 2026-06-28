@@ -325,6 +325,9 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
           color={panelColor}
           roughness={0.55}
           metalness={0.1}
+          bumpMap={concreteBumpMap ?? undefined}
+          bumpScale={0.04}
+          roughnessMap={concreteBumpMap ?? undefined}
           transparent
           opacity={baseOpacity}
         />
@@ -335,8 +338,11 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         <boxGeometry args={[wallThick, h - 0.2, D - inset * 2]} />
         <meshStandardMaterial
           color={panelColor}
-          roughness={0.55}
+          roughness={0.52}
           metalness={0.1}
+          bumpMap={concreteBumpMap ?? undefined}
+          bumpScale={0.04}
+          roughnessMap={concreteBumpMap ?? undefined}
           transparent
           opacity={baseOpacity}
         />
@@ -347,8 +353,11 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         <boxGeometry args={[wallThick, h - 0.2, D - inset * 2]} />
         <meshStandardMaterial
           color={panelColor}
-          roughness={0.55}
+          roughness={0.58}
           metalness={0.1}
+          bumpMap={concreteBumpMap ?? undefined}
+          bumpScale={0.04}
+          roughnessMap={concreteBumpMap ?? undefined}
           transparent
           opacity={baseOpacity}
         />
@@ -361,6 +370,9 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
           color={panelColor}
           roughness={0.55}
           metalness={0.1}
+          bumpMap={concreteBumpMap ?? undefined}
+          bumpScale={0.04}
+          roughnessMap={concreteBumpMap ?? undefined}
           transparent
           opacity={baseOpacity}
         />
