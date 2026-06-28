@@ -11,7 +11,7 @@
  *
  *   mode="operator" — for /twin dashboard. Operators need KPIs, events,
  *     layers, AI Copilot. All overlays are toggleable via a single icon
- *     rail (top-right). Default open: KPI strip + floor selector. Other
+ *     rail (top-right). Default open: KPI strip. Other panels
  *     panels (Layers / Events / Building Health) are one click away.
  *
  * Either mode can have showMarkers={false} for an even more stripped-back
@@ -416,6 +416,8 @@ function useLiveEvents(allAssets: Asset[]) {
 // ─── Building Health Score ─────────────────────────────────────────
 
 function BuildingHealthScore({ allAssets }: { allAssets: Asset[] }) {
+  // Formula: true percentage of healthy (ok/info) assets.
+  // No artificial cap — if most assets are critical, the score is genuinely low.
   const okCount = allAssets.filter((a) => a.status === "ok" || a.status === "info").length;
   const total = allAssets.length || 1;
   const score = Math.round((okCount / total) * 100);
@@ -731,11 +733,11 @@ export function DigitalTwinViewer3D({
 
   // ── Overlay visibility (operator mode only) ──
   // Each overlay is independent so the icon rail can toggle them in any
-  // combination. KPI strip and floor selector default to open; others
+  // combination. KPI strip defaults to open; everything else
   // default closed unless listed in defaultOpenOverlays.
   const [openOverlays, setOpenOverlays] = useState<Set<OverlayKey>>(() => {
     if (mode === "showcase") return new Set();
-    const initial: OverlayKey[] = ["kpis", "floors"];
+    const initial: OverlayKey[] = ["kpis"];
     if (defaultOpenOverlays) initial.push(...defaultOpenOverlays);
     return new Set(initial);
   });
@@ -889,7 +891,7 @@ export function DigitalTwinViewer3D({
           {/* ── Layers Panel (right side) ── */}
           {isOpen("layers") && !walkMode && (
             <div
-              className="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur border border-slate-200 rounded-xl shadow-md p-2 flex flex-col gap-1 w-[120px] transition-all"
+              className="absolute top-16 right-3 z-10 bg-white/90 backdrop-blur border border-slate-200 rounded-xl shadow-md p-2 flex flex-col gap-1 w-[120px] transition-all"
               data-overlay="layers"
             >
               <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1.5 py-0.5">

@@ -223,14 +223,14 @@ function ZoneBox({ zone, floorY, floorHeight: _floorHeight, selected, onSelect }
         <planeGeometry args={[zone.w, zone.d]} />
       </Edges>
 
-      {/* Zone label (always visible at low opacity, full on hover) */}
-      <Html position={[zone.cx, floorY + 0.5, zone.cz]} center>
-        <div className={`transition-opacity duration-200 ${hovered ? 'opacity-100' : 'opacity-60'}`}>
+      {/* Zone label — only visible on hover or selection */}
+      {(hovered || selected) && (
+        <Html position={[zone.cx, floorY + 0.5, zone.cz]} center>
           <div className="bg-white/90 backdrop-blur border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-800 shadow-md pointer-events-none whitespace-nowrap">
             {zone.name}
           </div>
-        </div>
-      </Html>
+        </Html>
+      )}
     </group>
   );
 }

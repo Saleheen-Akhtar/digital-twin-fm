@@ -166,13 +166,12 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
       : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 pointer-events-none">
-      <div
-        ref={panelRef}
-        data-testid="asset-detail-panel"
-        className="pointer-events-auto w-[340px] max-h-[70vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95"
-        style={{ animationDuration: "150ms" }}
-      >
+    <div
+      ref={panelRef}
+      className="fixed right-4 top-20 z-50 w-[340px] max-h-[calc(100vh-160px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl animate-in fade-in zoom-in-95 pointer-events-auto"
+      data-testid="asset-detail-panel"
+      style={{ animationDuration: "150ms" }}
+    >
         {/* Header */}
         <div className={`px-4 py-3 border-b border-slate-100 ${STATUS_BG[asset.status] ?? ""}`}>
           <div className="flex items-start justify-between">
@@ -295,9 +294,8 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
 // ──── Mini sparkline (inline SVG, no deps) ────
 function Sparkline({ values, width = 320, height = 28 }: { values: number[]; width?: number; height?: number }) {
