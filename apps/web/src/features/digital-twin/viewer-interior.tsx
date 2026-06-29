@@ -41,7 +41,7 @@ export function OfficeDesk({ position, rotation }: { position: [number, number, 
       {/* Desk Top */}
       <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.5, 0.05, 0.8]} />
-        <meshStandardMaterial color="#d97706" roughness={0.4} metalness={0.1} /> {/* warm wood */}
+        <meshStandardMaterial color="#d97706" /> {/* warm wood */}
       </mesh>
       {/* Desk Legs */}
       {[
@@ -52,7 +52,7 @@ export function OfficeDesk({ position, rotation }: { position: [number, number, 
       ].map((pos, i) => (
         <mesh key={i} position={pos as [number, number, number]} castShadow>
           <cylinderGeometry args={[0.03, 0.03, 0.7, 8]} />
-          <meshStandardMaterial color="#334155" roughness={0.5} metalness={0.5} />
+          <meshStandardMaterial color="#334155" />
         </mesh>
       ))}
       {/* Computer Monitor */}
@@ -60,12 +60,12 @@ export function OfficeDesk({ position, rotation }: { position: [number, number, 
         {/* Stand */}
         <mesh position={[0, 0.1, 0]} castShadow>
           <cylinderGeometry args={[0.015, 0.02, 0.2, 8]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.3} metalness={0.7} />
+          <meshStandardMaterial color="#1e293b" />
         </mesh>
         {/* Screen */}
         <mesh position={[0, 0.3, 0]} castShadow>
           <boxGeometry args={[0.6, 0.35, 0.03]} />
-          <meshStandardMaterial color="#0f172a" roughness={0.3} metalness={0.8} />
+          <meshStandardMaterial color="#0f172a" />
         </mesh>
         {/* Glowing screen face */}
         <mesh position={[0, 0.3, 0.016]}>
@@ -76,35 +76,35 @@ export function OfficeDesk({ position, rotation }: { position: [number, number, 
       {/* Keyboard */}
       <mesh position={[0, 0.78, 0.15]} castShadow>
         <boxGeometry args={[0.35, 0.01, 0.12]} />
-        <meshStandardMaterial color="#cbd5e1" roughness={0.7} />
+        <meshStandardMaterial color="#cbd5e1" />
       </mesh>
       {/* Office Chair */}
       <group position={[0, 0, 0.6]} rotation={[0, Math.PI, 0]}>
         {/* Base Stem */}
         <mesh position={[0, 0.25, 0]} castShadow>
           <cylinderGeometry args={[0.03, 0.03, 0.5, 8]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.8} />
+          <meshStandardMaterial color="#1e293b" />
         </mesh>
         {/* Base wheels structure */}
         <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.3, 0.3, 0.03, 5]} />
-          <meshStandardMaterial color="#0f172a" roughness={0.5} />
+          <meshStandardMaterial color="#0f172a" />
         </mesh>
         {/* Seat */}
         <mesh position={[0, 0.52, 0]} castShadow>
           <boxGeometry args={[0.45, 0.05, 0.45]} />
-          <meshStandardMaterial color="#334155" roughness={0.6} />
+          <meshStandardMaterial color="#334155" />
         </mesh>
         {/* Backrest */}
         <mesh position={[0, 0.85, -0.2]} castShadow>
           <boxGeometry args={[0.4, 0.5, 0.05]} />
-          <meshStandardMaterial color="#334155" roughness={0.6} />
+          <meshStandardMaterial color="#334155" />
         </mesh>
         {/* Armrests */}
         {[-0.23, 0.23].map((x, i) => (
           <mesh key={i} position={[x, 0.65, 0]} castShadow>
             <boxGeometry args={[0.04, 0.2, 0.35]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.5} />
+            <meshStandardMaterial color="#1e293b" />
           </mesh>
         ))}
       </group>
@@ -119,19 +119,19 @@ export function ConferenceTable({ position, rotation }: { position: [number, num
       {/* Table Top */}
       <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
         <boxGeometry args={[4.0, 0.06, 1.6]} />
-        <meshStandardMaterial color="#78350f" roughness={0.2} metalness={0.1} /> {/* polished dark mahogany */}
+        <meshStandardMaterial color="#78350f" /> {/* polished dark mahogany */}
       </mesh>
       {/* Base Pedestals */}
       {[-1.2, 1.2].map((x) => (
         <mesh key={x} position={[x, 0.37, 0]} castShadow>
           <cylinderGeometry args={[0.2, 0.3, 0.74, 12]} />
-          <meshStandardMaterial color="#1e293b" roughness={0.3} metalness={0.7} />
+          <meshStandardMaterial color="#1e293b" />
         </mesh>
       ))}
       {/* Table Center Tech Panel */}
       <mesh position={[0, 0.785, 0]}>
         <boxGeometry args={[1.2, 0.01, 0.25]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.2} metalness={0.9} />
+        <meshStandardMaterial color="#0f172a" />
       </mesh>
       {/* Surround Conference Chairs */}
       {[
@@ -147,15 +147,15 @@ export function ConferenceTable({ position, rotation }: { position: [number, num
         <group key={i} position={[c[0], c[1], c[2]] as [number, number, number]} rotation={[0, c[3], 0]}>
           <mesh position={[0, 0.22, 0]}>
             <cylinderGeometry args={[0.04, 0.04, 0.44, 8]} />
-            <meshStandardMaterial color="#1e293b" metalness={0.8} />
+            <meshStandardMaterial color="#1e293b" />
           </mesh>
           <mesh position={[0, 0.46, 0]} castShadow>
             <boxGeometry args={[0.48, 0.06, 0.48]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.5} />
+            <meshStandardMaterial color="#1e293b" />
           </mesh>
           <mesh position={[0, 0.85, -0.22]} castShadow>
             <boxGeometry args={[0.45, 0.6, 0.06]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.5} />
+            <meshStandardMaterial color="#1e293b" />
           </mesh>
         </group>
       ))}
@@ -172,17 +172,17 @@ export function ServerRack({ position, rotation }: { position: [number, number, 
       {/* Metal Cabinet */}
       <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.0, 2.2, 1.0]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.5} metalness={0.8} />
+        <meshStandardMaterial color="#0f172a" />
       </mesh>
       {/* Front glass door frame */}
       <mesh position={[0, 1.1, 0.505]}>
         <boxGeometry args={[0.9, 2.0, 0.02]} />
-        <meshStandardMaterial color="#334155" roughness={0.2} metalness={0.9} />
+        <meshStandardMaterial color="#334155" />
       </mesh>
       {/* Front glass panel */}
       <mesh position={[0, 1.1, 0.51]}>
         <boxGeometry args={[0.8, 1.9, 0.01]} />
-        <meshPhysicalMaterial color="#3b82f6" transparent opacity={0.3} transmission={0.7} roughness={0.1} />
+        <meshPhysicalMaterial color="#3b82f6" transparent opacity={0.3} />
       </mesh>
       {/* Server Slots / Shelves */}
       {Array.from({ length: 8 }).map((_, i) => {
@@ -192,7 +192,7 @@ export function ServerRack({ position, rotation }: { position: [number, number, 
             {/* Shelf metal plate */}
             <mesh position={[0, y, 0.48]}>
               <boxGeometry args={[0.84, 0.04, 0.05]} />
-              <meshStandardMaterial color="#1e293b" roughness={0.6} />
+              <meshStandardMaterial color="#1e293b" />
             </mesh>
             {/* Status LEDs */}
             {Array.from({ length: 4 }).map((_, j) => {
@@ -224,38 +224,38 @@ export function LoungeSofa({ position, rotation }: { position: [number, number, 
       {/* Base frame */}
       <mesh position={[0, 0.15, 0]} castShadow receiveShadow>
         <boxGeometry args={[2.2, 0.1, 0.9]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.8} />
+        <meshStandardMaterial color="#1e293b" />
       </mesh>
       {/* Seat Cushion */}
       <mesh position={[0, 0.35, 0.05]} castShadow receiveShadow>
         <boxGeometry args={[2.0, 0.3, 0.7]} />
-        <meshStandardMaterial color="#3b82f6" roughness={0.85} /> {/* blue fabric */}
+        <meshStandardMaterial color="#3b82f6" /> {/* blue fabric */}
       </mesh>
       {/* Backrest */}
       <mesh position={[0, 0.65, -0.35]} castShadow>
         <boxGeometry args={[2.2, 0.6, 0.2]} />
-        <meshStandardMaterial color="#3b82f6" roughness={0.85} />
+        <meshStandardMaterial color="#3b82f6" />
       </mesh>
       {/* Armrests */}
       {[-1.05, 1.05].map((x) => (
         <mesh key={x} position={[x, 0.45, 0.05]} castShadow>
           <boxGeometry args={[0.15, 0.5, 0.8]} />
-          <meshStandardMaterial color="#3b82f6" roughness={0.85} />
+          <meshStandardMaterial color="#3b82f6" />
         </mesh>
       ))}
       {/* Coffee Table */}
       <group position={[0, 0, 0.95]}>
         <mesh position={[0, 0.2, 0]} castShadow>
           <cylinderGeometry args={[0.45, 0.45, 0.03, 16]} />
-          <meshPhysicalMaterial color="#94a3b8" transparent opacity={0.4} transmission={0.9} roughness={0.1} />
+          <meshPhysicalMaterial color="#94a3b8" transparent opacity={0.4} />
         </mesh>
         <mesh position={[0, 0.09, 0]}>
           <cylinderGeometry args={[0.05, 0.05, 0.18, 8]} />
-          <meshStandardMaterial color="#1e293b" metalness={0.7} />
+          <meshStandardMaterial color="#1e293b" />
         </mesh>
         <mesh position={[0, 0.01, 0]}>
           <cylinderGeometry args={[0.3, 0.3, 0.02, 12]} />
-          <meshStandardMaterial color="#1e293b" metalness={0.7} />
+          <meshStandardMaterial color="#1e293b" />
         </mesh>
       </group>
     </group>
@@ -269,27 +269,27 @@ export function ReceptionDesk({ position, rotation }: { position: [number, numbe
       {/* Front shield panel (glowing logo block) */}
       <mesh position={[0, 0.6, 0]} castShadow receiveShadow>
         <boxGeometry args={[2.5, 1.2, 0.15]} />
-        <meshStandardMaterial color="#cbd5e1" roughness={0.2} metalness={0.2} />
+        <meshStandardMaterial color="#cbd5e1" />
       </mesh>
       {/* Decorative wood trim */}
       <mesh position={[0, 1.15, 0.03]}>
         <boxGeometry args={[2.6, 0.1, 0.2]} />
-        <meshStandardMaterial color="#b45309" roughness={0.3} />
+        <meshStandardMaterial color="#b45309" />
       </mesh>
       {/* Desk counter plate behind */}
       <mesh position={[0, 0.75, -0.3]} castShadow receiveShadow>
         <boxGeometry args={[2.2, 0.04, 0.6]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.5} />
+        <meshStandardMaterial color="#1e293b" />
       </mesh>
       {/* Modern stool behind desk */}
       <group position={[0, 0, -0.45]}>
         <mesh position={[0, 0.25, 0]}>
           <cylinderGeometry args={[0.02, 0.02, 0.5, 8]} />
-          <meshStandardMaterial color="#475569" metalness={0.8} />
+          <meshStandardMaterial color="#475569" />
         </mesh>
         <mesh position={[0, 0.5, 0]}>
           <cylinderGeometry args={[0.2, 0.2, 0.04, 10]} />
-          <meshStandardMaterial color="#0f172a" roughness={0.6} />
+          <meshStandardMaterial color="#0f172a" />
         </mesh>
       </group>
     </group>
@@ -302,26 +302,26 @@ export function StorageCrate({ position, rotation }: { position: [number, number
     <group position={position} rotation={rotation}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[1.0, 1.0, 1.0]} />
-        <meshStandardMaterial color="#d97706" roughness={0.8} />
+        <meshStandardMaterial color="#d97706" />
       </mesh>
       {/* Crate cross braces */}
       {[-0.51, 0.51].map((z, i) => (
         <group key={i} position={[0, 0, z]}>
           <mesh position={[0, 0.4, 0]}>
             <boxGeometry args={[0.9, 0.1, 0.02]} />
-            <meshStandardMaterial color="#b45309" roughness={0.8} />
+            <meshStandardMaterial color="#b45309" />
           </mesh>
           <mesh position={[0, -0.4, 0]}>
             <boxGeometry args={[0.9, 0.1, 0.02]} />
-            <meshStandardMaterial color="#b45309" roughness={0.8} />
+            <meshStandardMaterial color="#b45309" />
           </mesh>
           <mesh position={[0.4, 0, 0]}>
             <boxGeometry args={[0.1, 0.9, 0.02]} />
-            <meshStandardMaterial color="#b45309" roughness={0.8} />
+            <meshStandardMaterial color="#b45309" />
           </mesh>
           <mesh position={[-0.4, 0, 0]}>
             <boxGeometry args={[0.1, 0.9, 0.02]} />
-            <meshStandardMaterial color="#b45309" roughness={0.8} />
+            <meshStandardMaterial color="#b45309" />
           </mesh>
         </group>
       ))}
@@ -342,13 +342,13 @@ export function MepSystems({ width, depth: _depth, yBase, height }: { width: num
       {/* Main Longitudinal trunk */}
       <mesh position={[0, ductY, -2]} castShadow>
         <boxGeometry args={[width - 4, 0.35, 0.45]} />
-        <meshStandardMaterial color="#94a3b8" roughness={0.15} metalness={0.85} />
+        <meshStandardMaterial color="#94a3b8" />
       </mesh>
       {/* Transverse branch ducts */}
       {[-10, 0, 10].map((x) => (
         <mesh key={x} position={[x, ductY, 1]} castShadow>
           <boxGeometry args={[0.3, 0.25, 6]} />
-          <meshStandardMaterial color="#94a3b8" roughness={0.15} metalness={0.85} />
+          <meshStandardMaterial color="#94a3b8" />
         </mesh>
       ))}
 
@@ -356,15 +356,15 @@ export function MepSystems({ width, depth: _depth, yBase, height }: { width: num
       {/* Longitudinal pipes */}
       <mesh position={[0, pipeY, -3]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.04, 0.04, width - 6, 8]} />
-        <meshStandardMaterial color="#dc2626" roughness={0.2} metalness={0.6} /> {/* Red fire pipe */}
+        <meshStandardMaterial color="#dc2626" /> {/* Red fire pipe */}
       </mesh>
       <mesh position={[1, pipeY + 0.1, -3.1]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.06, 0.06, width - 6, 8]} />
-        <meshStandardMaterial color="#2563eb" roughness={0.2} metalness={0.6} /> {/* Blue cooling water pipe */}
+        <meshStandardMaterial color="#2563eb" /> {/* Blue cooling water pipe */}
       </mesh>
       <mesh position={[-1, pipeY - 0.05, -3.1]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.05, 0.05, width - 6, 8]} />
-        <meshStandardMaterial color="#16a34a" roughness={0.3} metalness={0.5} /> {/* Green drainage pipe */}
+        <meshStandardMaterial color="#16a34a" /> {/* Green drainage pipe */}
       </mesh>
 
       {/* Transverse drop pipes */}
@@ -372,11 +372,11 @@ export function MepSystems({ width, depth: _depth, yBase, height }: { width: num
         <group key={x}>
           <mesh position={[x, pipeY - 0.1, -1]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.04, 0.04, 4.0, 8]} />
-            <meshStandardMaterial color="#dc2626" roughness={0.2} metalness={0.6} />
+            <meshStandardMaterial color="#dc2626" />
           </mesh>
           <mesh position={[x + 0.1, pipeY, -1]} rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.05, 0.05, 4.0, 8]} />
-            <meshStandardMaterial color="#2563eb" roughness={0.2} metalness={0.6} />
+            <meshStandardMaterial color="#2563eb" />
           </mesh>
         </group>
       ))}
@@ -396,7 +396,7 @@ function RoomWall({ position, rotation, length, height = 3.5, thickness = 0.08 }
   return (
     <mesh position={position} rotation={rotation} castShadow receiveShadow>
       <boxGeometry args={[length, height, thickness]} />
-      <meshStandardMaterial color="#f1f5f9" roughness={0.9} /> {/* clean drywall white/gray */}
+      <meshStandardMaterial color="#f1f5f9" /> {/* clean drywall white/gray */}
     </mesh>
   );
 }
@@ -571,17 +571,17 @@ export function RoomInterior({
                   {/* Café table */}
                   <mesh position={[0, 0.5, 0]} castShadow>
                     <cylinderGeometry args={[0.35, 0.35, 0.02, 10]} />
-                    <meshStandardMaterial color="#cbd5e1" roughness={0.3} metalness={0.6} />
+                    <meshStandardMaterial color="#cbd5e1" />
                   </mesh>
                   <mesh position={[0, 0.25, 0]}>
                     <cylinderGeometry args={[0.02, 0.02, 0.5, 8]} />
-                    <meshStandardMaterial color="#475569" metalness={0.7} />
+                    <meshStandardMaterial color="#475569" />
                   </mesh>
                   {/* Stools */}
                   {[-0.5, 0.5].map((sx, idx) => (
                     <mesh key={idx} position={[sx, 0.35, 0]} castShadow>
                       <cylinderGeometry args={[0.15, 0.15, 0.02, 8]} />
-                      <meshStandardMaterial color="#1e293b" roughness={0.6} />
+                      <meshStandardMaterial color="#1e293b" />
                     </mesh>
                   ))}
                 </group>

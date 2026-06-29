@@ -11,7 +11,7 @@
  * the dashboard light theme.
  */
 
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { Html, Edges, Grid } from "@react-three/drei";
@@ -1403,233 +1403,7 @@ function RoofParapet({ yBase }: { yBase: number }) {
   );
 }
 
-function LiveFan({ status, color: _color }: { status: string; color: number }) {
-  const bladeRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state) => {
-    if (bladeRef.current) {
-      const t = state.clock.getElapsedTime();
-      let speed = 0;
-      let wobble = 0;
-      
-      if (status === "ok" || status === "info") {
-        speed = t * 14.0;
-      } else if (status === "warning") {
-        speed = t * 3.5;
-        wobble = Math.sin(t * 8.0) * 0.03;
-      }
-      
-      bladeRef.current.rotation.z = speed;
-      bladeRef.current.position.y = wobble;
-    }
-  });
-
-  const isOffline = status === "offline";
-  const housingColor = isOffline ? "#78716c" : status === "critical" ? "#ef4444" : "#475569";
-  const bladeColor = isOffline ? "#57534e" : "#0f172a";
-
-  return (
-    <group>
-      {/* Outer Housing */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[1.3, 1.3, 0.8]} />
-        <meshStandardMaterial color={housingColor} roughness={0.4} metalness={isOffline ? 0.1 : 0.5} />
-      </mesh>
-      {/* Shroud */}
-      <mesh position={[0, 0, 0.41]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-        <cylinderGeometry args={[0.5, 0.5, 0.05, 16]} />
-        <meshStandardMaterial color={isOffline ? "#57534e" : "#1e293b"} roughness={0.3} metalness={isOffline ? 0.1 : 0.7} />
-      </mesh>
-      {/* Fan Blades */}
-      <group position={[0, 0, 0.42]}>
-        <mesh ref={bladeRef} castShadow>
-          <boxGeometry args={[0.85, 0.12, 0.02]} />
-          <meshStandardMaterial color={bladeColor} roughness={0.5} />
-        </mesh>
-        <mesh ref={bladeRef} rotation={[0, 0, Math.PI / 2]} castShadow>
-          <boxGeometry args={[0.85, 0.12, 0.02]} />
-          <meshStandardMaterial color={bladeColor} roughness={0.5} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-function LivePump({ status, color }: { status: string; color: number }) {
-  const flowBeadRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state) => {
-    if (flowBeadRef.current && (status === "ok" || status === "info")) {
-      const t = state.clock.getElapsedTime();
-      flowBeadRef.current.position.y = -0.8 + ((t * 2.5) % 1.6);
-    }
-  });
-
-  const isOffline = status === "offline";
-  const bodyColor = isOffline ? 0x78716c : color;
-
-  return (
-    <group>
-      {/* Pump Motor Base */}
-      <mesh position={[0, -0.35, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.9, 0.15, 0.5]} />
-        <meshStandardMaterial color={isOffline ? "#57534e" : "#1e293b"} roughness={0.6} />
-      </mesh>
-      {/* Centrifugal Casing */}
-      <mesh position={[-0.2, 0.05, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-        <cylinderGeometry args={[0.3, 0.3, 0.35, 12]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={isOffline ? 0.1 : 0.5} />
-      </mesh>
-      {/* Motor Cylinder */}
-      <mesh position={[0.2, 0.05, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-        <cylinderGeometry args={[0.22, 0.22, 0.45, 12]} />
-        <meshStandardMaterial color={isOffline ? "#57534e" : "#475569"} roughness={0.5} metalness={isOffline ? 0.1 : 0.7} />
-      </mesh>
-      {/* Outlet Pipe */}
-      <mesh position={[-0.2, 0.75, 0]} castShadow>
-        <cylinderGeometry args={[0.07, 0.07, 0.9, 8]} />
-        <meshStandardMaterial color={isOffline ? "#57534e" : "#94a3b8"} roughness={0.2} metalness={isOffline ? 0.1 : 0.8} />
-      </mesh>
-      {/* Flow Indicator bead inside outlet pipe */}
-      {(status === "ok" || status === "info") && (
-        <mesh ref={flowBeadRef} position={[-0.2, 0, 0]}>
-          <sphereGeometry args={[0.09, 8, 8]} />
-          <meshBasicMaterial color="#38bdf8" toneMapped={false} />
-        </mesh>
-      )}
-    </group>
-  );
-}
-
-function LiveBoiler({ status, color }: { status: string; color: number }) {
-  const furnaceRef = useRef<THREE.MeshBasicMaterial>(null);
-
-  useFrame((state) => {
-    if (furnaceRef.current && (status === "ok" || status === "info")) {
-      const t = state.clock.getElapsedTime();
-      furnaceRef.current.opacity = 0.4 + Math.sin(t * 6.0) * 0.2;
-    }
-  });
-
-  const isOffline = status === "offline";
-  const bodyColor = isOffline ? 0x78716c : color;
-
-  return (
-    <group>
-      {/* Boiler Tank */}
-      <mesh position={[0, 0.25, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.5, 0.5, 1.1, 16]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.3} metalness={isOffline ? 0.1 : 0.3} />
-      </mesh>
-      {/* Domed top */}
-      <mesh position={[0, 0.8, 0]} castShadow>
-        <sphereGeometry args={[0.5, 16, 8]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.3} metalness={isOffline ? 0.1 : 0.3} />
-      </mesh>
-      {/* Fire/Glow ring at base */}
-      {(status === "ok" || status === "info") && (
-        <group>
-          <mesh position={[0, -0.3, 0]}>
-            <cylinderGeometry args={[0.52, 0.52, 0.08, 12]} />
-            <meshBasicMaterial ref={furnaceRef} color="#f97316" transparent opacity={0.6} toneMapped={false} />
-          </mesh>
-          <pointLight position={[0, -0.35, 0]} intensity={1.5} distance={3} color="#f97316" />
-        </group>
-      )}
-      {/* Flue pipe */}
-      <mesh position={[0.2, 0.95, 0.2]} castShadow>
-        <cylinderGeometry args={[0.07, 0.07, 0.55, 8]} />
-        <meshStandardMaterial color={isOffline ? "#57534e" : "#475569"} roughness={0.2} metalness={isOffline ? 0.1 : 0.8} />
-      </mesh>
-    </group>
-  );
-}
-
-function LiveChiller({ status, color }: { status: string; color: number }) {
-  const coolingAuraRef = useRef<THREE.MeshBasicMaterial>(null);
-
-  useFrame((state) => {
-    if (coolingAuraRef.current && (status === "ok" || status === "info")) {
-      const t = state.clock.getElapsedTime();
-      coolingAuraRef.current.opacity = 0.2 + Math.sin(t * 3.0) * 0.1;
-    }
-  });
-
-  const isOffline = status === "offline";
-  const bodyColor = isOffline ? 0x78716c : color;
-
-  return (
-    <group>
-      {/* Condenser barrels */}
-      {[-0.28, 0.28].map((z, idx) => (
-        <mesh key={idx} position={[0, 0, z]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
-          <cylinderGeometry args={[0.3, 0.3, 1.5, 12]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.4} metalness={isOffline ? 0.1 : 0.6} />
-        </mesh>
-      ))}
-      {/* End plates */}
-      {[-0.75, 0.75].map((x, idx) => (
-        <mesh key={idx} position={[x, 0, 0]} castShadow>
-          <boxGeometry args={[0.05, 0.65, 0.9]} />
-          <meshStandardMaterial color={isOffline ? "#57534e" : "#334155"} roughness={0.3} metalness={isOffline ? 0.1 : 0.7} />
-        </mesh>
-      ))}
-      {/* Cooling aura bands */}
-      {(status === "ok" || status === "info") && (
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[1.1, 0.7, 0.95]} />
-          <meshBasicMaterial ref={coolingAuraRef} color="#06b6d4" transparent opacity={0.25} wireframe toneMapped={false} />
-        </mesh>
-      )}
-    </group>
-  );
-}
-
-function LiveAirHandler({ status, color }: { status: string; color: number }) {
-  const fanRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (fanRef.current && (status === "ok" || status === "info")) {
-      fanRef.current.rotation.z = state.clock.getElapsedTime() * 11.0;
-    }
-  });
-
-  const isOffline = status === "offline";
-  const bodyColor = isOffline ? 0x78716c : color;
-
-  return (
-    <group>
-      {/* Cabinet */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[1.5, 1.1, 0.85]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.5} metalness={isOffline ? 0.1 : 0.7} />
-      </mesh>
-      {/* Filter panel */}
-      <mesh position={[0, 0, 0.435]}>
-        <boxGeometry args={[1.1, 0.75, 0.02]} />
-        <meshStandardMaterial color={isOffline ? "#57534e" : "#1e293b"} roughness={0.8} />
-      </mesh>
-      {/* Fan window */}
-      <mesh position={[-0.35, 0, 0.44]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.26, 0.26, 0.01, 16]} />
-        <meshPhysicalMaterial color="#ffffff" transparent opacity={0.2} transmission={0.9} roughness={0.1} />
-      </mesh>
-      {/* Fan inside window */}
-      <group position={[-0.35, 0, 0.41]}>
-        <mesh ref={fanRef}>
-          <boxGeometry args={[0.45, 0.06, 0.01]} />
-          <meshStandardMaterial color={isOffline ? "#57534e" : "#0f172a"} roughness={0.3} />
-        </mesh>
-        <mesh ref={fanRef} rotation={[0, 0, Math.PI / 2]}>
-          <boxGeometry args={[0.45, 0.06, 0.01]} />
-          <meshStandardMaterial color={isOffline ? "#57534e" : "#0f172a"} roughness={0.3} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-// ─── Asset Marker (adapted from old viewer.tsx) ────────────────────
+// ─── Asset Marker ───────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
   ok: "#22c55e",
@@ -1655,7 +1429,33 @@ export function AssetMarker3D({ asset, selected, onClick }: {
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
   const setHovered = useState(false)[1];
   const groupRef = useRef<THREE.Group>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
+
+  // Generate a flat icon sprite texture per asset type + status colour
+  const iconTexture = useMemo(() => {
+    const symbols: Record<string, string> = {
+      "Air Handler": "AH", Chiller: "CH", Boiler: "BL",
+      Pump: "PU", Fan: "FN", Elevator: "EL",
+      Lighting: "LT", Sensor: "SN",
+    };
+    const sym = symbols[asset.type] ?? "?";
+    const size = 64;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    // Coloured circle
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 3, 0, Math.PI * 2);
+    ctx.fillStyle = `#${hexColor.toString(16).padStart(6, "0")}`;
+    ctx.fill();
+    // White symbol
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `bold ${size * 0.44}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(sym, size / 2, size / 2);
+    return new THREE.CanvasTexture(canvas);
+  }, [asset.type, hexColor]);
 
   // Gentle pulse animation based on status
   useFrame((state) => {
@@ -1686,48 +1486,11 @@ export function AssetMarker3D({ asset, selected, onClick }: {
   const conditionRingOpacity = asset.status === "offline" ? 0.25 : 0.55;
   const showConditionGlow = asset.status === "critical" || asset.status === "warning";
 
-  const renderShape = () => {
-    switch (asset.type) {
-      case "Air Handler":
-        return <LiveAirHandler status={asset.status} color={hexColor} />;
-      case "Chiller":
-        return <LiveChiller status={asset.status} color={hexColor} />;
-      case "Boiler":
-        return <LiveBoiler status={asset.status} color={hexColor} />;
-      case "Pump":
-        return <LivePump status={asset.status} color={hexColor} />;
-      case "Fan":
-        return <LiveFan status={asset.status} color={hexColor} />;
-      case "Elevator":
-        return (
-          <mesh ref={meshRef} castShadow>
-            <boxGeometry args={[0.8, 0.8, 0.8]} />
-            <meshStandardMaterial color={hexColor} roughness={0.3} metalness={0.8} />
-          </mesh>
-        );
-      case "Lighting":
-        return (
-          <mesh ref={meshRef} castShadow>
-            <sphereGeometry args={[0.3, 16, 16]} />
-            <meshStandardMaterial color={hexColor} roughness={0.2} emissive={hexColor} emissiveIntensity={asset.status === "ok" ? 0.6 : 0.1} />
-          </mesh>
-        );
-      case "Sensor":
-        return (
-          <mesh ref={meshRef} castShadow>
-            <cylinderGeometry args={[0.15, 0.15, 0.5, 8]} />
-            <meshStandardMaterial color={hexColor} roughness={0.5} />
-          </mesh>
-        );
-      default:
-        return (
-          <mesh ref={meshRef} castShadow>
-            <sphereGeometry args={[0.4, 12, 12]} />
-            <meshStandardMaterial color={hexColor} emissive={hexColor} emissiveIntensity={0.15} roughness={0.3} metalness={0.2} />
-          </mesh>
-        );
-    }
-  };
+  const renderShape = () => (
+    <sprite scale={[0.6, 0.6, 1]} position={[0, 0.6, 0]}>
+      <spriteMaterial map={iconTexture} transparent depthTest={false} />
+    </sprite>
+  );
 
   return (
     <group
