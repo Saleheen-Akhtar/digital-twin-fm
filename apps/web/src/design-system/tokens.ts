@@ -202,11 +202,15 @@ export const camera = {
   fov: 45,
   near: 0.1,
   far: 250,
-  defaultPosition: [40, 14, 38] as [number, number, number],
-  defaultTarget: [0, 10, 0] as [number, number, number],
+  /** Isometric corner view — frames both floors of the convention hall. */
+  defaultPosition: [35, 12, 35] as [number, number, number],
+  /** Look at the building volume center (midway between L1 and L2). */
+  defaultTarget: [0, 8.75, 0] as [number, number, number],
   minDistance: 2,
   maxDistance: 120,
-  minPolarAngle: 0,
+  /** Minimum polar angle ~27° — camera can never dip below the building's
+   * horizontal plane, eliminating the "floor underside" glitch. */
+  minPolarAngle: Math.PI * 0.15,  // ~27° — maintains isometric-ish downward angle
   maxPolarAngle: Math.PI * 0.85,
   dampingFactor: 0.05,
   autoRotateSpeed: 0.5,

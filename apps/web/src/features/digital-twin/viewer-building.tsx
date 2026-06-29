@@ -13,20 +13,45 @@
 
 import { useRef, useState } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
-import { Html, Edges, Grid } from "@react-three/drei";
 import * as THREE from "three";
+import { Html, Edges, Grid } from "@react-three/drei";
 import {
   colors,
   building as B,
 } from "@/design-system/tokens";
 import type { Asset } from "./viewer-data";
 import type { FloorFilter } from "./viewer-store";
-import { RoomInterior, createConcreteTexture } from "./viewer-interior";
-
-const concreteBumpMap = typeof window !== "undefined" ? createConcreteTexture() : null;
+import { RoomInterior } from "./viewer-interior";
 
 // ─── Types ─────────────────────────────────────────────────────────
 
+/** A 2D point in xz space (floor-plan coords). */
+export interface Point2D {
+  x: number;
+  z: number;
+}
+
+/** A wall segment: start → end at a given floor-relative height. */
+export interface WallSegment {
+  start: Point2D;
+  end: Point2D;
+  height: number;
+}
+
+/**
+ * A room defined by its perimeter walls, forming a closed polygon.
+ * Vertices are in counter-clockwise order, no repeated last vertex.
+ */
+export interface RoomPolygon {
+  id: string;
+  name: string;
+  /** Closed polygon vertices in xz space. */
+  vertices: Point2D[];
+  /** Optional accent colour; defaults to a subtle blue. */
+  color?: string;
+}
+
+// Keep ZoneData/FloorData for backward compat during migration
 export interface ZoneData {
   id: string;
   name: string;
@@ -49,6 +74,328 @@ export interface FloorData {
   yBase: number;
   height: number;
   zones: ZoneData[];
+  /** Closed-polygon rooms replacing zones. Present on all new data. */
+  rooms?: RoomPolygon[];
+}
+
+// ─── Polygon helpers ──────────────────────────────────────────────
+
+/**
+ * Convert cx,cz,w,d zone to a 4-vertex closed polygon (counter-clockwise).
+ */
+function rectVertices(cx: number, cz: number, w: number, d: number): Point2D[] {
+  const hw = w / 2;
+  const hd = d / 2;
+  return [
+    { x: cx - hw, z: cz - hd },
+    { x: cx + hw, z: cz - hd },
+    { x: cx + hw, z: cz + hd },
+    { x: cx - hw, z: cz + hd },
+  ];
+}
+
+/**
+ * Compute {cx, cz, w, d} bounding box from polygon vertices.
+ */
+function zoneBoundsFromVertices(verts: Point2D[]): { cx: number; cz: number; w: number; d: number } {
+  const xs = verts.map(v => v.x);
+  const zs = verts.map(v => v.z);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minZ = Math.min(...zs);
+  const maxZ = Math.max(...zs);
+  return {
+    cx: (minX + maxX) / 2,
+    cz: (minZ + maxZ) / 2,
+    w: maxX - minX,
+    d: maxZ - minZ,
+  };
+}
+
+// ─── Polygon validation ──────────────────────────────────────────
+
+/**
+ * Ray-casting point-in-polygon test.
+ * Returns true if (x, z) is inside the closed polygon described by `vertices`.
+ * Vertices should be in CCW order, no repeated-last-vertex.
+ */
+export function pointInPolygon(x: number, z: number, vertices: Point2D[]): boolean {
+  let inside = false;
+  const n = vertices.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = vertices[i].x, zi = vertices[i].z;
+    const xj = vertices[j].x, zj = vertices[j].z;
+    if (
+      (zi > z) !== (zj > z) &&
+      x < ((xj - xi) * (z - zi)) / (zj - zi) + xi
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Check whether two convex polygons overlap (separating-axis test for
+ * axis-aligned rectangles; general SAT for arbitrary polygons).
+ * For the current codebase all rooms are axis-aligned rectangles, but
+ * this uses a simple edge-separating check that works for any convex
+ * polygon.
+ */
+export function polygonsOverlap(a: Point2D[], b: Point2D[]): boolean {
+  // If either polygon has a vertex inside the other, they overlap.
+  for (const v of a) {
+    if (pointInPolygon(v.x, v.z, b)) return true;
+  }
+  for (const v of b) {
+    if (pointInPolygon(v.x, v.z, a)) return true;
+  }
+  // Edge-crossing check (for cases where one polygon fully contains the other
+  // with no vertex of one inside the other — e.g. nested rectangles).
+  for (let i = 0; i < a.length; i++) {
+    const p1 = a[i], p2 = a[(i + 1) % a.length];
+    for (let j = 0; j < b.length; j++) {
+      const q1 = b[j], q2 = b[(j + 1) % b.length];
+      if (segmentsIntersect(p1, p2, q1, q2)) return true;
+    }
+  }
+  return false;
+}
+
+function segmentsIntersect(a: Point2D, b: Point2D, c: Point2D, d: Point2D): boolean {
+  const orient = (p: Point2D, q: Point2D, r: Point2D) =>
+    (q.x - p.x) * (r.z - p.z) - (q.z - p.z) * (r.x - p.x);
+  const o1 = orient(a, b, c);
+  const o2 = orient(a, b, d);
+  const o3 = orient(c, d, a);
+  const o4 = orient(c, d, b);
+  if (o1 === 0 && onSegment(a, b, c)) return true;
+  if (o2 === 0 && onSegment(a, b, d)) return true;
+  if (o3 === 0 && onSegment(c, d, a)) return true;
+  if (o4 === 0 && onSegment(c, d, b)) return true;
+  return (o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0);
+}
+
+function onSegment(p: Point2D, q: Point2D, r: Point2D): boolean {
+  return (
+    r.x <= Math.max(p.x, q.x) && r.x >= Math.min(p.x, q.x) &&
+    r.z <= Math.max(p.z, q.z) && r.z >= Math.min(p.z, q.z)
+  );
+}
+
+/**
+ * Run at boot in dev: validates all floors' rooms for overlap and that
+ * every asset position (from the live data) falls inside a room on its floor.
+ * Callers pass the asset array from the API hook.
+ * Fails loudly (console.error) naming every offending zone/asset — never
+ * throws, so the user can still interact with the scene.
+ */
+export function validateFloorPlan(
+  floors: FloorData[],
+  assets?: Array<{ id: string; floor: number; x: number; z: number }>,
+): void {
+  for (const floor of floors) {
+    const rooms = floor.rooms ?? [];
+    // Check room-vs-room overlap
+    for (let i = 0; i < rooms.length; i++) {
+      for (let j = i + 1; j < rooms.length; j++) {
+        if (polygonsOverlap(rooms[i].vertices, rooms[j].vertices)) {
+          console.error(
+            `[validateFloorPlan] OVERLAP: rooms "${rooms[i].id}" and "${rooms[j].id}" on floor ${floor.level} (${floor.name}) overlap. Fix the floor-plan data.`,
+          );
+        }
+      }
+    }
+    // Check every asset is inside at least one room on its floor
+    if (assets) {
+      for (const asset of assets) {
+        if (asset.floor !== floor.level) continue;
+        const inside = rooms.some(r => pointInPolygon(asset.x, asset.z, r.vertices));
+        if (!inside) {
+          console.error(
+            `[validateFloorPlan] OUT_OF_BOUNDS: asset "${asset.id}" at (${asset.x}, ${asset.z}) is not inside any room on floor ${floor.level}.`,
+          );
+        }
+      }
+    }
+  }
+}
+
+// ─── Floor-plan coordinate utilities ──────────────────────────────
+
+/**
+ * Compute the axis-aligned bounding box of a room polygon.
+ */
+export function roomBounds(room: RoomPolygon): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const xs = room.vertices.map(v => v.x);
+  const zs = room.vertices.map(v => v.z);
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minZ: Math.min(...zs),
+    maxZ: Math.max(...zs),
+  };
+}
+
+/**
+ * Convert world coordinates to relative (0..1) position inside a room.
+ * (0,0) = north-west corner of bounding box; (1,1) = south-east corner.
+ */
+export function worldToRelativePosition(
+  room: RoomPolygon,
+  x: number,
+  z: number,
+): { relX: number; relZ: number } {
+  const b = roomBounds(room);
+  const w = b.maxX - b.minX || 1;
+  const d = b.maxZ - b.minZ || 1;
+  return {
+    relX: (x - b.minX) / w,
+    relZ: (z - b.minZ) / d,
+  };
+}
+
+/**
+ * Convert relative (0..1) position back to world coordinates.
+ */
+export function relativeToWorldPosition(
+  room: RoomPolygon,
+  relX: number,
+  relZ: number,
+): { x: number; z: number } {
+  const b = roomBounds(room);
+  return {
+    x: b.minX + Math.max(0, Math.min(1, relX)) * (b.maxX - b.minX),
+    z: b.minZ + Math.max(0, Math.min(1, relZ)) * (b.maxZ - b.minZ),
+  };
+}
+
+/**
+ * Clamp world (x, z) so it never sits outside the room polygon.
+ * Returns the clamped position. If the room has no vertices (empty
+ * room), returns {x, z} unchanged.
+ */
+export function clampToRoom(
+  room: RoomPolygon | undefined,
+  x: number,
+  z: number,
+): { x: number; z: number } {
+  if (!room || room.vertices.length < 3) return { x, z };
+  if (pointInPolygon(x, z, room.vertices)) return { x, z };
+  // Fall back to nearest point on the bounding box
+  const b = roomBounds(room);
+  return {
+    x: Math.max(b.minX, Math.min(b.maxX, x)),
+    z: Math.max(b.minZ, Math.min(b.maxZ, z)),
+  };
+}
+
+/**
+ * Find the first room in `floors[floorLevel]` that contains (x, z).
+ * Returns undefined if no room matches.
+ */
+export function findRoomAt(floors: FloorData[], floorLevel: number, x: number, z: number): RoomPolygon | undefined {
+  const floor = floors[floorLevel];
+  if (!floor) return undefined;
+  return (floor.rooms ?? []).find(r => pointInPolygon(x, z, r.vertices));
+}
+
+/**
+ * Resolve an asset's final world position by clamping to its assigned
+ * room polygon (by roomId or point-in-polygon test) — guarantees the
+ * marker can never clip through a wall or sit in an unoccupied area.
+ * Falls back to raw world coords when no room is matched.
+ */
+export function resolveAssetPosition(
+  asset: { id: string; floor: number; x: number; y?: number; z: number },
+  floors: FloorData[],
+): { x: number; y: number; z: number } {
+  const rawX = asset.x ?? 0;
+  const rawZ = asset.z ?? 0;
+  const floorLevel = asset.floor ?? 0;
+
+  // Try to find a room that contains this position
+  const floor = floors[floorLevel];
+  let room: RoomPolygon | undefined;
+  if (floor) {
+    room = (floor.rooms ?? []).find(r => pointInPolygon(rawX, rawZ, r.vertices));
+  }
+
+  const clamped = clampToRoom(room, rawX, rawZ);
+  const floorY = floor?.yBase ?? 6.5;
+  return {
+    x: clamped.x,
+    y: asset.y ?? (floorY + 1.0),
+    z: clamped.z,
+  };
+}
+
+/**
+ * Compute the combined bounding box of all rooms on a floor.
+ * Returns undefined if the floor has no rooms.
+ */
+export function floorFootprintBounds(floor: FloorData): { cx: number; cz: number; width: number; depth: number } | undefined {
+  const rooms = floor.rooms ?? [];
+  if (rooms.length === 0) return undefined;
+  const allXs = rooms.flatMap(r => r.vertices.map(v => v.x));
+  const allZs = rooms.flatMap(r => r.vertices.map(v => v.z));
+  const minX = Math.min(...allXs);
+  const maxX = Math.max(...allXs);
+  const minZ = Math.min(...allZs);
+  const maxZ = Math.max(...allZs);
+  return {
+    cx: (minX + maxX) / 2,
+    cz: (minZ + maxZ) / 2,
+    width: maxX - minX,
+    depth: maxZ - minZ,
+  };
+}
+
+/**
+ * Overall bounding box of the entire building across all floors.
+ * Used to constrain the orbit-camera target so the user can never
+ * pan the view centre outside the building footprint.
+ */
+export function buildingGlobalBounds(): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const allFloors = BUILDING_FLOORS;
+  const allRooms = allFloors.flatMap(f => f.rooms ?? []);
+  if (allRooms.length === 0) {
+    // Fallback — building extents from tokens
+    return { minX: -18, maxX: 18, minZ: -12, maxZ: 12 };
+  }
+  const allXs = allRooms.flatMap(r => r.vertices.map(v => v.x));
+  const allZs = allRooms.flatMap(r => r.vertices.map(v => v.z));
+  return {
+    minX: Math.min(...allXs),
+    maxX: Math.max(...allXs),
+    minZ: Math.min(...allZs),
+    maxZ: Math.max(...allZs),
+  };
+}
+
+/**
+ * Returns a THREE.Box3 covering the walkable area of a given floor,
+ * or the full building extents as a fallback. Used to bound walk-mode
+ * CameraControls.
+ */
+export function floorWalkableBounds(floorIndex: number): THREE.Box3 {
+  const floor = BUILDING_FLOORS.find(f => f.level === floorIndex);
+  let minX = -18, maxX = 18, minZ = -12, maxZ = 12; // fallback global extents
+  if (floor) {
+    const b = floorFootprintBounds(floor);
+    if (b) {
+      const hw = b.width / 2;
+      const hd = b.depth / 2;
+      minX = b.cx - hw;
+      maxX = b.cx + hw;
+      minZ = b.cz - hd;
+      maxZ = b.cz + hd;
+    }
+  }
+  return new THREE.Box3(
+    new THREE.Vector3(minX, -Infinity, minZ),
+    new THREE.Vector3(maxX, Infinity, maxZ),
+  );
 }
 
 // ─── Building constants ────────────────────────────────────────────
@@ -85,6 +432,15 @@ export const BUILDING_FLOORS: FloorData[] = [
       // Plant room (back-of-house, where the seed puts boilers/chillers/primary pumps)
       { id: "1g", name: "Plant Room", cx: -13, cz: 8, w: 6, d: 4, color: "#64748b" },
     ],
+    rooms: [
+      { id: "1a", name: "Main Entrance", vertices: rectVertices(0, -HALF_D + 4, 14, 6), color: "#3b82f6" },
+      { id: "1b", name: "Hall A — West", vertices: rectVertices(-10, 2, 14, 12), color: "#60a5fa" },
+      { id: "1c", name: "Hall A — East", vertices: rectVertices(10, 2, 14, 12), color: "#60a5fa" },
+      { id: "1d", name: "Concourse", vertices: rectVertices(0, -4, 12, 4), color: "#93c5fd" },
+      { id: "1e", name: "Restrooms", vertices: rectVertices(-HALF_W + 3, 8, 4, 6), color: "#bfdbfe" },
+      { id: "1f", name: "Meeting Rooms", vertices: rectVertices(HALF_W - 4, 8, 6, 6), color: "#bfdbfe" },
+      { id: "1g", name: "Plant Room", vertices: rectVertices(-13, 8, 6, 4), color: "#64748b" },
+    ],
   },
   {
     level: 1,
@@ -98,6 +454,13 @@ export const BUILDING_FLOORS: FloorData[] = [
       { id: "2c", name: "VIP Lounge", cx: 0, cz: -8, w: 10, d: 6, color: "#c4b5fd" },
       { id: "2d", name: "Terrace", cx: 0, cz: 8, w: 16, d: 6, color: "#ddd6fe" },
       { id: "2e", name: "Control Room", cx: -HALF_W + 4, cz: -6, w: 6, d: 5, color: "#8b5cf6" },
+    ],
+    rooms: [
+      { id: "2a", name: "Hall B — West", vertices: rectVertices(-10, 0, 14, 14), color: "#a78bfa" },
+      { id: "2b", name: "Hall B — East", vertices: rectVertices(10, 0, 14, 14), color: "#a78bfa" },
+      { id: "2c", name: "VIP Lounge", vertices: rectVertices(0, -8, 10, 6), color: "#c4b5fd" },
+      { id: "2d", name: "Terrace", vertices: rectVertices(0, 8, 16, 6), color: "#ddd6fe" },
+      { id: "2e", name: "Control Room", vertices: rectVertices(-HALF_W + 4, -6, 6, 5), color: "#8b5cf6" },
     ],
   },
 ];
@@ -124,6 +487,7 @@ export function buildDefaultFloors(count: number): FloorData[] {
       yBase: y,
       height,
       zones: [],
+      rooms: [],
     });
     y += height + 0.5;
   }
@@ -147,6 +511,8 @@ if (process.env.NODE_ENV !== "production") {
         `Update both, plus packages/db/src/seed.ts BUILDING_FLOOR_COUNT.`,
     );
   }
+  // Validate polygon room data for overlap and asset-in-zone
+  validateFloorPlan(BUILDING_FLOORS);
 }
 
 /** Roof parameters (sawtooth, from tokens). */
@@ -249,20 +615,18 @@ function FloorSlab({ y, width = W, depth = D, thickness = SLAB_T, transparent = 
       {/* Main slab */}
       <mesh position={[0, y, 0]} receiveShadow>
         <boxGeometry args={[width, thickness, depth]} />
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           color={colors.building.slab}
           transparent={transparent}
           opacity={transparent ? 0.15 : 1}
-          roughness={transparent ? 0.95 : 0.45}
-          metalness={transparent ? 0.05 : 0.15}
-          bumpMap={transparent ? undefined : concreteBumpMap ?? undefined}
-          bumpScale={0.06}
+          roughness={0.55}
+          metalness={0}
         />
       </mesh>
       {/* Perimeter edge beam — subtle dark band at slab perimeter */}
       <mesh position={[0, y - thickness / 2 + 0.05, 0]}>
         <boxGeometry args={[width + 0.08, 0.06, 0.06]} />
-        <meshStandardMaterial color="#8a9baa" roughness={0.5} metalness={0.3}
+        <meshPhysicalMaterial color="#8a9baa" roughness={0.5} metalness={0}
           transparent={transparent} opacity={transparent ? 0.25 : 1} />
       </mesh>
       <mesh position={[0, y - thickness / 2 + 0.05, 0]}>
@@ -291,23 +655,36 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
   const panelColor = "#d6dee8";
   const glassColor = "#88ccee";
   const mullionColor = "#8a9baa";
-  const pilasterColor = "#b0bec5";
-  const midBandColor = "#8899aa";
-  const baseOpacity = transparent ? 0.15 : 0.9;
+  const pilasterColor = "#b8c4d0";
+  const midBandColor = "#a0b0bb";
+  const baseOpacity = transparent ? 0.15 : 0.35;
   const h = floorHeight;
   const halfW = W / 2;
   const halfD = D / 2;
   const wallThick = 0.12;
-  const inset = 0.2; // slight inset from perimeter
+  const inset = 0.2;
+
+  // Shared frosted-glass physical material — clean, BMS-style translucent panels
+  const frostedMat = new THREE.MeshPhysicalMaterial({
+    color: panelColor,
+    roughness: 0.15,
+    metalness: 0,
+    transparent: true,
+    opacity: baseOpacity,
+    transmission: 0.35,
+    thickness: 1.2,
+    ior: 1.4,
+    envMapIntensity: 0.4,
+  });
 
   // Helper: vertical pilaster at (x, z) spanning floor
   const PilasterComp = ({ x, z }: { x: number; z: number }) => (
     <mesh position={[x, floorY + h / 2, z]} castShadow>
       <boxGeometry args={[0.2, h - 0.2, 0.2]} />
-      <meshStandardMaterial
+      <meshPhysicalMaterial
         color={pilasterColor}
-        roughness={0.4}
-        metalness={0.35}
+        roughness={0.2}
+        metalness={0}
         transparent
         opacity={Math.min(baseOpacity + 0.1, 1)}
       />
@@ -316,85 +693,45 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
 
   return (
     <group>
-      {/* ══ Solid wall panels ══ */}
+      {/* ══ Frosted glass wall panels ══ */}
 
       {/* Back wall (z = -halfD) */}
-      <mesh position={[0, floorY + h / 2, -halfD]} castShadow>
+      <mesh position={[0, floorY + h / 2, -halfD]} castShadow material={frostedMat}>
         <boxGeometry args={[W - inset * 2, h - 0.2, wallThick]} />
-        <meshStandardMaterial
-          color={panelColor}
-          roughness={0.55}
-          metalness={0.1}
-          bumpMap={concreteBumpMap ?? undefined}
-          bumpScale={0.04}
-          roughnessMap={concreteBumpMap ?? undefined}
-          transparent
-          opacity={baseOpacity}
-        />
       </mesh>
 
       {/* Left wall (x = -halfW) */}
-      <mesh position={[-halfW, floorY + h / 2, 0]} castShadow>
+      <mesh position={[-halfW, floorY + h / 2, 0]} castShadow material={frostedMat}>
         <boxGeometry args={[wallThick, h - 0.2, D - inset * 2]} />
-        <meshStandardMaterial
-          color={panelColor}
-          roughness={0.52}
-          metalness={0.1}
-          bumpMap={concreteBumpMap ?? undefined}
-          bumpScale={0.04}
-          roughnessMap={concreteBumpMap ?? undefined}
-          transparent
-          opacity={baseOpacity}
-        />
       </mesh>
 
       {/* Right wall (x = +halfW) */}
-      <mesh position={[halfW, floorY + h / 2, 0]} castShadow>
+      <mesh position={[halfW, floorY + h / 2, 0]} castShadow material={frostedMat}>
         <boxGeometry args={[wallThick, h - 0.2, D - inset * 2]} />
-        <meshStandardMaterial
-          color={panelColor}
-          roughness={0.58}
-          metalness={0.1}
-          bumpMap={concreteBumpMap ?? undefined}
-          bumpScale={0.04}
-          roughnessMap={concreteBumpMap ?? undefined}
-          transparent
-          opacity={baseOpacity}
-        />
       </mesh>
 
-      {/* Front wall solid lower band (bottom 40%) */}
-      <mesh position={[0, floorY + h * 0.2, halfD]} castShadow>
+      {/* Front wall lower band (bottom 40%) */}
+      <mesh position={[0, floorY + h * 0.2, halfD]} castShadow material={frostedMat}>
         <boxGeometry args={[W - inset * 2, h * 0.4, wallThick]} />
-        <meshStandardMaterial
-          color={panelColor}
-          roughness={0.55}
-          metalness={0.1}
-          bumpMap={concreteBumpMap ?? undefined}
-          bumpScale={0.04}
-          roughnessMap={concreteBumpMap ?? undefined}
-          transparent
-          opacity={baseOpacity}
-        />
       </mesh>
 
       {/* ══ Mid-floor horizontal band (cornice) ══ */}
       <mesh position={[0, floorY + h * 0.42, halfD]}>
         <boxGeometry args={[W - 0.2, 0.08, 0.18]} />
-        <meshStandardMaterial color={midBandColor} roughness={0.4} metalness={0.5}
-          transparent opacity={Math.min(baseOpacity + 0.08, 1)} />
+        <meshPhysicalMaterial color={midBandColor} roughness={0.3} metalness={0}
+          transparent opacity={Math.min(baseOpacity + 0.15, 0.5)} />
       </mesh>
       <mesh position={[0, floorY + h * 0.42, -halfD]}>
         <boxGeometry args={[W - 0.2, 0.08, 0.18]} />
-        <meshStandardMaterial color={midBandColor} roughness={0.4} metalness={0.5}
-          transparent opacity={Math.min(baseOpacity + 0.08, 1)} />
+        <meshPhysicalMaterial color={midBandColor} roughness={0.3} metalness={0}
+          transparent opacity={Math.min(baseOpacity + 0.15, 0.5)} />
       </mesh>
       {[-halfW, 0, halfW].map((px, i) => (
         px !== 0 && (
           <mesh key={`mb-side-${i}`} position={[px, floorY + h * 0.42, 0]}>
             <boxGeometry args={[0.18, 0.08, D - 0.2]} />
-            <meshStandardMaterial color={midBandColor} roughness={0.4} metalness={0.5}
-              transparent opacity={Math.min(baseOpacity + 0.08, 1)} />
+            <meshPhysicalMaterial color={midBandColor} roughness={0.3} metalness={0}
+              transparent opacity={Math.min(baseOpacity + 0.15, 0.5)} />
           </mesh>
         )
       ))}
@@ -404,12 +741,12 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         <boxGeometry args={[W - 1.2, h * 0.55, 0.03]} />
         <meshPhysicalMaterial
           color={glassColor}
-          transparent opacity={transparent ? 0.18 : 0.3}
-          roughness={0.05} metalness={0.9}
-          clearcoat={1.0} clearcoatRoughness={0.1}
-          transmission={transparent ? 0.8 : 0.55}
+          transparent opacity={transparent ? 0.08 : 0.2}
+          roughness={0.05} metalness={0}
+          clearcoat={0.3} clearcoatRoughness={0.2}
+          transmission={transparent ? 0.85 : 0.65}
           thickness={0.5} ior={1.5}
-          envMapIntensity={transparent ? 0.3 : 1.2}
+          envMapIntensity={transparent ? 0.2 : 0.5}
         />
       </mesh>
 
@@ -425,7 +762,7 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
       {Array.from({ length: 8 }, (_, i) => -halfW + 3.6 + i * 4.2).map((x) => (
         <mesh key={`vm-${x.toFixed(1)}`} position={[x, floorY + h * 0.67, halfD - 0.01]}>
           <boxGeometry args={[0.05, h * 0.6, 0.02]} />
-          <meshStandardMaterial color={mullionColor} roughness={0.3} metalness={0.4} />
+          <meshPhysicalMaterial color={mullionColor} roughness={0.4} metalness={0} />
         </mesh>
       ))}
 
@@ -433,7 +770,7 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
       {Array.from({ length: 3 }, (_, i) => floorY + h * 0.3 + i * h * 0.27).map((y) => (
         <mesh key={`hm-${y.toFixed(1)}`} position={[0, y, halfD - 0.01]}>
           <boxGeometry args={[W - 0.8, 0.035, 0.02]} />
-          <meshStandardMaterial color={mullionColor} roughness={0.3} metalness={0.4} />
+          <meshPhysicalMaterial color={mullionColor} roughness={0.4} metalness={0} />
         </mesh>
       ))}
 
@@ -445,10 +782,10 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         return (
           <mesh key={`sw-${wx.toFixed(1)}`} position={[wx, floorY + h * 0.6, -halfD - 0.02]}>
             <planeGeometry args={[1.8, h * 0.4]} />
-            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.18 : 0.3}
-              roughness={0.05} metalness={0.9} clearcoat={1.0} clearcoatRoughness={0.1}
-              transmission={transparent ? 0.8 : 0.55} thickness={0.5} ior={1.5}
-              envMapIntensity={transparent ? 0.3 : 1.2} side={THREE.DoubleSide} />
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.08 : 0.2}
+              roughness={0.1} metalness={0} clearcoat={0.2} clearcoatRoughness={0.3}
+              transmission={transparent ? 0.85 : 0.65} thickness={0.5} ior={1.5}
+              envMapIntensity={0.3} side={THREE.DoubleSide} />
           </mesh>
         );
       })}
@@ -458,10 +795,10 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         return (
           <mesh key={`lw-${wz.toFixed(1)}`} position={[-halfW - 0.02, floorY + h * 0.6, wz]} rotation={[0, Math.PI / 2, 0]}>
             <planeGeometry args={[1.8, h * 0.4]} />
-            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.18 : 0.3}
-              roughness={0.05} metalness={0.9} clearcoat={1.0} clearcoatRoughness={0.1}
-              transmission={transparent ? 0.8 : 0.55} thickness={0.5} ior={1.5}
-              envMapIntensity={transparent ? 0.3 : 1.2} side={THREE.DoubleSide} />
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.08 : 0.2}
+              roughness={0.1} metalness={0} clearcoat={0.2} clearcoatRoughness={0.3}
+              transmission={transparent ? 0.85 : 0.65} thickness={0.5} ior={1.5}
+              envMapIntensity={0.3} side={THREE.DoubleSide} />
           </mesh>
         );
       })}
@@ -471,10 +808,10 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         return (
           <mesh key={`rw-${wz.toFixed(1)}`} position={[halfW + 0.02, floorY + h * 0.6, wz]} rotation={[0, Math.PI / 2, 0]}>
             <planeGeometry args={[1.8, h * 0.4]} />
-            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.18 : 0.3}
-              roughness={0.05} metalness={0.9} clearcoat={1.0} clearcoatRoughness={0.1}
-              transmission={transparent ? 0.8 : 0.55} thickness={0.5} ior={1.5}
-              envMapIntensity={transparent ? 0.3 : 1.2} side={THREE.DoubleSide} />
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.08 : 0.2}
+              roughness={0.1} metalness={0} clearcoat={0.2} clearcoatRoughness={0.3}
+              transmission={transparent ? 0.85 : 0.65} thickness={0.5} ior={1.5}
+              envMapIntensity={0.3} side={THREE.DoubleSide} />
           </mesh>
         );
       })}
@@ -1340,17 +1677,9 @@ export function AssetMarker3D({ asset, selected, onClick }: {
     }
   });
 
-  // Map asset (x, y, z) floor coords to 3D position
-  // Seed coords are already in building-safe range (X: -12..+12, Z: -8..+8)
-  // DB coords are used directly if positionY is present
-  const floorY = (BUILDING_FLOORS[asset.floor]?.yBase ?? 6.5) + 1.0;
-  const pos: [number, number, number] = asset.y !== undefined
-    ? [asset.x, asset.y, asset.z]
-    : [
-        asset.x,    // already in -12..+12 range
-        floorY,
-        asset.z,    // already in -8..+8 range
-      ];
+  // Map asset (x, y, z) floor coords to 3D position — clamped to room polygon
+  const resolved = resolveAssetPosition(asset, BUILDING_FLOORS);
+  const pos: [number, number, number] = [resolved.x, resolved.y, resolved.z];
 
   // Status condition badge color
   const conditionRingColor = STATUS_COLORS[asset.status] ?? "#22c55e";
