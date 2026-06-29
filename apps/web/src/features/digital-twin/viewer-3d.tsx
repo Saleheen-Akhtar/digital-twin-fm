@@ -44,6 +44,10 @@ import {
   Building,
   AssetMarker3D,
   BUILDING_FLOORS,
+  floorFootprintBounds,
+  buildingGlobalBounds,
+  floorWalkableBounds,
+  validateFloorPlan,
   type FloorFilter,
 } from "./viewer-building";
 import type {
@@ -138,8 +142,21 @@ function CameraAnimator({
         return;
       }
       const targetY = floor.yBase + floor.height / 2;
-      endTarget = new THREE.Vector3(0, targetY, 0);
-      endPos = new THREE.Vector3(20, targetY + 6, 25);
+      const bounds = floorFootprintBounds(floor);
+      if (bounds) {
+        // Center target on the floor's actual footprint
+        endTarget = new THREE.Vector3(bounds.cx, targetY, bounds.cz);
+        // Derive camera distance from the footprint diagonal so the whole
+        // floor frames correctly at the current FOV (45°).
+        const diagonal = Math.sqrt(bounds.width * bounds.width + bounds.depth * bounds.depth);
+        const dist = diagonal / (2 * Math.tan((CAM.fov * Math.PI) / 360)) * 1.3; // 1.3× padding
+        const clampedDist = Math.max(dist, 15);
+        endPos = new THREE.Vector3(bounds.cx + clampedDist * 0.6, targetY + clampedDist * 0.35, bounds.cz + clampedDist * 0.7);
+      } else {
+        // Fallback when no room data: center on floor origin
+        endTarget = new THREE.Vector3(0, targetY, 0);
+        endPos = new THREE.Vector3(20, targetY + 6, 25);
+      }
     }
 
     animProgress.current = Math.min(animProgress.current + 0.03, 1);
@@ -152,6 +169,23 @@ function CameraAnimator({
     if (t >= 1) animProgress.current = -1;
   });
 
+  return null;
+}
+
+/**
+ * Clamps the orbit-controls target to the building footprint so the
+ * user can never pan the view centre outside the building extents.
+ * Only active in non-walk mode.
+ */
+function CameraBoundsGuard({ enabled }: { enabled: boolean }) {
+  const { controls } = useThree();
+  useFrame(() => {
+    if (!enabled || !controls) return;
+    const bounds = buildingGlobalBounds();
+    const t = (controls as unknown as OrbitControlsImpl).target;
+    t.x = THREE.MathUtils.clamp(t.x, bounds.minX, bounds.maxX);
+    t.z = THREE.MathUtils.clamp(t.z, bounds.minZ, bounds.maxZ);
+  });
   return null;
 }
 
@@ -188,6 +222,18 @@ function SceneContent({
   const cameraControlsRef = useRef<CameraControls>(null!);
   const selectedAsset = useViewerStore((state) => state.selectedAsset);
 
+  // Set walkable boundary on CameraControls when floor changes
+  useEffect(() => {
+    const cc = cameraControlsRef.current as unknown as { boundary: THREE.Box3; boundaryEnclosesCamera: boolean };
+    if (!cc) return;
+    if (selectedFloor === "ALL") {
+      cc.boundary = floorWalkableBounds(0);
+    } else {
+      cc.boundary = floorWalkableBounds(selectedFloor as number);
+    }
+    cc.boundaryEnclosesCamera = true;
+  }, [selectedFloor]);
+
   // ── Lighting / Environment ──
   return (
     <>
@@ -221,9 +267,14 @@ function SceneContent({
         color="#b4d4ff"
       />
       <hemisphereLight args={["#f0f4ff", "#c0cfe0", 0.55]} />
-      
-      {/* Real HDRI environment map — glass/metal get proper reflections instead of plastic */}
-      <Environment preset="city" />
+
+      {/* Soft clean environment — flat gradient for glass transmission */}
+      <Environment resolution={128}>
+        <mesh position={[0, 25, 0]}>
+          <sphereGeometry args={[14, 16, 16]} />
+          <meshBasicMaterial color="#dce4ed" toneMapped={false} />
+        </mesh>
+      </Environment>
 
       {/* Fog — push far so building details aren't washed out */}
       <fog attach="fog" args={[0xf0f4fb, 100, 220]} />
@@ -289,13 +340,16 @@ function SceneContent({
           dampingFactor={CAM.dampingFactor}
           minDistance={CAM.minDistance}
           maxDistance={CAM.maxDistance}
-          minPolarAngle={0}
-          maxPolarAngle={Math.PI * 0.85}
+          minPolarAngle={CAM.minPolarAngle}
+          maxPolarAngle={CAM.maxPolarAngle}
           autoRotate={autoRotate}
           autoRotateSpeed={2.0}
           target={CAM.defaultTarget}
         />
       )}
+
+      {/* Clamp orbit target to building footprint */}
+      <CameraBoundsGuard enabled={!walkMode} />
     </>
   );
 }
@@ -740,6 +794,13 @@ export function DigitalTwinViewer3D({
     () => (assets ? apiAssetsToViewerAssets(assets) : SEED_ASSETS),
     [assets],
   );
+
+  // Dev-time floor-plan validator — fails loudly if any asset is outside its room
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      validateFloorPlan(BUILDING_FLOORS, allAssets);
+    }
+  }, [allAssets]);
 
   // Live KPI + Events
   const kpis = useLiveKPIs(allAssets);
