@@ -24,9 +24,9 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { z } from "zod";
 import { Redis } from "ioredis";
-import mqtt from "mqtt";
 import { randomBytes } from "crypto";
 import { createRedisOptions } from "./redis-config";
+import { startMqttListener } from "./mqtt-listener";
 
 const PORT = Number(process.env.INGESTION_PORT) || Number(process.env.PORT) || 4100;
 const HOST = process.env.INGESTION_HOST || "127.0.0.1";
@@ -185,23 +185,21 @@ const main = async (): Promise<void> => {
       timeWindow: "1 minute",
     });
 
-    // MQTT subscriber. Wired AFTER CORS / rate-limit registration so a
-    // misbehaving broker can't cause us to bind the HTTP port first and
-    // then fail plugin init.
+    // MQTT subscriber — delegates to mqtt-listener module
     if (MQTT_URL) {
-      const mqttClient: mqtt.MqttClient = mqtt.connect(MQTT_URL);
-      mqttClient.on("connect", () => {
-        app.log.info({ MQTT_URL }, "mqtt connected");
-        mqttClient.subscribe("sensors/+/reading");
+      const mqttClient = startMqttListener({
+        url: MQTT_URL,
+        redis,
+        log: {
+          info: (msg, label) => app.log.info(msg, label),
+          warn: (msg, label) => app.log.warn(msg, label),
+          error: (msg, label) => app.log.error(msg, label),
+        },
       });
-      mqttClient.on("message", async (topic, payload) => {
-        try {
-          const json = JSON.parse(payload.toString());
-          const parsed = SensorReading.parse(json);
-          await publish(parsed);
-        } catch (err) {
-          app.log.warn({ err, topic }, "invalid mqtt message");
-        }
+
+      // Clean up on server close
+      app.addHook("onClose", async () => {
+        mqttClient.end();
       });
     }
 
