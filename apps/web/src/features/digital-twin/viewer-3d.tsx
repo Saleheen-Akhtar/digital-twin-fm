@@ -42,6 +42,7 @@ import {
 } from "@/design-system/tokens";
 import {
   Building,
+  BuildingModel,
   AssetMarker3D,
   BUILDING_FLOORS,
   floorFootprintBounds,
@@ -97,6 +98,11 @@ export interface DigitalTwinViewer3DProps {
   assets?: ApiAssetShape[];
   /** Callback when an asset is selected (opens sidebar detail panel). */
   onSelectAsset?: (id: string) => void;
+  /**
+   * Optional URL to an uploaded GLB/GLTF model. When provided, the
+   * procedural Building component is replaced by the loaded 3D model.
+   */
+  modelUrl?: string;
 }
 
 // ─── Camera animator (driven by useFrame) ──────────────────────────
@@ -204,6 +210,9 @@ function SceneContent({
   showFurniture,
   showMEP,
   showZones,
+  modelUrl,
+  visibleObjects,
+  onObjectsFound,
 }: {
   showMarkers: boolean;
   autoRotate: boolean;
@@ -217,6 +226,9 @@ function SceneContent({
   showFurniture: boolean;
   showMEP: boolean;
   showZones: boolean;
+  modelUrl?: string;
+  visibleObjects: Set<string>;
+  onObjectsFound: (names: string[]) => void;
 }) {
   const orbitControlsRef = useRef<OrbitControlsImpl>(null!);
   const cameraControlsRef = useRef<CameraControls>(null!);
@@ -288,21 +300,25 @@ function SceneContent({
         far={5}
       />
 
-      {/* Building */}
-      <Building
-        selectedFloor={selectedFloor}
-        selectedZone={selectedZone}
-        onSelectZone={onSelectZone}
-        walkMode={walkMode}
-        showFacade={showFacade}
-        showFurniture={showFurniture}
-        showMEP={showMEP}
-        showZones={showZones}
-        showMarkers={showMarkers}
-      />
+      {/* Building — either loaded GLB model or procedural fallback */}
+      {modelUrl ? (
+        <BuildingModel modelUrl={modelUrl} visibleObjects={visibleObjects} onObjectsFound={onObjectsFound} />
+      ) : (
+        <Building
+          selectedFloor={selectedFloor}
+          selectedZone={selectedZone}
+          onSelectZone={onSelectZone}
+          walkMode={walkMode}
+          showFacade={showFacade}
+          showFurniture={showFurniture}
+          showMEP={showMEP}
+          showZones={showZones}
+          showMarkers={showMarkers}
+        />
+      )}
 
-      {/* Asset markers (only on visible floors) */}
-      {showMarkers &&
+      {/* Asset markers — hidden when an uploaded model is loaded (markers should be baked into the GLB) */}
+      {showMarkers && !modelUrl &&
         allAssets
           .filter((asset) => {
             if (selectedFloor === "ALL") return true;
@@ -759,6 +775,7 @@ export function DigitalTwinViewer3D({
   defaultOpenOverlays,
   assets,
   onSelectAsset,
+  modelUrl,
 }: DigitalTwinViewer3DProps) {
   const { selectedFloor, setSelectedFloor } = useViewerStore();
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
@@ -788,6 +805,17 @@ export function DigitalTwinViewer3D({
   const [showFurniture, setShowFurniture] = useState(true);
   const [showMEP, setShowMEP] = useState(true);
   const [showZones, setShowZones] = useState(true);
+
+  // Uploaded GLB object layers — named child objects from the model
+  // that can be individually toggled via the Layers panel.
+  const [modelObjectNames, setModelObjectNames] = useState<string[]>([]);
+  const [visibleObjects, setVisibleObjects] = useState<Set<string>>(new Set());
+
+  // Reset object names when modelUrl changes
+  useEffect(() => {
+    setModelObjectNames([]);
+    setVisibleObjects(new Set());
+  }, [modelUrl]);
 
   // Resolve assets
   const allAssets = useMemo(
@@ -857,6 +885,9 @@ export function DigitalTwinViewer3D({
           showFurniture={showFurniture}
           showMEP={showMEP}
           showZones={showZones}
+          modelUrl={modelUrl}
+          visibleObjects={visibleObjects}
+          onObjectsFound={setModelObjectNames}
         />
       </Canvas>
 
@@ -931,56 +962,83 @@ export function DigitalTwinViewer3D({
           {/* ── Layers Panel (right side) ── */}
           {isOpen("layers") && !walkMode && (
             <div
-              className="absolute top-16 right-3 z-10 bg-white/90 backdrop-blur border border-slate-200 rounded-xl shadow-md p-2 flex flex-col gap-1 w-[120px] transition-all"
+              className="absolute top-16 right-3 z-10 bg-white/90 backdrop-blur border border-slate-200 rounded-xl shadow-md p-2 flex flex-col gap-1 w-[140px] transition-all"
               data-overlay="layers"
             >
               <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider px-1.5 py-0.5">
                 Layers
               </div>
 
-              <button
-                onClick={() => setShowFacade((f) => !f)}
-                className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                  showFacade
-                    ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                    : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                }`}
-              >
-                <span>🏢 Facade</span>
-              </button>
+              {/* When an uploaded GLB has named objects, show dynamic toggles */}
+              {modelUrl && modelObjectNames.length > 0
+                ? modelObjectNames.map((name) => {
+                    const active = visibleObjects.size === 0 || visibleObjects.has(name);
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => {
+                          const next = new Set(visibleObjects);
+                          if (next.has(name)) next.delete(name);
+                          else next.add(name);
+                          setVisibleObjects(next);
+                        }}
+                        className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                          active
+                            ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                            : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>{name}</span>
+                      </button>
+                    );
+                  })
+                : /* Fallback: hardcoded procedural-building layers */
+                  <>
+                    <button
+                      onClick={() => setShowFacade((f) => !f)}
+                      className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                        showFacade
+                          ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                          : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>🏢 Facade</span>
+                    </button>
 
-              <button
-                onClick={() => setShowFurniture((f) => !f)}
-                className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                  showFurniture
-                    ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                    : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                }`}
-              >
-                <span>🛋️ Furniture</span>
-              </button>
+                    <button
+                      onClick={() => setShowFurniture((f) => !f)}
+                      className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                        showFurniture
+                          ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                          : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>🛋️ Furniture</span>
+                    </button>
 
-              <button
-                onClick={() => setShowMEP((m) => !m)}
-                className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                  showMEP
-                    ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                    : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                }`}
-              >
-                <span>⚙️ Systems</span>
-              </button>
+                    <button
+                      onClick={() => setShowMEP((m) => !m)}
+                      className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                        showMEP
+                          ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                          : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>⚙️ Systems</span>
+                    </button>
 
-              <button
-                onClick={() => setShowZones((z) => !z)}
-                className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                  showZones
-                    ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                    : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                }`}
-              >
-                <span>🗺️ Zones</span>
-              </button>
+                    <button
+                      onClick={() => setShowZones((z) => !z)}
+                      className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                        showZones
+                          ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                          : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span>🗺️ Zones</span>
+                    </button>
+                  </>
+              }
             </div>
           )}
 

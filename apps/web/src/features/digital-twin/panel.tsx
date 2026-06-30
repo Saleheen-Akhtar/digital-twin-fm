@@ -29,6 +29,7 @@ export interface DigitalTwinPanelProps {
   onSelectAsset?: (id: string) => void;
   showHeader?: boolean;
   assetReadingsById?: Record<string, string>;
+  modelUrl?: string;
 }
 
 export function DigitalTwinPanel({
@@ -37,6 +38,7 @@ export function DigitalTwinPanel({
   onSelectAsset: _onSelectAsset,
   showHeader = true,
   assetReadingsById: _assetReadingsById,
+  modelUrl,
 }: DigitalTwinPanelProps) {
   // The new viewer manages its own state and seed data internally.
   // The props above are kept for API compatibility with the dashboard
@@ -96,6 +98,7 @@ export function DigitalTwinPanel({
         mode="operator"
         assets={assets}
         onSelectAsset={_onSelectAsset}
+        modelUrl={modelUrl}
       />
     </section>
   );
