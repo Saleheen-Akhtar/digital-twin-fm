@@ -11,10 +11,10 @@
  * the dashboard light theme.
  */
 
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
-import { Html, Edges, Grid } from "@react-three/drei";
+import { Html, Edges, Grid, useGLTF } from "@react-three/drei";
 import {
   colors,
   building as B,
@@ -423,23 +423,23 @@ export const BUILDING_FLOORS: FloorData[] = [
     yBase: 0,
     height: 8.5,
     zones: [
-      { id: "1a", name: "Main Entrance", cx: 0, cz: -HALF_D + 4, w: 14, d: 6, color: "#3b82f6" },
-      { id: "1b", name: "Hall A — West", cx: -10, cz: 2, w: 14, d: 12, color: "#60a5fa" },
-      { id: "1c", name: "Hall A — East", cx: 10, cz: 2, w: 14, d: 12, color: "#60a5fa" },
-      { id: "1d", name: "Concourse", cx: 0, cz: -4, w: 12, d: 4, color: "#93c5fd" },
-      { id: "1e", name: "Restrooms", cx: -HALF_W + 3, cz: 8, w: 4, d: 6, color: "#bfdbfe" },
-      { id: "1f", name: "Meeting Rooms", cx: HALF_W - 4, cz: 8, w: 6, d: 6, color: "#bfdbfe" },
+      { id: "1a", name: "Main Entrance", cx: 0, cz: -10, w: 16, d: 4.5, color: "#3b82f6" },
+      { id: "1b", name: "Hall A — West", cx: -9.5, cz: 2, w: 13, d: 11, color: "#60a5fa" },
+      { id: "1c", name: "Hall A — East", cx: 9.5, cz: 2, w: 13, d: 11, color: "#60a5fa" },
+      { id: "1d", name: "Concourse", cx: 0, cz: -5.5, w: 14, d: 3.5, color: "#93c5fd" },
+      { id: "1e", name: "Restrooms", cx: -13, cz: 9.75, w: 4, d: 3.5, color: "#bfdbfe" },
+      { id: "1f", name: "Meeting Rooms", cx: 13, cz: 9.75, w: 4, d: 3.5, color: "#bfdbfe" },
       // Plant room (back-of-house, where the seed puts boilers/chillers/primary pumps)
-      { id: "1g", name: "Plant Room", cx: -13, cz: 8, w: 6, d: 4, color: "#64748b" },
+      { id: "1g", name: "Plant Room", cx: -1, cz: 9.75, w: 14, d: 3.5, color: "#64748b" },
     ],
     rooms: [
-      { id: "1a", name: "Main Entrance", vertices: rectVertices(0, -HALF_D + 4, 14, 6), color: "#3b82f6" },
-      { id: "1b", name: "Hall A — West", vertices: rectVertices(-10, 2, 14, 12), color: "#60a5fa" },
-      { id: "1c", name: "Hall A — East", vertices: rectVertices(10, 2, 14, 12), color: "#60a5fa" },
-      { id: "1d", name: "Concourse", vertices: rectVertices(0, -4, 12, 4), color: "#93c5fd" },
-      { id: "1e", name: "Restrooms", vertices: rectVertices(-HALF_W + 3, 8, 4, 6), color: "#bfdbfe" },
-      { id: "1f", name: "Meeting Rooms", vertices: rectVertices(HALF_W - 4, 8, 6, 6), color: "#bfdbfe" },
-      { id: "1g", name: "Plant Room", vertices: rectVertices(-13, 8, 6, 4), color: "#64748b" },
+      { id: "1a", name: "Main Entrance", vertices: rectVertices(0, -10, 16, 4.5), color: "#3b82f6" },
+      { id: "1b", name: "Hall A — West", vertices: rectVertices(-9.5, 2, 13, 11), color: "#60a5fa" },
+      { id: "1c", name: "Hall A — East", vertices: rectVertices(9.5, 2, 13, 11), color: "#60a5fa" },
+      { id: "1d", name: "Concourse", vertices: rectVertices(0, -5.5, 14, 3.5), color: "#93c5fd" },
+      { id: "1e", name: "Restrooms", vertices: rectVertices(-13, 9.75, 4, 3.5), color: "#bfdbfe" },
+      { id: "1f", name: "Meeting Rooms", vertices: rectVertices(13, 9.75, 4, 3.5), color: "#bfdbfe" },
+      { id: "1g", name: "Plant Room", vertices: rectVertices(-1, 9.75, 14, 3.5), color: "#64748b" },
     ],
   },
   {
@@ -449,18 +449,20 @@ export const BUILDING_FLOORS: FloorData[] = [
     yBase: 9.0,
     height: 8.5,
     zones: [
-      { id: "2a", name: "Hall B — West", cx: -10, cz: 0, w: 14, d: 14, color: "#a78bfa" },
-      { id: "2b", name: "Hall B — East", cx: 10, cz: 0, w: 14, d: 14, color: "#a78bfa" },
+      { id: "2a", name: "Hall B — West", cx: -10, cz: 0, w: 14, d: 6, color: "#a78bfa" },
+      { id: "2b", name: "Hall B — East", cx: 10, cz: 0, w: 14, d: 6, color: "#a78bfa" },
       { id: "2c", name: "VIP Lounge", cx: 0, cz: -8, w: 10, d: 6, color: "#c4b5fd" },
       { id: "2d", name: "Terrace", cx: 0, cz: 8, w: 16, d: 6, color: "#ddd6fe" },
       { id: "2e", name: "Control Room", cx: -HALF_W + 4, cz: -6, w: 6, d: 5, color: "#8b5cf6" },
+      { id: "2f", name: "Mezzanine Lobby", cx: 0, cz: -2.65, w: 5, d: 4, color: "#e0e0e0" },
     ],
     rooms: [
-      { id: "2a", name: "Hall B — West", vertices: rectVertices(-10, 0, 14, 14), color: "#a78bfa" },
-      { id: "2b", name: "Hall B — East", vertices: rectVertices(10, 0, 14, 14), color: "#a78bfa" },
+      { id: "2a", name: "Hall B — West", vertices: rectVertices(-10, 0, 14, 6), color: "#a78bfa" },
+      { id: "2b", name: "Hall B — East", vertices: rectVertices(10, 0, 14, 6), color: "#a78bfa" },
       { id: "2c", name: "VIP Lounge", vertices: rectVertices(0, -8, 10, 6), color: "#c4b5fd" },
       { id: "2d", name: "Terrace", vertices: rectVertices(0, 8, 16, 6), color: "#ddd6fe" },
       { id: "2e", name: "Control Room", vertices: rectVertices(-HALF_W + 4, -6, 6, 5), color: "#8b5cf6" },
+      { id: "2f", name: "Mezzanine Lobby", vertices: rectVertices(0, -2.65, 5, 4), color: "#e0e0e0" },
     ],
   },
 ];
@@ -1028,62 +1030,26 @@ function Floor({
 // ─── Sawtooth roof ─────────────────────────────────────────────────
 
 function SawtoothRoof({ yBase }: { yBase: number }) {
-  // Build 6 sawtooth ridges using angled roof planes, not flat boxes.
-  // Each ridge: front glass panel, slanted roof plane, flat top.
-  const ridges = [];
-  const rw = ROOF_RIDGE_W;
-  const rh = ROOF_RIDGE_H;
-  const startX = -HALF_W;
-
-  for (let i = 0; i < ROOF_RIDGES; i++) {
-    const cx = startX + rw * i + rw / 2;
-    ridges.push(
-      <group key={`ridge-${i}`}>
-        {/* Slanted roof face — tilted box to approximate a pitched sawtooth */}
-        <mesh
-          position={[cx, yBase + rh * 0.4, 0]}
-          rotation={[0, 0, -0.35]}
-          castShadow
-        >
-          <boxGeometry args={[rw * 0.45, rh * 0.85, D]} />
-          <meshStandardMaterial
-            color="#b8c9d6"
-            roughness={0.5}
-            metalness={0.35}
-          />
-        </mesh>
-        {/* Flat top section */}
-        <mesh position={[cx + rw * 0.2, yBase + rh * 0.55, 0]} castShadow>
-          <boxGeometry args={[rw * 0.35, 0.08, D]} />
-          <meshStandardMaterial
-            color="#a8b9c8"
-            roughness={0.6}
-            metalness={0.3}
-          />
-        </mesh>
-        {/* Front vertical glass panel for each ridge */}
-        <mesh position={[cx - rw * 0.25, yBase + rh * 0.4, HALF_D - 0.08]}>
-          <boxGeometry args={[0.05, rh * 0.8, D - 0.4]} />
-          <meshPhysicalMaterial
-            color="#5b8fd9"
-            transparent
-            opacity={0.2}
-            roughness={0.05}
-            metalness={0.9}
-            transmission={0.75}
-            thickness={0.2}
-          />
-        </mesh>
-        {/* Horizontal cap rail on front glass */}
-        <mesh position={[cx - rw * 0.25, yBase + rh * 0.78, HALF_D - 0.08]}>
-          <boxGeometry args={[0.06, 0.04, D - 0.2]} />
-          <meshStandardMaterial color="#64748b" roughness={0.3} metalness={0.6} />
-        </mesh>
-      </group>,
-    );
-  }
-
-  return <>{ridges}</>;
+  // Clean flat roof slab with subtle edge relief and equipment pad
+  return (
+    <group position={[0, yBase, 0]}>
+      {/* Main roof slab */}
+      <mesh position={[0, 0, 0]} receiveShadow>
+        <boxGeometry args={[W + 0.2, 0.12, D + 0.2]} />
+        <meshStandardMaterial color="#cbd5e1" roughness={0.7} metalness={0.05} />
+      </mesh>
+      {/* Roof surface texture — slightly lighter pad area */}
+      <mesh position={[0, 0.08, 0]}>
+        <boxGeometry args={[W - 0.5, 0.04, D - 0.5]} />
+        <meshStandardMaterial color="#d1d9e6" roughness={0.85} metalness={0} />
+      </mesh>
+      {/* Equipment pad / darker strip */}
+      <mesh position={[0, 0.12, D * 0.2]}>
+        <boxGeometry args={[W * 0.6, 0.03, D * 0.3]} />
+        <meshStandardMaterial color="#94a3b8" roughness={0.8} metalness={0} />
+      </mesh>
+    </group>
+  );
 }
 
 // ─── Ground plane + grid ───────────────────────────────────────────
@@ -1427,35 +1393,37 @@ export function AssetMarker3D({ asset, selected, onClick }: {
   onClick: (id: string) => void;
 }) {
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
-  const setHovered = useState(false)[1];
+  const [hovered, setHovered] = useState(false);
   const groupRef = useRef<THREE.Group>(null);
 
-  // Generate a flat icon sprite texture per asset type + status colour
-  const iconTexture = useMemo(() => {
-    const symbols: Record<string, string> = {
-      "Air Handler": "AH", Chiller: "CH", Boiler: "BL",
-      Pump: "PU", Fan: "FN", Elevator: "EL",
-      Lighting: "LT", Sensor: "SN",
+  // SVG icons for each asset type
+  const assetIcon = useMemo(() => {
+    const icons: Record<string, string> = {
+      "Air Handler": `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="6"/><path d="M12 6v4m0 4v4M6 12h4m4 0h4"/><path d="M6 6l3 3M18 6l-3 3M6 18l3-3M18 18l-3-3"/></svg>`,
+      Chiller: `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20 12h-4l-2-3-2 3-2-3-2 3H4"/><path d="M12 2v8m0 4v8"/><path d="M4 12v2m16-2v2"/></svg>`,
+      Boiler: `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 3c.5 3 2 5 4 7a6 6 0 0 1-8 0c2-2 3.5-4 4-7z"/><path d="M8 12a4 4 0 0 0 8 0"/><rect x="6" y="14" width="12" height="6" rx="1"/><line x1="6" y1="17" x2="18" y2="17"/></svg>`,
+      Pump: `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3c0 1.5 1 2.5 3 5 2-2.5 3-3.5 3-5a3 3 0 0 0-3-3z"/><path d="M7 20h10"/><path d="M9 20v2"/><path d="M15 20v2"/><line x1="12" y1="14" x2="12" y2="20"/></svg>`,
+      Fan: `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 8C14 4 16 2 16 2s-1 3-4 6"/><path d="M12 16c2 4 4 6 4 6s-1-3-4-6"/><path d="M8 12C4 10 2 8 2 8s3 1 6 4"/><path d="M16 12c4 2 6 4 6 4s-3-1-6-4"/></svg>`,
+      Elevator: `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="2" width="18" height="20" rx="2"/><path d="M9 6l2 2-2 2M15 18l-2-2 2-2"/><line x1="9" y1="14" x2="15" y2="14"/><line x1="15" y1="10" x2="9" y2="10"/></svg>`,
+      Lighting: `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15 14H9l1-2h4l1 2z"/><path d="M12 2a5 5 0 0 0-4 8c0 2 1 3 1 3h6s1-1 1-3a5 5 0 0 0-4-8z"/></svg>`,
+      Sensor: `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/><path d="M4.22 4.22l2.83 2.83m9.9 9.9l2.83 2.83M19.78 4.22l-2.83 2.83m-9.9 9.9l-2.83 2.83"/></svg>`,
     };
-    const sym = symbols[asset.type] ?? "?";
-    const size = 64;
+    return icons[asset.type] ?? `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>`;
+  }, [asset.type]);
+
+  // Generate a colored dot sprite (no text — real icon shown in hover label)
+  const iconTexture = useMemo(() => {
+    const size = 32;
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext("2d")!;
-    // Coloured circle
     ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2 - 3, 0, Math.PI * 2);
+    ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
     ctx.fillStyle = `#${hexColor.toString(16).padStart(6, "0")}`;
     ctx.fill();
-    // White symbol
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `bold ${size * 0.44}px system-ui, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(sym, size / 2, size / 2);
     return new THREE.CanvasTexture(canvas);
-  }, [asset.type, hexColor]);
+  }, [hexColor]);
 
   // Gentle pulse animation based on status
   useFrame((state) => {
@@ -1576,23 +1544,30 @@ export function AssetMarker3D({ asset, selected, onClick }: {
           <meshBasicMaterial color="#3b82f6" transparent opacity={0.15} />
         </mesh>
       )}
-      {/* Always-visible compact status badge */}
-      <Html distanceFactor={8} position={[0, 3.5, 0]} center>
-        <div
-          className="px-1.5 py-0.5 rounded text-[9px] whitespace-nowrap pointer-events-none"
-          style={{
-            background: "rgba(0,0,0,0.55)",
-            color: "#fff",
-            lineHeight: 1.3,
-            textAlign: "center",
-          }}
-        >
-          <div className="font-medium">{asset.name}</div>
-          <div style={{ color: conditionRingColor }}>
-            ● {asset.status.toUpperCase()}
+      {/* ── Hover label with real SVG icon (hidden until hover) ── */}
+      {hovered && (
+        <Html distanceFactor={6} position={[0, 3.5, 0]} center>
+          <div
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg whitespace-nowrap pointer-events-none shadow-lg"
+            style={{
+              background: "rgba(0,0,0,0.8)",
+              color: "#fff",
+              lineHeight: 1.3,
+              fontSize: 11,
+            }}
+          >
+            <span
+              className="w-4 h-4 flex items-center justify-center rounded-full"
+              style={{ background: `#${hexColor.toString(16).padStart(6, "0")}` }}
+              dangerouslySetInnerHTML={{ __html: assetIcon }}
+            />
+            <span className="font-medium">{asset.name}</span>
+            <span style={{ color: `#${hexColor.toString(16).padStart(6, "0")}` }}>
+              ●
+            </span>
           </div>
-        </div>
-      </Html>
+        </Html>
+      )}
     </group>
   );
 }
@@ -1798,6 +1773,73 @@ export function Building({
           <ArchitecturalTree position={[8, 0, -HALF_D - 5]} />
         </group>
       )}
+    </group>
+  );
+}
+
+// ─── GLB / GLTF Model Loader ────────────────────────────────────────
+
+/**
+ * Renders an uploaded GLB/GLTF building model in place of the procedural
+ * Building component. Named child objects in the GLB are reported via
+ * onObjectsFound and can be individually toggled via visibleObjects for
+ * layer-panel integration.
+ */
+export function BuildingModel({
+  modelUrl,
+  visibleObjects,
+  onObjectsFound,
+}: {
+  modelUrl: string;
+  visibleObjects?: Set<string>;
+  onObjectsFound?: (names: string[]) => void;
+}) {
+  const { scene } = useGLTF(modelUrl);
+
+  // Report distinct named objects from the GLB so the parent can show layer toggles
+  useEffect(() => {
+    if (!onObjectsFound) return;
+    const found = new Set<string>();
+    scene.traverse((child) => {
+      if (child.name) found.add(child.name);
+    });
+    const names = Array.from(found).sort();
+    if (names.length > 0) onObjectsFound(names);
+  }, [scene, onObjectsFound]);
+
+  // Apply per-object visibility toggles from the Layers panel
+  useEffect(() => {
+    if (!visibleObjects || visibleObjects.size === 0) {
+      scene.traverse((child) => { child.visible = true; });
+    } else {
+      scene.traverse((child) => {
+        if (child.name) {
+          child.visible = visibleObjects.has(child.name);
+        }
+      });
+    }
+  }, [scene, visibleObjects]);
+
+  // Center the model and floor it on y=0
+  const [position, scale] = useMemo(() => {
+    // Temporarily show all children so the bounding box is correct
+    scene.traverse((child) => { child.visible = true; });
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    // Scale so the longest dimension fits within 28 units — a balanced
+    // size that looks good with the default camera (35, 12, 35)
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const s = maxDim > 0 ? 28 / maxDim : 1;
+    return [
+      [-center.x * s, -box.min.y * s, -center.z * s] as [number, number, number],
+      [s, s, s] as [number, number, number],
+    ];
+  }, [scene]);
+
+  return (
+    <group position={position} scale={scale}>
+      <primitive object={scene} />
     </group>
   );
 }

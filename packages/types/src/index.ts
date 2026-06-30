@@ -31,6 +31,8 @@ export interface Building {
   name: string;
   address?: string | null;
   totalFloors: number;
+  modelUrl?: string | null;
+  modelFormat?: string | null;
   createdAt: string;
   updatedAt: string;
 }
