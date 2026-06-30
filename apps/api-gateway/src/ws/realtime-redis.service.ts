@@ -11,9 +11,9 @@
  * backend pipeline and the frontend WebSocket.
  */
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { RealtimeGateway } from './realtime.gateway';
+import { createRedisOptions } from '../redis-config';
 
 export interface SensorReadingPayload {
   sensorId: string;
@@ -32,15 +32,11 @@ export class RealtimeRedisService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly gateway: RealtimeGateway,
-    config: ConfigService,
   ) {
-    this.redis = new Redis({
-      host: config.get<string>('redis.host') || 'localhost',
-      port: config.get<number>('redis.port') || 6379,
-      password: config.get<string>('redis.password') || undefined,
+    this.redis = new Redis(createRedisOptions({
       maxRetriesPerRequest: 3,
       lazyConnect: true,
-    });
+    }));
 
     // Suppress unhandled error events (Redis not running is non-fatal)
     this.redis.on('error', (err) => {
