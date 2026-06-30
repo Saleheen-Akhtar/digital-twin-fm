@@ -51,6 +51,9 @@ export const buildings = pgTable("buildings", {
   name: varchar("name", { length: 255 }).notNull(),
   address: varchar("address", { length: 255 }),
   totalFloors: integer("total_floors").notNull().default(1),
+  // BIM model reference — URL to the uploaded file on disk
+  modelUrl: text("model_url"),
+  modelFormat: varchar("model_format", { length: 16 }), // 'glb' | 'gltf' | 'ifc'
   createdAt: timestamp("created_at", { mode: "string" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "string" }).notNull().defaultNow(),
 });
