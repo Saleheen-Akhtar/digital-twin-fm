@@ -60,17 +60,17 @@ services:
       timeout: 5s
       retries: 5
 
-  # Optional: Mosquitto MQTT broker for real IoT devices (post-MVP)
-  # mosquitto:
-  #   image: eclipse-mosquitto:2
-  #   container_name: dtfm-mqtt
-  #   ports:
-  #     - "1883:1883"
-  #     - "9001:9001"
-  #   volumes:
-  #     - mosquitto_data:/mosquitto/data
-  #     - mosquitto_log:/mosquitto/log
-  #     - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+  # MQTT broker for real IoT devices (ESP32 demo hardware)
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: dtfm-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
 
   # Optional: Caddy reverse proxy (recommended for staging/prod)
   # caddy:
@@ -87,7 +87,7 @@ services:
 volumes:
   postgres_data:
   valkey_data:
-  # mosquitto_data:
-  # mosquitto_log:
+  mosquitto_data:
+  mosquitto_log:
   # caddy_data:
   # caddy_config:
