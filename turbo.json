@@ -15,7 +15,7 @@
       "inputs": ["src/**", "*.config.*", "package.json", "jest.config.*"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"],
+      "dependsOn": ["^build"],
       "inputs": ["src/**", "tsconfig.json", "package.json"]
     },
     "dev": {
