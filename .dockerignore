@@ -1,0 +1,20 @@
+# ────────────────────────────────────────────────────────────────
+# .dockerignore — exclude build artifacts & caches
+# ────────────────────────────────────────────────────────────────
+node_modules
+.git
+.gitignore
+.next
+dist
+.turbo
+.pnpm-store
+.pnpm-home
+uploads
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.scratch
+scratch
+docs/*.docx
+README.md
