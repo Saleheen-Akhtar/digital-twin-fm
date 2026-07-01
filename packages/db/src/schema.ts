@@ -71,6 +71,7 @@ export const rooms = pgTable("rooms", {
   id: uuid("id").primaryKey().defaultRandom(),
   floorId: uuid("floor_id").notNull().references(() => floors.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
+  color: varchar("color", { length: 32 }),
 });
 
 // ─────────────────────── Assets ───────────────────────
