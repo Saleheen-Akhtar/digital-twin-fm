@@ -63,6 +63,8 @@ import type {
   AssetStatus,
   AssetType,
   Asset,
+  Floor,
+  Room,
   SensorType,
   Sensor,
   SensorReading,
@@ -79,6 +81,8 @@ export type {
   AssetStatus,
   AssetType,
   Asset,
+  Floor,
+  Room,
   SensorType,
   Sensor,
   SensorReading,
@@ -218,6 +222,20 @@ export function createApiClient(opts: ApiClientOptions, deps: ApiClientDeps = {}
       call<Building[]>('/buildings', { method: 'GET' }, callDeps),
     findBuilding: (id: string, callDeps: ApiClientDeps = {}) =>
       call<Building>(`/buildings/${id}`, { method: 'GET' }, callDeps),
+    findBuildingFloors: (id: string, callDeps: ApiClientDeps = {}) =>
+      call<Floor[]>(`/buildings/${id}/floors`, { method: 'GET' }, callDeps),
+    updateZone: (
+      buildingId: string,
+      floorId: string,
+      zoneId: string,
+      input: { name?: string; color?: string },
+      callDeps: ApiClientDeps = {},
+    ) =>
+      call<Room>(
+        `/buildings/${buildingId}/floors/${floorId}/zones/${zoneId}`,
+        { method: 'PATCH', body: JSON.stringify(input) },
+        callDeps,
+      ),
     findBuildingSnapshot: (buildingId: string, callDeps: ApiClientDeps = {}) =>
       call<{ found: boolean; snapshot?: BuildingSnapshot; message?: string }>(
         `/building/snapshot?buildingId=${encodeURIComponent(buildingId)}`,

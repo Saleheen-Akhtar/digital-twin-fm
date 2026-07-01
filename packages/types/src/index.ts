@@ -37,6 +37,21 @@ export interface Building {
   updatedAt: string;
 }
 
+export interface Floor {
+  id: string;
+  buildingId: string;
+  level: number;
+  name: string;
+  rooms?: Room[];
+}
+
+export interface Room {
+  id: string;
+  floorId: string;
+  name: string;
+  color?: string | null;
+}
+
 export interface Asset {
   id: string;
   buildingId: string;
