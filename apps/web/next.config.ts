@@ -124,6 +124,8 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   transpilePackages: ['@digital-twin-fm/db'],
+  // Standalone output for Docker (set NEXT_OUTPUT=standalone to enable)
+  output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];
   },
