@@ -195,6 +195,34 @@ function CameraBoundsGuard({ enabled }: { enabled: boolean }) {
   return null;
 }
 
+/**
+ * Constrains walk-mode camera to the walkable area of the current floor.
+ * Prevents walking through walls or off the building edge.
+ * Uses floorWalkableBounds() which derives its bounding box from room
+ * polygons on the selected floor.
+ */
+function WalkBoundsGuard({ selectedFloor, enabled }: {
+  selectedFloor: FloorFilter;
+  enabled: boolean;
+}) {
+  const { camera } = useThree();
+
+  useFrame(() => {
+    if (!enabled || selectedFloor === "ALL") return;
+
+    const bounds = floorWalkableBounds(selectedFloor as number);
+    if (!bounds) return;
+
+    // Clamp to walkable area — keeps the user inside room polygons
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, bounds.min.x, bounds.max.x);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, bounds.min.z, bounds.max.z);
+    // Keep camera between floor + 0.5m and ceiling
+    camera.position.y = THREE.MathUtils.clamp(camera.position.y, bounds.min.y + 0.5, bounds.max.y - 0.1);
+  });
+
+  return null;
+}
+
 // ─── Scene content (inside Canvas) ─────────────────────────────────
 
 function SceneContent({
@@ -366,6 +394,9 @@ function SceneContent({
 
       {/* Clamp orbit target to building footprint */}
       <CameraBoundsGuard enabled={!walkMode} />
+
+      {/* Constrain walk-mode camera to room polygons */}
+      <WalkBoundsGuard selectedFloor={selectedFloor} enabled={walkMode} />
     </>
   );
 }
