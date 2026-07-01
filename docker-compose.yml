@@ -1,7 +1,15 @@
 # Digital Twin FM — Local dev infrastructure
-# All services here are MIT/BSD/Apache-2.0; safe for commercial use.
+# Build images first:
+#   docker build -f docker/web.Dockerfile -t dtfm-web .
+#   docker build -f docker/api-gateway.Dockerfile -t dtfm-api .
+#   docker build -f docker/ingestion-service.Dockerfile -t dtfm-ingestion .
+#   docker build -f docker/ai-service.Dockerfile -t dtfm-ai .
+#
+# Then: docker compose up
 
 services:
+  # ── Infrastructure ────────────────────────────────────────────
+
   postgres:
     image: timescale/timescaledb:latest-pg16
     container_name: dtfm-postgres
@@ -13,10 +21,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    # Per Finding 16 (Medium): bind to 127.0.0.1 instead of 0.0.0.0 so
-    # the dev database is NOT exposed on the LAN. To expose the
-    # database on the host (e.g. for a desktop client), use the
-    # `docker-compose.override.yml` or pass `127.0.0.1:5432:5432`.
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -25,13 +29,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Valkey (BSD) is a true drop-in fork of Redis, fully open under BSD.
-  # Pin to 7.2 for last-fully-open Redis, or use Valkey for a cleaner license.
-  #
-  # Per Finding 16 (Medium): require a password via --requirepass. The
-  # previous config shipped with no auth — anyone on the host's loopback
-  # (and on 0.0.0.0, anyone on the LAN) could read all session/refresh/
-  # pub-sub state.
   valkey:
     image: valkey/valkey:7.2-alpine
     container_name: dtfm-valkey
@@ -48,10 +45,6 @@ services:
       - 0.0.0.0
     volumes:
       - valkey_data:/data
-    # Per Finding 16: host port mapping 127.0.0.1:6379 already restricts
-    # access to host-loopback only. The container --bind must be 0.0.0.0
-    # so Docker port forwarding (host 127.0.0.1:6379 → container eth0:6379)
-    # can actually reach the server.
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
@@ -60,7 +53,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # MQTT broker for real IoT devices (ESP32 demo hardware)
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: dtfm-mqtt
@@ -71,6 +63,101 @@ services:
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  # ── App services ──────────────────────────────────────────────
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/api-gateway.Dockerfile
+    image: dtfm-api
+    container_name: dtfm-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-dtfm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-dtfm_db}
+      POSTGRES_SSL: "false"
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      AI_SERVICE_URL: http://ai:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    volumes:
+      - api-uploads:/app/apps/api-gateway/uploads
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        NEXT_OUTPUT: standalone
+    image: dtfm-web
+    container_name: dtfm-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_OUTPUT: standalone
+      API_GATEWAY_URL: http://api-gateway:4000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    depends_on:
+      - api-gateway
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: docker/ingestion-service.Dockerfile
+    image: dtfm-ingestion
+    container_name: dtfm-ingestion
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4100:4100"
+    environment:
+      NODE_ENV: production
+      INGESTION_HOST: 0.0.0.0
+      INGESTION_PORT: 4100
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      MQTT_URL: mqtt://mosquitto:1883
+      INGESTION_LOG_LEVEL: info
+    depends_on:
+      valkey:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+
+  ai:
+    build:
+      context: .
+      dockerfile: docker/ai-service.Dockerfile
+    image: dtfm-ai
+    container_name: dtfm-ai
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      AI_HOST: 0.0.0.0
+      AI_SERVICE_PORT: 8000
+      PYTHONUNBUFFERED: 1
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LITELLM_MODEL: ${LITELLM_MODEL:-gpt-4o-mini}
+      AI_CORS_ORIGIN: ${AI_CORS_ORIGIN:-http://localhost:3000}
 
   # Optional: Caddy reverse proxy (recommended for staging/prod)
   # caddy:
@@ -89,5 +176,4 @@ volumes:
   valkey_data:
   mosquitto_data:
   mosquitto_log:
-  # caddy_data:
-  # caddy_config:
+  api-uploads:
