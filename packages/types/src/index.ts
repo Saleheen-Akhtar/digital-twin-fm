@@ -118,9 +118,12 @@ export interface WorkOrder {
   priority: WorkOrderPriority;
   status: WorkOrderStatus;
   assignedTo?: string;
-  createdAt: string;
-  dueAt?: string;
+  createdBy?: string;
+  startedAt?: string;
   completedAt?: string;
+  dueAt?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 // ──────────────────────────────────────────────
