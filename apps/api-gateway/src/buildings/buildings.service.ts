@@ -41,19 +41,69 @@ export class BuildingsService {
     }));
   }
 
+  // ─── Floor CRUD ─────────────────────────────────
+
+  async createFloor(buildingId: string, dto: { name: string; level: number }): Promise<Floor> {
+    const [row] = await this.db
+      .insert(floors)
+      .values({ buildingId, name: dto.name, level: dto.level })
+      .returning();
+    return { id: row.id, buildingId: row.buildingId, level: row.level, name: row.name, rooms: [] };
+  }
+
+  async deleteFloor(buildingId: string, floorId: string): Promise<boolean> {
+    const result = await this.db
+      .delete(floors)
+      .where(and(eq(floors.id, floorId), eq(floors.buildingId, buildingId)));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ─── Zone CRUD ──────────────────────────────────
+
+  async createZone(buildingId: string, floorId: string, dto: { name: string; color?: string }): Promise<Room> {
+    // Verify floor belongs to building
+    const floorRow = await this.db
+      .select()
+      .from(floors)
+      .where(and(eq(floors.id, floorId), eq(floors.buildingId, buildingId)))
+      .limit(1);
+    if (!floorRow[0]) throw new Error('Floor not found for this building');
+
+    const [row] = await this.db
+      .insert(rooms)
+      .values({ floorId, name: dto.name, color: dto.color ?? null })
+      .returning();
+    return { id: row.id, floorId: row.floorId, name: row.name, color: row.color ?? undefined };
+  }
+
+  async deleteZone(buildingId: string, floorId: string, zoneId: string): Promise<boolean> {
+    // Verify floor belongs to building
+    const floorRow = await this.db
+      .select()
+      .from(floors)
+      .where(and(eq(floors.id, floorId), eq(floors.buildingId, buildingId)))
+      .limit(1);
+    if (!floorRow[0]) return false;
+
+    const result = await this.db
+      .delete(rooms)
+      .where(and(eq(rooms.id, zoneId), eq(rooms.floorId, floorId)));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // ─── Zone update ─────────────────────────────────
+
   async updateZone(
     buildingId: string,
     floorId: string,
     zoneId: string,
     dto: { name?: string; color?: string },
   ): Promise<Room | null> {
-    // Verify the zone belongs to a floor that belongs to the specified building
     const matchingFloor = await this.db
       .select()
       .from(floors)
       .where(and(eq(floors.id, floorId), eq(floors.buildingId, buildingId)))
       .limit(1);
-
     if (!matchingFloor[0]) return null;
 
     const updateFields: Record<string, string> = {};
@@ -61,7 +111,6 @@ export class BuildingsService {
     if (dto.color !== undefined) updateFields.color = dto.color;
 
     if (Object.keys(updateFields).length === 0) {
-      // No-op — return the existing room
       const existing = await this.db
         .select()
         .from(rooms)
@@ -77,12 +126,6 @@ export class BuildingsService {
       .returning();
 
     if (!updated) return null;
-
-    return {
-      id: updated.id,
-      floorId: updated.floorId,
-      name: updated.name,
-      color: updated.color,
-    };
+    return { id: updated.id, floorId: updated.floorId, name: updated.name, color: updated.color ?? undefined };
   }
 }
