@@ -173,10 +173,10 @@ export default function BuildingPage() {
       )}
 
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{building?.name ?? "Building"}</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{building?.name ?? "Building"}</h1>
+          <p className="mt-1 text-xs sm:text-sm text-slate-500">
             {floors.length} {(floors.length === 1 ? "floor" : "floors")} · {totalRooms} zones
             {building?.address ? ` · ${building.address}` : ""}
           </p>
