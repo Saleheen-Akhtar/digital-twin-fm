@@ -83,6 +83,9 @@ importers:
       jose:
         specifier: ^5.9.0
         version: 5.10.0
+      mqtt:
+        specifier: ^5.10.0
+        version: 5.15.1
       passport:
         specifier: ^0.7.0
         version: 0.7.0
