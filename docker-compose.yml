@@ -89,6 +89,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       AI_SERVICE_URL: http://ai:8000
+      MQTT_URL: mqtt://mosquitto:1883
     depends_on:
       postgres:
         condition: service_healthy
