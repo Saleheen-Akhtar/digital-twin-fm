@@ -131,6 +131,9 @@ export default function BuildingPage() {
           />
         ))}
       </div>
+
+      {/* ── Device Control ── */}
+      <ActuatorPanel />
     </div>
   );
 }
@@ -279,5 +282,109 @@ function ZoneCard({
         </>
       )}
     </div>
+  );
+}
+
+// ─── Actuator Panel ─────────────────────────────────────────────────
+
+function ActuatorPanel() {
+  const [actuatorId, setActuatorId] = useState("esp32-01");
+  const [commandType, setCommandType] = useState<string>("toggle");
+  const [value, setValue] = useState("");
+  const [status, setStatus] = useState<{ok: boolean; topic?: string; error?: string} | null>(null);
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    setSending(true);
+    setStatus(null);
+    try {
+      const api = createBrowserApiClient();
+      const payload: Record<string, unknown> = { command: commandType };
+      if (commandType === "set_value" && value) {
+        payload.value = parseFloat(value);
+      }
+      const res = await api.post<{ ok: boolean; topic: string }>(
+        `/actuators/${actuatorId}/command`,
+        payload,
+      );
+      setStatus({ ok: true, topic: res.topic });
+    } catch (err) {
+      setStatus({ ok: false, error: err instanceof Error ? err.message : "Failed to send" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="mt-8">
+      <h2 className="mb-4 text-lg font-semibold text-slate-900">Device Control</h2>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="flex-1 min-w-[160px]">
+            <label className="mb-1 block text-[12px] font-medium text-slate-500 uppercase tracking-wider">
+              Actuator ID
+            </label>
+            <input
+              type="text"
+              value={actuatorId}
+              onChange={(e) => setActuatorId(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none"
+            />
+          </div>
+          <div className="w-[140px]">
+            <label className="mb-1 block text-[12px] font-medium text-slate-500 uppercase tracking-wider">
+              Command
+            </label>
+            <select
+              value={commandType}
+              onChange={(e) => setCommandType(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-slate-900 focus:border-indigo-400 focus:outline-none"
+            >
+              <option value="toggle">Toggle</option>
+              <option value="set_value">Set Value</option>
+              <option value="set_mode">Set Mode</option>
+              <option value="calibrate">Calibrate</option>
+            </select>
+          </div>
+          {commandType === "set_value" && (
+            <div className="w-[120px]">
+              <label className="mb-1 block text-[12px] font-medium text-slate-500 uppercase tracking-wider">
+                Value
+              </label>
+              <input
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-slate-900 focus:border-indigo-400 focus:outline-none"
+              />
+            </div>
+          )}
+          <button
+            onClick={handleSend}
+            disabled={sending}
+            className="rounded-xl bg-indigo-500 px-5 py-2 text-[13px] font-medium text-white hover:bg-indigo-600 disabled:opacity-40"
+          >
+            {sending ? "Sending…" : "Send"}
+          </button>
+        </div>
+
+        {status && (
+          <div className={`mt-3 rounded-xl px-4 py-2 text-[13px] ${
+            status.ok
+              ? "border border-emerald-100 bg-emerald-50 text-emerald-800"
+              : "border border-red-100 bg-red-50 text-red-800"
+          }`}>
+            {status.ok
+              ? `✅ Published to ${status.topic}`
+              : `❌ ${status.error}`}
+          </div>
+        )}
+
+        <p className="mt-3 text-[12px] text-slate-400 leading-relaxed">
+          Commands are published to <code className="text-slate-500">actuators/{`{id}`}/command</code> on the MQTT broker.
+          The ESP32 firmware must subscribe to this topic to receive them.
+        </p>
+      </div>
+    </section>
   );
 }
