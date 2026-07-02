@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Param, Body } from '@nestjs/common';
 import { ActuatorsService } from './actuators.service';
 import { SendCommandDto } from './dto/send-command.dto';
 
