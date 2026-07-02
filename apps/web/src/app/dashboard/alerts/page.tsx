@@ -165,7 +165,7 @@ export default function AlertsPage() {
         {/* Header */}
         <section className="flex items-center justify-between px-2 sm:px-1">
           <div>
-            <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-slate-950">Alerts</h1>
+            <h1 className="text-2xl sm:text-[32px] font-semibold tracking-[-0.04em] text-slate-950">Alerts</h1>
             <p className="mt-1 text-[15px] text-slate-500">
               {loading ? "Loading..." : `${alerts.length} unresolved alerts`}
             </p>
