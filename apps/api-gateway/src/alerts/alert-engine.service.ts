@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, gte, desc, lte, isNotNull, inArray } from 'drizzle-orm';
+import { eq, and, gte, desc, isNotNull, inArray } from 'drizzle-orm';
 import { alerts, sensors, sensorReadings, workOrders, assets } from '@digital-twin-fm/db';
 
 @Injectable()
