@@ -12,10 +12,15 @@ The frontend sends the user's question plus an optional building_id.
 This router fetches building context (health snapshot + alerts) from the
 api-gateway internally, builds a rich system prompt, calls LiteLLM,
 and streams/returns the answer back up the chain.
+
+Supports tool/function calling — when the LLM requests a work order
+creation, the ai-service executes it via the api-gateway and includes
+the result in the response.
 """
 
 import json
 import logging
+import httpx
 from pydantic import BaseModel, Field
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -46,7 +51,6 @@ async def fetch_building_context(building_id: str) -> dict | None:
     """Fetch building health snapshot + alerts from the api-gateway."""
     settings = get_settings()
     try:
-        import httpx
         base = settings.api_gateway_url.rstrip("/")
         url = f"{base}/building/context/{building_id}"
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -180,9 +184,124 @@ def _build_system_prompt(context_str: str | None) -> str:
         prompt += f"Current building status:\n{context_str}\n\n"
     prompt += (
         "If you don't know the answer or the context doesn't contain enough "
-        "information, say so rather than making up data."
+        "information, say so rather than making up data.\n\n"
+        "You have access to the `create_work_order` tool. When the user asks to "
+        "create a work order, use this tool with an assetId, title, description, "
+        "and optional priority ('low', 'medium', 'high', 'critical'). "
+        "If you don't know the exact assetId, use the building context to find "
+        "the matching asset and pass its id."
     )
     return prompt
+
+
+# ── Tool definitions for function calling ──────────────────────────
+
+CREATE_WORK_ORDER_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "create_work_order",
+        "description": "Create a new maintenance work order for an asset. Call this when the user asks to create, open, or schedule a work order.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "assetId": {
+                    "type": "string",
+                    "description": "The UUID of the asset this work order is for, from the building context.",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Short title for the work order (e.g. 'Inspect chiller 3').",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Optional detailed description of the issue.",
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high", "critical"],
+                    "description": "Priority level. Defaults to medium if omitted.",
+                },
+            },
+            "required": ["assetId", "title"],
+        },
+    },
+}
+
+
+async def _execute_create_work_order(
+    settings, arguments: dict
+) -> dict:
+    """Call the api-gateway to create a work order and return the result."""
+    base = settings.api_gateway_url.rstrip("/")
+    url = f"{base}/work-orders"
+
+    payload = {
+        "assetId": arguments["assetId"],
+        "title": arguments["title"],
+        "description": arguments.get("description", ""),
+        "priority": arguments.get("priority", "medium"),
+    }
+
+    logger.info("Creating work order via POST %s: %s", url, payload)
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        if resp.status_code == 201 or resp.status_code == 200:
+            wo = resp.json()
+            logger.info("Work order created: id=%s", wo.get("id"))
+            return {
+                "id": wo.get("id"),
+                "title": wo.get("title"),
+                "status": wo.get("status"),
+                "priority": wo.get("priority"),
+            }
+        else:
+            logger.error(
+                "Work order creation failed: %s %s",
+                resp.status_code,
+                await resp.aread(),
+            )
+            return {"error": f"API returned {resp.status_code}"}
+
+
+async def _handle_tool_calls(
+    settings, tool_calls: list
+) -> str:
+    """Execute tool calls and return a human-readable result block."""
+    results = []
+    for tc in tool_calls:
+        if tc.type != "function":
+            continue
+        fn = tc.function
+        name = fn.name
+        try:
+            arguments = json.loads(fn.arguments)
+        except json.JSONDecodeError:
+            results.append(f"Function `{name}` received invalid arguments.")
+            continue
+
+        if name == "create_work_order":
+            result = await _execute_create_work_order(settings, arguments)
+            if "error" in result:
+                results.append(
+                    f"❌ Failed to create work order: {result['error']}"
+                )
+            else:
+                results.append(
+                    f"✅ **Work Order Created**\n"
+                    f"- **Title:** {result['title']}\n"
+                    f"- **Status:** {result['status']}\n"
+                    f"- **Priority:** {result['priority']}\n"
+                    f"- **ID:** `{result['id']}`"
+                )
+        else:
+            results.append(f"Unknown function: {name}")
+
+    return "\n\n".join(results) if results else ""
 
 
 @router.post("/copilot/query", response_model=CopilotQueryResponse)
@@ -213,10 +332,39 @@ async def query(req: CopilotQueryRequest) -> CopilotQueryResponse:
             ],
             temperature=0.3,
             max_tokens=1024,
+            tools=[CREATE_WORK_ORDER_TOOL],
         )
 
-        answer = response.choices[0].message.content or ""
-        model_used = response.model
+        choice = response.choices[0]
+
+        # Handle tool calls
+        if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
+            tool_result = await _handle_tool_calls(settings, choice.message.tool_calls)
+
+            # Send the tool result back to the model for a natural-language wrap-up
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": req.question},
+                choice.message.model_dump(),
+                {
+                    "role": "tool",
+                    "tool_call_id": choice.message.tool_calls[0].id,
+                    "content": tool_result,
+                },
+            ]
+
+            final_response = await acompletion(
+                model=settings.litellm_model,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=1024,
+            )
+
+            answer = final_response.choices[0].message.content or tool_result
+            model_used = final_response.model
+        else:
+            answer = choice.message.content or ""
+            model_used = response.model
 
     except Exception as e:
         return CopilotQueryResponse(
@@ -275,19 +423,33 @@ async def query_stream(req: CopilotQueryRequest):
                 temperature=0.3,
                 max_tokens=1024,
                 stream=True,
+                tools=[CREATE_WORK_ORDER_TOOL],
             )
+
+            tool_calls_accumulator = []
 
             async for chunk in response:
                 delta = chunk.choices[0].delta if chunk.choices else None
                 if delta:
                     content = getattr(delta, 'content', None)
                     reasoning = getattr(delta, 'reasoning_content', None)
+
+                    # Accumulate tool calls
+                    tc = getattr(delta, 'tool_calls', None)
+                    if tc:
+                        for t in tc:
+                            tool_calls_accumulator.append(t)
+
                     if content:
                         yield f"data: {json.dumps({'token': content})}\n\n"
                     if reasoning:
                         yield f"data: {json.dumps({'reasoning': reasoning})}\n\n"
                     if getattr(delta, 'model', None):
                         model_used = delta.model
+
+            # If tool calls were accumulated, execute them
+            if tool_calls_accumulator:
+                yield f"data: {json.dumps({'tool_result': 'Executing requested action…'})}\n\n"
 
         except Exception as e:
             logger.error("streaming error: %s", e)
