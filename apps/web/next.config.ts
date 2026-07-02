@@ -1,5 +1,11 @@
 import type { NextConfig } from 'next';
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const withBundleAnalyzer =
+  process.env.ANALYZE === 'true'
+    ? require('@next/bundle-analyzer')({ enabled: true })
+    : (cfg: NextConfig) => cfg;
+
 // Load monorepo-root `.env` into `process.env` BEFORE Next.js boots the
 // server, so the middleware (which reads `process.env.JWT_ACCESS_SECRET`
 // lazily on every request) sees the secret.
@@ -118,13 +124,14 @@ const securityHeaders = [
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
 ];
 
+const analyzerEnabled = process.env.ANALYZE === 'true';
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
   transpilePackages: ['@digital-twin-fm/db'],
-  // Standalone output for Docker (set NEXT_OUTPUT=standalone to enable)
   output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];
@@ -133,8 +140,13 @@ const nextConfig: NextConfig = {
     serverActions: {
       allowedOrigins: ['localhost:3000'],
     },
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'recharts'],
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      'recharts',
+      'react-markdown',
+    ],
   },
 };
 
-export default nextConfig;
+export default analyzerEnabled ? withBundleAnalyzer(nextConfig) : nextConfig;
