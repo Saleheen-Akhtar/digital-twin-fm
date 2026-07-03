@@ -50,6 +50,10 @@ export interface Room {
   floorId: string;
   name: string;
   color?: string | null;
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
 }
 
 export interface Asset {
