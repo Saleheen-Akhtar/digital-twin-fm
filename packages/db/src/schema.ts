@@ -72,6 +72,11 @@ export const rooms = pgTable("rooms", {
   floorId: uuid("floor_id").notNull().references(() => floors.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   color: varchar("color", { length: 32 }),
+  // Floor plan geometry (relative to floor canvas, 0-1000 units)
+  positionX: doublePrecision("position_x").default(0),
+  positionY: doublePrecision("position_y").default(0),
+  width: doublePrecision("width").default(200),
+  height: doublePrecision("height").default(150),
 });
 
 // ─────────────────────── Assets ───────────────────────
