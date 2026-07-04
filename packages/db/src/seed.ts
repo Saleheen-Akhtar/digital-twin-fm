@@ -199,11 +199,18 @@ async function main() {
   const dbFloorToViewerFloor = (dbLevel: number): 0 | 1 =>
     Math.max(0, Math.min(1, dbLevel - 1)) as 0 | 1;
 
-  // Per-type deterministic placement inside the building footprint
-  // (36m × 24m per apps/web/src/design-system/tokens.ts).
-  // Plant-room cluster (boilers, chillers, primary pumps) sits at the
-  // back-of-house (−X, +Z corner); public-facing equipment spread evenly.
-  const plantRoom = { xRange: [-16, -10] as const, zRange: [6, 10] as const };
+  // Per-type deterministic placement inside the building's room polygons.
+  // Room bounds replicated from viewer-building.tsx BUILDING_FLOORS:
+  //   Floor 0 (Exhibition): 1a=[-8,8]×[-12.25,-7.75], 1b=[-16,-3]×[-3.5,7.5],
+  //     1c=[3,16]×[-3.5,7.5], 1g=[-8,6]×[8,11.5]
+  //   Floor 1 (Mezzanine):   2a=[-17,-3]×[-3,3], 2b=[3,17]×[-3,3],
+  //     2c=[-5,5]×[-11,-5], 2e=[-17,-11]×[-8.5,-3.5]
+  const plantBounds: Record<number, { xRange: readonly [number, number]; zRange: readonly [number, number] }> = {
+    // Floor 1 (DB) = viewer 0: real Plant Room (room 1g)
+    1: { xRange: [-6, 4] as const, zRange: [9, 10.5] as const },
+    // Floor 2 (DB) = viewer 1: mezzanine pumps in Hall B West
+    2: { xRange: [-15, -5] as const, zRange: [-2, 2] as const },
+  };
   const plantTypes = new Set<AssetTypeDb>(["boiler", "chiller", "pump"]);
 
   const typeCounter: Record<AssetTypeDb, number> = {
@@ -227,20 +234,31 @@ async function main() {
         const viewerFloor = dbFloorToViewerFloor(plan.floor);
         const floorRow = floorRows[plan.floor - 1];
 
-        // Deterministic 3D position
+        // Deterministic 3D position — always inside a room polygon
         let x: number;
         let z: number;
         if (isPlant) {
-          // Cluster plant equipment in the back-of-house corner
-          x = faker.number.float({ min: plantRoom.xRange[0], max: plantRoom.xRange[1] });
-          z = faker.number.float({ min: plantRoom.zRange[0], max: plantRoom.zRange[1] });
+          // Place inside the matching plant/mechanical room on this floor
+          const bounds = plantBounds[plan.floor];
+          x = faker.number.float({ min: bounds.xRange[0], max: bounds.xRange[1] });
+          z = faker.number.float({ min: bounds.zRange[0], max: bounds.zRange[1] });
         } else {
-          // Public-facing equipment: deterministic 4×N grid across the hall
+          // Public-facing equipment inside Hall A West (1b) / East (1c) on floor 0,
+          // or Hall B West (2a) / East (2b) on floor 1
           const cols = 5;
           const col = i % cols;
-          const row = Math.floor(i / cols);
-          x = faker.number.float({ min: -12 + col * 5, max: -10 + col * 5 });
-          z = faker.number.float({ min: -8 + row * 4, max: -6 + row * 4 });
+          let row: number;
+          if (viewerFloor === 0) {
+            // Floor 0 rows span Hall A's z-range [-3.5, 7.5] — 11 units
+            row = Math.floor(i / cols);
+            x = faker.number.float({ min: -14 + col * 6, max: -12 + col * 6 });
+            z = faker.number.float({ min: -2 + row * 4.5, max: 0 + row * 4.5 });
+          } else {
+            // Floor 1 rows span Hall B's z-range [-3, 3] — 6 units
+            row = Math.floor(i / cols) % 2;  // only 5 assets on floor 1
+            x = faker.number.float({ min: -10 + col * 5, max: -8 + col * 5 });
+            z = faker.number.float({ min: -1.5 + row * 3, max: 0.5 + row * 3 });
+          }
         }
         // Y stays inside the building's vertical envelope:
         //   floor 0 (Exhibition): yBase=0,   yMax ≈ 8.5
