@@ -128,9 +128,6 @@ const analyzerEnabled = process.env.ANALYZE === 'true';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   transpilePackages: ['@digital-twin-fm/db'],
   output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   async headers() {
