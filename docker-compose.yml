@@ -66,6 +66,22 @@ services:
 
   # ── App services ──────────────────────────────────────────────
 
+  db-migrate:
+    image: dtfm-api
+    container_name: dtfm-db-migrate
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-dtfm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-dtfm_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["node", "node_modules/@digital-twin-fm/db/migrate.mjs"]
+
   api-gateway:
     build:
       context: .
@@ -78,6 +94,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      MVP_ADMIN_PASSWORD: ${MVP_ADMIN_PASSWORD:-}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-dtfm_user}
@@ -91,6 +110,8 @@ services:
       AI_SERVICE_URL: http://ai:8000
       MQTT_URL: mqtt://mosquitto:1883
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       valkey:
