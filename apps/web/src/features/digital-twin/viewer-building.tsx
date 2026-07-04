@@ -14,6 +14,7 @@
 import { useRef, useState, useMemo, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
+import { useViewerStore } from "./viewer-store";
 import { Html, Edges, Grid, useGLTF } from "@react-three/drei";
 import {
   colors,
@@ -1395,6 +1396,8 @@ export function AssetMarker3D({ asset, selected, onClick }: {
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
   const [hovered, setHovered] = useState(false);
   const groupRef = useRef<THREE.Group>(null);
+  const alertRingRef = useRef<THREE.Mesh>(null);
+  const hasAlert = useViewerStore((s) => s.activeAlertAssets.has(asset.id));
 
   // SVG icons for each asset type
   const assetIcon = useMemo(() => {
@@ -1442,6 +1445,16 @@ export function AssetMarker3D({ asset, selected, onClick }: {
       } else {
         groupRef.current.rotation.set(0, 0, 0);
       }
+    }
+
+    // Alert ring pulse animation
+    if (alertRingRef.current && hasAlert) {
+      const t = state.clock.getElapsedTime();
+      // Fast, dramatic pulse for alerts
+      const pulse = 0.5 + 0.5 * Math.sin(t * 4.0);
+      alertRingRef.current.scale.setScalar(1 + pulse * 0.3);
+      const mat = alertRingRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.3 + pulse * 0.5;
     }
   });
 
@@ -1538,6 +1551,20 @@ export function AssetMarker3D({ asset, selected, onClick }: {
       <group scale={1.5}>
         {renderShape()}
       </group>
+
+      {/* Alert ring overlay — pulses red when the asset has an active alert */}
+      {hasAlert && (
+        <mesh position={[0, 0.6, 0]} ref={alertRingRef}>
+          <ringGeometry args={[0.9, 1.6, 32]} />
+          <meshBasicMaterial
+            color="#ef4444"
+            transparent
+            opacity={0.5}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
       {selected && (
         <mesh>
           <sphereGeometry args={[1.4, 16, 16]} />
