@@ -37,7 +37,7 @@ export class DemoController {
   private readonly logger = new Logger(DemoController.name);
   private readonly redis: Redis;
 
-  constructor(config: ConfigService) {
+  constructor(_config: ConfigService) {
     this.redis = new Redis(
       createRedisOptions({
         maxRetriesPerRequest: 3,
