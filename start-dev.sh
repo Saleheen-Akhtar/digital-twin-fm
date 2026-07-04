@@ -11,19 +11,38 @@ mkdir -p "$LOGDIR"
 
 echo "=== Digital Twin FM — starting all services ==="
 
-# 1. Kill ghost PID on port 8000
-if netstat -ano 2>/dev/null | grep -q ":8000 .* LISTENING"; then
-  GHOST=$(netstat -ano 2>/dev/null | grep ":8000 " | grep LISTENING | awk '{print $NF}')
-  if [ -n "$GHOST" ]; then
-    echo "  [kill] ghost PID $GHOST on port 8000"
-    taskkill -f -pid "$GHOST" 2>/dev/null || true
-    sleep 1
-  fi
-fi
-
-# 2. Source .env (optional)
+# 1. Source .env (optional)
 if [ -f .env ]; then
   set -a; source .env; set +a
+fi
+
+# 2. Start infra dependencies (Docker containers)
+echo "  [infra] Starting PostgreSQL, Valkey, Mosquitto…"
+if docker info &>/dev/null; then
+  docker compose up -d postgres valkey mqtt 2>&1 | sed 's/^/     /'
+  echo "  [infra] Waiting for PostgreSQL to be healthy…"
+  for i in $(seq 1 30); do
+    if docker inspect --format='{{.State.Health.Status}}' dtfm-postgres 2>/dev/null | grep -q healthy; then
+      echo "  [infra] PostgreSQL healthy"
+      break
+    fi
+    sleep 1
+  done
+  echo "  [infra] Waiting for Valkey to be healthy…"
+  for i in $(seq 1 15); do
+    if docker inspect --format='{{.State.Health.Status}}' dtfm-valkey 2>/dev/null | grep -q healthy; then
+      echo "  [infra] Valkey healthy"
+      break
+    fi
+    sleep 1
+  done
+  # Run DB migration
+  echo "  [infra] Running DB migrations…"
+  docker compose run --rm db-migrate 2>&1 | sed 's/^/     /' || true
+else
+  echo "  [WARN] Docker not available — infra services must be running manually"
+  echo "         Start them with:  docker compose up -d postgres valkey mqtt"
+  echo "         Or open Docker Desktop first."
 fi
 
 # 3. Export overrides (per‑service only)
