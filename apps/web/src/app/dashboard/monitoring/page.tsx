@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
 import { useSensorRealtime } from "@/hooks/useSensorRealtime";
+import CopilotWidget from "@/features/copilot/copilot-widget";
 import type { Sensor, Building } from "@/lib/api-client";
 
 type ChartDef = {
@@ -389,6 +390,8 @@ export default function MonitoringPage() {
           </>
         )}
       </div>
+
+      <CopilotWidget contextHint="User is viewing the live monitoring dashboard for Singapore Expo Hall 7." />
     </div>
   );
 }
