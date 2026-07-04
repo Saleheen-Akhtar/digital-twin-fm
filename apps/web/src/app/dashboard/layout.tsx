@@ -146,28 +146,34 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const api = createBrowserApiClient();
     let cancelled = false;
-    Promise.all([
-      api.get<Alert[]>('/alerts'),
-      api.get<WorkOrder[]>('/work-orders'),
-      api.get<Array<{ name: string }>>('/buildings'),
-    ]).then(([alertsData, wosData, buildingsData]) => {
-      if (cancelled) return;
-      const arr = Array.isArray(alertsData) ? alertsData : [];
-      const openCount = arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed').length;
-      setAlertBadge(String(openCount));
-      const woAlertIds = new Set(
-        (Array.isArray(wosData) ? wosData : []).filter((wo) => wo.alertId).map((wo) => wo.alertId)
-      );
-      setPendingApprovals(arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed' && !woAlertIds.has(a.id)).length);
-      const buildings = Array.isArray(buildingsData) ? buildingsData : [];
-      if (buildings[0]?.name) {
-        setBuildingSubtitle(buildings[0].name);
-      }
-    })
-      .catch(() => {
-        if (!cancelled) { setAlertBadge(null); setPendingApprovals(0); }
-      });
-    return () => { cancelled = true; };
+
+    const fetchData = () => {
+      Promise.all([
+        api.get<Alert[]>('/alerts'),
+        api.get<WorkOrder[]>('/work-orders'),
+        api.get<Array<{ name: string }>>('/buildings'),
+      ]).then(([alertsData, wosData, buildingsData]) => {
+        if (cancelled) return;
+        const arr = Array.isArray(alertsData) ? alertsData : [];
+        const openCount = arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed').length;
+        setAlertBadge(String(openCount));
+        const woAlertIds = new Set(
+          (Array.isArray(wosData) ? wosData : []).filter((wo) => wo.alertId).map((wo) => wo.alertId)
+        );
+        setPendingApprovals(arr.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed' && !woAlertIds.has(a.id)).length);
+        const buildings = Array.isArray(buildingsData) ? buildingsData : [];
+        if (buildings[0]?.name) {
+          setBuildingSubtitle(buildings[0].name);
+        }
+      })
+        .catch(() => {
+          if (!cancelled) { setAlertBadge(null); setPendingApprovals(0); }
+        });
+    };
+
+    fetchData(); // initial load
+    const interval = setInterval(fetchData, 30_000); // poll every 30s for live badge updates
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   return (
