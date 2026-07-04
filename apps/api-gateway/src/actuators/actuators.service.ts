@@ -15,8 +15,13 @@ export class ActuatorsService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn('MQTT_URL not set — actuator commands will be logged only');
       return;
     }
-    this.mqttClient = mqtt.connect(url);
+    this.mqttClient = mqtt.connect(url, {
+      reconnectPeriod: 2000,
+      connectTimeout: 10_000,
+      clean: true,
+    });
     this.mqttClient.on('connect', () => this.logger.log(`Connected to MQTT broker at ${url}`));
+    this.mqttClient.on('reconnect', () => this.logger.log(`Reconnecting to MQTT broker at ${url}`));
     this.mqttClient.on('error', (err) => this.logger.error({ err }, 'MQTT error'));
   }
 

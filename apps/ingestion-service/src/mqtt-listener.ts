@@ -35,7 +35,21 @@ export type MqttListenerOptions = {
 export function startMqttListener(options: MqttListenerOptions): mqtt.MqttClient {
   const { url, redis, topic = "sensors/+/reading", log } = options;
 
-  const client: mqtt.MqttClient = mqtt.connect(url);
+  const client: mqtt.MqttClient = mqtt.connect(url, {
+    reconnectPeriod: 2000,
+    connectTimeout: 10_000,
+    clean: true,
+    will: {
+      topic: "sensors/system/status",
+      payload: JSON.stringify({ status: "offline", service: "ingestion-service" }),
+      qos: 1,
+      retain: true,
+    },
+  });
+
+  client.on("reconnect", () => {
+    log.info({ url }, "mqtt reconnecting");
+  });
 
   client.on("connect", () => {
     log.info({ url, topic }, "mqtt connected");

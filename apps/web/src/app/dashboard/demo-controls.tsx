@@ -1,0 +1,125 @@
+'use client';
+
+import { useState } from 'react';
+import { createBrowserApiClient } from '@/lib/browser-api-client';
+
+const SCENARIOS = [
+  { id: 'normal', label: 'Normal', icon: '✅' },
+  { id: 'chiller_failure', label: 'Chiller Failure', icon: '❄️🔴' },
+  { id: 'power_surge_floor_3', label: 'Power Surge', icon: '⚡' },
+  { id: 'severe_temp_breach', label: 'Temp Breach', icon: '🌡️🔥' },
+] as const;
+
+type ScenarioId = (typeof SCENARIOS)[number]['id'];
+
+export function DemoControls() {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<string | null>(null);
+  const api = createBrowserApiClient();
+
+  async function handleScenario(scenario: ScenarioId) {
+    setActive(`scenario:${scenario}`);
+    try {
+      const res = await api.post<{ success: boolean; scenario: string }>(
+        '/demo/scenario',
+        { scenario },
+      );
+      if (res.success) {
+        console.log(`[Demo] Scenario switched to ${res.scenario}`);
+      }
+    } catch (err) {
+      console.error('[Demo] Scenario failed:', err);
+    } finally {
+      setActive(null);
+    }
+  }
+
+  async function handleInjectAnomaly() {
+    setActive('inject');
+    try {
+      // Inject a temperature reading of 48°C to trigger threshold breach
+      const sensorId = 'anomaly-demo-test';
+      const res = await api.post<{ success: boolean }>(
+        '/demo/inject-reading',
+        {
+          sensorId,
+          assetId: sensorId,
+          value: 48,
+          unit: 'C',
+          quality: 'bad',
+        },
+      );
+      if (res.success) {
+        console.log(`[Demo] Anomaly reading injected`);
+      }
+    } catch (err) {
+      console.error('[Demo] Inject failed:', err);
+    } finally {
+      setActive(null);
+    }
+  }
+
+  return (
+    <>
+      {/* Floating toggle button */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg hover:bg-slate-700 transition-all"
+        title="Demo Controls"
+      >
+        <span className="text-lg">{open ? '✕' : '🎛️'}</span>
+      </button>
+
+      {/* Demo panel */}
+      {open && (
+        <div className="fixed bottom-20 right-6 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
+          <h3 className="mb-1 text-[13px] font-semibold text-slate-500 uppercase tracking-wider">
+            Demo Controls
+          </h3>
+          <p className="mb-3 text-[11px] text-slate-400">
+            Trigger scenarios and anomalies for live demos.
+          </p>
+
+          {/* Scenario buttons */}
+          <div className="mb-3 space-y-1.5">
+            <p className="text-[11px] font-medium text-slate-400">Simulator Scenarios</p>
+            {SCENARIOS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => handleScenario(s.id)}
+                disabled={active === `scenario:${s.id}`}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-[13px] transition-all ${
+                  s.id === 'normal'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                    : 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                } disabled:opacity-50`}
+              >
+                {active === `scenario:${s.id}` ? (
+                  <span className="inline-block w-4">⏳</span>
+                ) : (
+                  <span className="inline-block w-4">{s.icon}</span>
+                )}
+                <span className="ml-2">{s.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Inject anomaly */}
+          <button
+            onClick={handleInjectAnomaly}
+            disabled={active === 'inject'}
+            className="w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-left text-[13px] text-red-800 transition-all hover:bg-red-100 disabled:opacity-50"
+          >
+            {active === 'inject' ? '⏳' : '🚨'}{' '}
+            <span className="ml-1">Inject Anomaly Reading (48°C)</span>
+          </button>
+
+          <p className="mt-3 text-[10px] text-slate-400 leading-tight">
+            Scenarios require the simulator to be running. Injected readings
+            flow through the full pipeline (Redis → WebSocket → dashboard).
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
