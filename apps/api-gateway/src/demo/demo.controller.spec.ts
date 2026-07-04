@@ -5,6 +5,7 @@ import { DemoController } from './demo.controller';
 
 // Self-contained ioredis mock — no external variable references in the factory.
 jest.mock('ioredis', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { EventEmitter } = require('events');
   const ee = new EventEmitter();
   ee.publish = jest.fn().mockResolvedValue(1);
