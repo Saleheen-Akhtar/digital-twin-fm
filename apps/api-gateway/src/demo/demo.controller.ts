@@ -8,6 +8,10 @@
  *
  * All endpoints are admin-only (@Roles('admin')) and require a valid
  * JWT (the global JwtAuthGuard applies automatically).
+ *
+ * Redis connection is established once on module init and held for the
+ * lifetime of the service (eliminating per-request connect/disconnect
+ * churn reported in review).
  */
 import {
   Controller,
@@ -36,16 +40,24 @@ type Scenario = (typeof VALID_SCENARIOS)[number];
 export class DemoController {
   private readonly logger = new Logger(DemoController.name);
   private readonly redis: Redis;
+  private connected = false;
 
   constructor(_config: ConfigService) {
     this.redis = new Redis(
       createRedisOptions({
         maxRetriesPerRequest: 3,
-        lazyConnect: true,
+        lazyConnect: false, // connect on instantiation, hold for lifetime
       }),
     );
     this.redis.on('error', (err) => {
-      this.logger.warn(`Demo Redis connection error (non-fatal): ${(err as Error).message}`);
+      this.logger.warn(`Demo Redis error (non-fatal): ${(err as Error).message}`);
+      this.connected = false;
+    });
+    this.redis.on('connect', () => {
+      this.connected = true;
+    });
+    this.redis.on('close', () => {
+      this.connected = false;
     });
   }
 
@@ -71,12 +83,10 @@ export class DemoController {
     }
 
     try {
-      await this.redis.connect();
       await this.redis.publish(
         'simulator.control',
         JSON.stringify({ scenario }),
       );
-      await this.redis.disconnect();
       this.logger.log(`Demo scenario switched to: ${scenario}`);
       return { success: true, scenario: scenario as Scenario };
     } catch (err) {
@@ -98,6 +108,9 @@ export class DemoController {
    *
    * Body: { "sensorId": "...", "assetId": "...", "value": 42, "unit": "C",
    *         "quality": "good" }
+   *
+   * Rate limiting: the global ThrottlerBehindAuthGuard (20 req/s burst,
+   * 300 req/min sustained) applies — prevents accidental button mashing.
    */
   @Post('inject-reading')
   async injectReading(
@@ -124,9 +137,7 @@ export class DemoController {
     };
 
     try {
-      await this.redis.connect();
       await this.redis.publish('sensor.reading', JSON.stringify(reading));
-      await this.redis.disconnect();
       this.logger.log(
         `Demo injected reading: sensor=${reading.sensorId} value=${reading.value}${reading.unit}`,
       );
