@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, gte, desc, isNotNull, inArray } from 'drizzle-orm';
+import { eq, and, gte, desc, inArray, sql } from 'drizzle-orm';
 import { alerts, sensors, sensorReadings, workOrders, assets } from '@digital-twin-fm/db';
 import { RealtimeGateway } from '../ws/realtime.gateway';
 
@@ -17,6 +17,7 @@ export class AlertEngineService {
 
   /**
    * Runs every 5 minutes: evaluates sensor thresholds and auto-creates alerts.
+   * Batched query design avoids N+1 per-sensor round-trips.
    */
   @Cron(CronExpression.EVERY_5_MINUTES)
   async evaluate() {
@@ -40,126 +41,165 @@ export class AlertEngineService {
 
     this.logger.debug(`Evaluating ${thresholdSensors.length} sensors with thresholds`);
 
-    // The lookback window for recent readings (last 5 minutes)
-    const windowStart = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const windowStart = new Date(Date.now() - 5 * 60 * 1000);
 
-    for (const sensor of thresholdSensors) {
-      let breached = false;
+    // 2. Fetch latest reading per sensor IN ONE QUERY (DISTINCT ON)
+    const sensorIds = thresholdSensors.map((s) => s.id);
+    const latestReadings = await this.db.execute<{
+      sensor_id: string;
+      value: number;
+      timestamp: string;
+    }>(
+      sql`
+        SELECT DISTINCT ON (sr.sensor_id)
+          sr.sensor_id, sr.value, sr.timestamp
+        FROM ${sensorReadings} sr
+        WHERE sr.sensor_id = ANY(${sensorIds})
+          AND sr.timestamp >= ${windowStart.toISOString()}
+        ORDER BY sr.sensor_id, sr.timestamp DESC
+      `,
+    );
 
+    if (latestReadings.length === 0) {
+      this.logger.log('No recent readings found — skipping');
+      return;
+    }
+
+    // Build a map: sensorId → reading
+    const readingBySensor = new Map<string, { value: number; timestamp: string }>();
+    for (const row of latestReadings) {
+      readingBySensor.set(row.sensor_id, { value: row.value, timestamp: row.timestamp });
+    }
+
+    // 3. Determine which sensors breached a threshold
+    const breachedSensorIds = new Set<string>();
+    for (const s of thresholdSensors) {
+      const latest = readingBySensor.get(s.id);
+      if (!latest) continue;
+      if (s.thresholdHigh !== null && latest.value > s.thresholdHigh) {
+        breachedSensorIds.add(s.id);
+      } else if (s.thresholdLow !== null && latest.value < s.thresholdLow) {
+        breachedSensorIds.add(s.id);
+      }
+    }
+
+    if (breachedSensorIds.size === 0) {
+      this.logger.log('No thresholds breached — skipping');
+      return;
+    }
+
+    // 4. Deduplicate: find sensors that already have an open alert (single query)
+    const existingAlerts = await this.db
+      .select({ sensorId: alerts.sensorId })
+      .from(alerts)
+      .where(
+        and(
+          inArray(alerts.sensorId, Array.from(breachedSensorIds)),
+          inArray(alerts.status, ['open', 'acknowledged', 'in_progress'] as const),
+        ),
+      );
+
+    const existingAlertSensorIds = new Set(existingAlerts.map((a) => a.sensorId));
+
+    // 5. For sensors needing a new alert, batch-insert and auto-create work orders
+    const newAlertsData: Array<{
+      sensorId: string;
+      assetId: string;
+      severity: 'low' | 'medium' | 'high' | 'critical';
+      message: string;
+    }> = [];
+
+    for (const s of thresholdSensors) {
+      if (!breachedSensorIds.has(s.id)) continue;
+      if (existingAlertSensorIds.has(s.id)) continue;
+
+      const latest = readingBySensor.get(s.id)!;
+      const severity = detectSeverity(latest.value, s.thresholdLow!, s.thresholdHigh!);
+      const message = buildAlertMessage(s, latest.value, latest.timestamp, s.thresholdLow!, s.thresholdHigh!);
+
+      newAlertsData.push({
+        sensorId: s.id,
+        assetId: s.assetId,
+        severity,
+        message,
+      });
+    }
+
+    if (newAlertsData.length === 0) {
+      this.logger.log('All breached sensors already have open alerts — skipping');
+      return;
+    }
+
+    // Batch-insert all new alerts in one query
+    const insertedAlerts = await this.db
+      .insert(alerts)
+      .values(
+        newAlertsData.map((a) => ({
+          sensorId: a.sensorId,
+          assetId: a.assetId,
+          severity: a.severity,
+          status: 'open' as const,
+          message: a.message,
+        })),
+      )
+      .returning();
+
+    this.logger.log(`Created ${insertedAlerts.length} new alerts`);
+
+    // Broadcast each alert via WebSocket (non-blocking — don't await)
+    for (const alert of insertedAlerts) {
       try {
-        // Get the most recent reading within the window
-        const reading = await this.db
-          .select({ value: sensorReadings.value, timestamp: sensorReadings.timestamp })
-          .from(sensorReadings)
-          .where(
-            and(
-              eq(sensorReadings.sensorId, sensor.id),
-              gte(sensorReadings.timestamp, windowStart),
-            ),
-          )
-          .orderBy(desc(sensorReadings.timestamp))
-          .limit(1);
+        this.gateway.broadcastAlert({
+          id: alert.id,
+          assetId: alert.assetId,
+          severity: alert.severity,
+          message: alert.message,
+        });
+      } catch {
+        // WebSocket broadcast is non-fatal
+      }
+    }
 
-        if (reading.length === 0) continue;
+    // 6. Auto-create work orders for critical/high alerts
+    //    Fetch all needed asset names in one query
+    const criticalAlertIds = insertedAlerts.filter(
+      (a) => a.severity === 'critical' || a.severity === 'high',
+    );
 
-        const latest = reading[0];
+    if (criticalAlertIds.length > 0) {
+      const assetIds = [...new Set(criticalAlertIds.map((a) => a.assetId))];
+      const assetRows = await this.db
+        .select({ id: assets.id, name: assets.name })
+        .from(assets)
+        .where(inArray(assets.id, assetIds));
 
-        // Check thresholds
-        if (sensor.thresholdHigh !== null && latest.value > sensor.thresholdHigh) {
-          breached = true;
-        } else if (sensor.thresholdLow !== null && latest.value < sensor.thresholdLow) {
-          breached = true;
-        }
+      const assetNameMap = new Map(assetRows.map((a) => [a.id, a.name]));
 
-        if (!breached) continue;
+      const workOrderValues = criticalAlertIds.map((a) => ({
+        assetId: a.assetId,
+        alertId: a.id,
+        title: `Auto: ${a.severity} — threshold breach`,
+        description: a.message,
+        type: 'corrective' as const,
+        priority: a.severity,
+        status: 'open' as const,
+      }));
 
-        // 2. Deduplicate: don't create another open alert for the same sensor
-        const existingOpen = await this.db
-          .select({ id: alerts.id })
-          .from(alerts)
-          .where(
-            and(
-              eq(alerts.sensorId, sensor.id),
-              inArray(alerts.status, ['open', 'acknowledged', 'in_progress'] as const),
-            ),
-          )
-          .limit(1);
+      await this.db.insert(workOrders).values(workOrderValues);
+      this.logger.log(`Auto-created ${workOrderValues.length} work orders`);
 
-        if (existingOpen.length > 0) {
-          this.logger.debug(`Open alert already exists for sensor ${sensor.id} — skipping`);
-          continue;
-        }
-
-        // 3. Determine severity based on how far the reading is past the threshold
-        const high = sensor.thresholdHigh!;
-        const low = sensor.thresholdLow!;
-        const value = latest.value;
-        const severity = detectSeverity(value, low, high);
-
-        // 4. Build the alert message
-        const message = buildAlertMessage(sensor, value, latest.timestamp, low, high);
-
-        // 5. Create the alert
-        const [alert] = await this.db
-          .insert(alerts)
-          .values({
-            sensorId: sensor.id,
-            assetId: sensor.assetId,
-            severity,
-            status: 'open',
-            message,
-          })
-          .returning();
-
-        this.logger.log(`Created alert ${alert.id} (${severity}) for sensor ${sensor.id}: ${message}`);
-
-        // Broadcast alert via WebSocket so connected clients get a live notification
+      // Broadcast work order updates (non-blocking)
+      for (const wo of workOrderValues) {
         try {
-          this.gateway.broadcastAlert({
-            id: alert.id,
-            assetId: sensor.assetId,
-            severity,
-            message,
+          this.gateway.broadcastWorkOrderUpdate({
+            alertId: wo.alertId,
+            assetId: wo.assetId,
+            severity: wo.priority,
+            message: wo.description,
           });
         } catch {
           // WebSocket broadcast is non-fatal
         }
-
-        // 6. Auto-create work order for critical / high alerts
-        if (severity === 'critical' || severity === 'high') {
-          const asset = await this.db
-            .select({ name: assets.name })
-            .from(assets)
-            .where(eq(assets.id, sensor.assetId))
-            .limit(1);
-
-          const assetName = asset[0]?.name ?? 'Unknown';
-          await this.db.insert(workOrders).values({
-            assetId: sensor.assetId,
-            alertId: alert.id,
-            title: `Auto: ${severity} — ${sensor.type} threshold breach on ${assetName}`,
-            description: message,
-            type: 'corrective',
-            priority: severity,
-            status: 'open',
-          });
-
-          this.logger.log(`Auto-created work order for alert ${alert.id}`);
-
-          // Broadcast work order update via WebSocket
-          try {
-            this.gateway.broadcastWorkOrderUpdate({
-              alertId: alert.id,
-              assetId: sensor.assetId,
-              severity,
-              message,
-            });
-          } catch {
-            // WebSocket broadcast is non-fatal
-          }
-        }
-      } catch (err) {
-        this.logger.error({ err, sensorId: sensor.id }, 'Error evaluating sensor threshold');
       }
     }
 
@@ -192,16 +232,7 @@ function buildAlertMessage(
   const sensorName = `${sensor.type} sensor ${sensor.id.slice(0, 8)}`;
   const direction = value > high ? 'above' : 'below';
   const threshold = value > high ? `high (${high})` : `low (${low})`;
+  const sev = detectSeverity(value, low, high);
 
-  return `[${severityLabel(value, low, high)}] ${sensorName} reading ${value.toFixed(1)} ${sensor.unit} is ${direction} ${threshold} threshold at ${new Date(timestamp).toLocaleString()}.`;
-}
-
-function severityLabel(value: number, low: number, high: number): string {
-  const range = high - low;
-  const mid = (low + high) / 2;
-  const deviation = Math.abs(value - mid) / (range / 2);
-  if (deviation > 2.5) return 'CRITICAL';
-  if (deviation > 1.5) return 'HIGH';
-  if (deviation > 1.0) return 'MEDIUM';
-  return 'LOW';
+  return `[${sev.toUpperCase()}] ${sensorName} reading ${value.toFixed(1)} ${sensor.unit} is ${direction} ${threshold} threshold at ${new Date(timestamp).toLocaleString()}.`;
 }
