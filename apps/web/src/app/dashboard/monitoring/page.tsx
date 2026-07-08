@@ -22,14 +22,16 @@ const CHARTS: ChartDef[] = [
   { key: "temperature", label: "Temperature", unit: "°C", color: "#ef4444", bgGrad: "from-red-500/5 to-red-500/[0.02]", icon: "M12 2v20M2 12h20" },
   { key: "power", label: "Power", unit: "kW", color: "#22c55e", bgGrad: "from-emerald-500/5 to-emerald-500/[0.02]", icon: "M13 2L3 14h9l-1 8 10-12h-9l1-8z" },
   { key: "humidity", label: "Humidity", unit: "%", color: "#3b82f6", bgGrad: "from-blue-500/5 to-blue-500/[0.02]", icon: "M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" },
-  { key: "occupancy", label: "CO₂", unit: "ppm", color: "#8b5cf6", bgGrad: "from-violet-500/5 to-violet-500/[0.02]", icon: "M12 2a10 10 0 1 0 10 10h-10V2z" },
+  { key: "occupancy", label: "Occupancy", unit: "", color: "#f59e0b", bgGrad: "from-amber-500/5 to-amber-500/[0.02]", icon: "M12 2a10 10 0 1 0 10 10h-10V2z" },
+  { key: "co2", label: "CO₂", unit: "ppm", color: "#8b5cf6", bgGrad: "from-violet-500/5 to-violet-500/[0.02]", icon: "M12 2a10 10 0 1 0 10 10h-10V2z" },
 ];
 
 const SENSOR_MAP: Record<string, string[]> = {
   temperature: ["temperature"],
   power: ["power"],
   humidity: ["humidity"],
-  occupancy: ["occupancy", "co2"],
+  occupancy: ["occupancy"],
+  co2: ["co2"],
 };
 
 function MiniChart({ points, color }: { points: number[]; color: string }) {

@@ -4,6 +4,7 @@ import {
   Param,
   Query,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Public } from '../auth/jwt-auth.guard';
@@ -73,7 +74,7 @@ export class PredictiveController {
     if (!res.ok) {
       const text = await res.text();
       this.logger.error(`ai-service health-scores error: ${res.status} ${text}`);
-      throw new Error(`Failed to fetch health scores: ${res.statusText}`);
+      throw new ServiceUnavailableException(`Failed to fetch health scores: ${res.statusText}`);
     }
     return res.json();
   }
@@ -90,7 +91,7 @@ export class PredictiveController {
     if (!res.ok) {
       const text = await res.text();
       this.logger.error(`ai-service asset health error: ${res.status} ${text}`);
-      throw new Error(`Failed to fetch asset health: ${res.statusText}`);
+      throw new ServiceUnavailableException(`Failed to fetch asset health: ${res.statusText}`);
     }
     return res.json();
   }
