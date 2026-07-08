@@ -81,7 +81,7 @@ function createPool() {
     host: process.env.POSTGRES_HOST || "localhost",
     port: Number(process.env.POSTGRES_PORT) || 5432,
     user: process.env.POSTGRES_USER || "dtfm_user",
-    password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
+    password: process.env.POSTGRES_PASSWORD ?? (() => { throw new Error("POSTGRES_PASSWORD not set — aborting"); })(),
     database: process.env.POSTGRES_DB || "dtfm_db",
   });
 }
@@ -204,10 +204,25 @@ async function runLoop(maxIterations?: number) {
         .set({ lastValue: val, lastReadingAt: now.toISOString() })
         .where(eq(sensors.id, s.id));
 
-      // 2. Threshold check
-      const threshold = s.thresholdHigh;
-      if (threshold != null && val > threshold) {
-        // Check if there's already an open alert for this sensor
+      // 2. Threshold check — both high AND low
+      const high = s.thresholdHigh;
+      const low = s.thresholdLow;
+      let breached = false;
+      let direction: "high" | "low" = "high";
+      let exceededValue: number | null = null;
+
+      if (high != null && val > high) {
+        breached = true;
+        direction = "high";
+        exceededValue = high;
+      } else if (low != null && val < low) {
+        breached = true;
+        direction = "low";
+        exceededValue = low;
+      }
+
+      if (breached && exceededValue !== null) {
+        // Deduplicate: don't create another open alert for the same sensor
         const existing = await db
           .select({ id: alerts.id })
           .from(alerts)
@@ -219,7 +234,15 @@ async function runLoop(maxIterations?: number) {
           .limit(1);
 
         if (existing.length === 0) {
-          const severity = val > threshold * 1.3 ? "critical" : "high";
+          // Deviation-based severity matching the AlertEngineService formula
+          const range = (high ?? 100) - (low ?? 0);
+          const mid = ((high ?? 100) + (low ?? 0)) / 2;
+          const deviation = Math.abs(val - mid) / (range / 2);
+          const severity =
+            deviation > 2.5 ? "critical" :
+            deviation > 1.5 ? "high" :
+            deviation > 1.0 ? "medium" : "low";
+
           const asset = await db
             .select({ name: assets.name })
             .from(assets)
@@ -233,7 +256,7 @@ async function runLoop(maxIterations?: number) {
               assetId: s.assetId,
               severity,
               status: "open",
-              message: `${s.type} threshold breached on ${asset}: ${val}${s.unit} (max ${threshold}${s.unit})`,
+              message: `${s.type} ${direction} threshold breached on ${asset}: ${val}${s.unit} (${direction} ${exceededValue}${s.unit})`,
             })
             .returning({ id: alerts.id });
 
@@ -243,7 +266,7 @@ async function runLoop(maxIterations?: number) {
               id: newAlert.id,
               assetId: s.assetId,
               severity,
-              message: `${s.type} threshold breached on ${asset}: ${val}${s.unit} (max ${threshold}${s.unit})`,
+              message: `${s.type} ${direction} threshold breached on ${asset}: ${val}${s.unit} (${direction} ${exceededValue}${s.unit})`,
             });
           }
         }
