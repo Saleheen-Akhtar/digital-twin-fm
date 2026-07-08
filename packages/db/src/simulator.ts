@@ -70,7 +70,7 @@ async function publishAlert(
   try {
     const subs = await redis.publish("alert.created", JSON.stringify(alert));
     console.log(`   [redis] Published alert to ${subs} subscriber(s): ${alert.severity} - ${alert.message.slice(0, 60)}`);
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.warn(`   [redis] Publish failed (non-fatal): ${(err as Error).message}`);
   }
 }
@@ -295,7 +295,7 @@ async function runLoop(maxIterations?: number) {
         console.log("✅ Simulator finished (max iterations reached)");
         await pool.end();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("❌ Simulator tick error:", err);
     }
   }, INTERVAL_MS);
@@ -329,7 +329,7 @@ async function main() {
   }
 }
 
-main().catch((err: any) => {
+main().catch((err: unknown) => {
   console.error("❌ Simulator failed:", err);
   process.exit(1);
 });
