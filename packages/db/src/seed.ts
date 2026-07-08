@@ -301,6 +301,7 @@ async function main() {
     ahu: [
       { type: "temperature", unit: "C", lo: 18, hi: 26 },
       { type: "humidity", unit: "%", lo: 35, hi: 55 },
+      { type: "co2", unit: "ppm", lo: 380, hi: 800 },
       { type: "pressure", unit: "Pa", lo: 200, hi: 800 },
       { type: "power", unit: "kW", lo: 5, hi: 40 },
     ],
