@@ -3,6 +3,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
 import { useSensorRealtime } from "@/hooks/useSensorRealtime";
+import { useRealtime } from "@/hooks/useRealtime";
+import { useBrowserNotifications } from "@/hooks/useBrowserNotifications";
+import { useViewerStore } from "@/features/digital-twin/viewer-store";
 import CopilotWidget from "@/features/copilot/copilot-widget";
 import type { Sensor, Building } from "@/lib/api-client";
 
@@ -30,28 +33,53 @@ const SENSOR_MAP: Record<string, string[]> = {
 };
 
 function MiniChart({ points, color }: { points: number[]; color: string }) {
-  if (points.length < 2) return <div className="h-20 w-full rounded-lg bg-slate-50" />;
   const width = 400;
-  const height = 80;
-  const max = Math.max(...points);
-  const min = Math.min(...points);
+  const height = 100;
+  const safe = points.length > 0 ? points : [0];
+  const pad = Math.max(...safe) * 0.1 || 10;
+
+  const max = Math.max(...safe) + pad;
+  const min = Math.max(0, Math.min(...safe) - pad);
   const range = max - min || 1;
-  const gap = width / (points.length - 1);
-  const coords = points
-    .map((v, i) => `${i * gap},${height - ((v - min) / range) * (height - 6)}`)
+
+  // At least 2 data points or use placeholders
+  const data = safe.length >= 2 ? safe : [safe[0], safe[0]];
+  const gap = width / (data.length - 1);
+  const coords = data
+    .map((v, i) => `${i * gap},${height - ((v - min) / range) * (height - 12)}`)
     .join(" ");
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={`grad-${color.replace("#", "")}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`M 0 ${height} ${coords} L ${width} ${height} Z`} fill={`url(#grad-${color.replace("#", "")})`} />
-      <polyline points={coords} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "all 0.8s ease-in-out" }} />
-    </svg>
+    <div className="h-[100px] w-full">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={`mg-${color.replace("#", "")}`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.03" />
+          </linearGradient>
+        </defs>
+        {/* Horizontal grid lines */}
+        {[0.25, 0.5, 0.75].map((f) => (
+          <line key={f} x1="0" x2={width} y1={height * f} y2={height * f}
+            stroke="#e2e8f0" strokeWidth="1" />
+        ))}
+        {/* Fill area under curve */}
+        <path d={`M 0 ${height} ${coords} L ${width} ${height} Z`}
+          fill={`url(#mg-${color.replace("#", "")})`} />
+        {/* Line */}
+        <polyline points={coords} fill="none" stroke={color}
+          strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transition: "all 0.8s ease-in-out" }} />
+        {/* Start / End dots */}
+        <circle cx={data[0] === safe[0] ? 0 : (data.length - 1) * gap}
+
+          cy={height - ((data[0] - min) / range) * (height - 12)}
+          r="3.5" fill={color} stroke="white" strokeWidth="1.5" />
+        <circle cx={(data.length - 1) * gap}
+          cy={height - ((data[data.length - 1] - min) / range) * (height - 12)}
+          r="3.5" fill={color} stroke="white" strokeWidth="1.5" />
+      </svg>
+    </div>
   );
 }
 
@@ -69,6 +97,23 @@ export default function MonitoringPage() {
   // WebSocket live sensor readings
   const { readings: liveReadings, connected: wsConnected, error: wsError } = useSensorRealtime();
   const sensorsRef = useRef<Sensor[]>([]);
+
+  // WebSocket alert events + browser notifications
+  useRealtime();
+  const activeAlertAssets = useViewerStore((s) => s.activeAlertAssets);
+  const { notify } = useBrowserNotifications();
+  const prevAlertCount = useRef(0);
+  useEffect(() => {
+    const currentCount = activeAlertAssets.size;
+    if (currentCount > prevAlertCount.current) {
+      notify({
+        title: "🚨 New Alert",
+        body: `${currentCount - prevAlertCount.current} asset(s) require attention`,
+        severity: "critical",
+      });
+    }
+    prevAlertCount.current = currentCount;
+  }, [activeAlertAssets.size, notify]);
 
   // Keep sensorsRef in sync with state for use in the WS callback
   sensorsRef.current = sensors;
@@ -154,20 +199,37 @@ export default function MonitoringPage() {
             setBuildingId(buildings[0].id);
           }
 
-          // Initialise chart points with current sensor values
-          const points: Record<string, number[]> = {};
-          for (const def of CHARTS) {
-            const allowedTypes = SENSOR_MAP[def.key] ?? [def.key];
-            const matched = list.filter(
-              (s) => allowedTypes.includes(s.type) && s.lastValue != null
-            );
-            // Seed 2 points from current values for mini-chart shape
-            const vals = matched.map((s) => Math.max(0, s.lastValue ?? 0));
-            if (vals.length > 0) {
-              points[def.key] = [vals[0], vals[0]];
+          // Update chart points from current sensor values (on every poll)
+          setChartPoints((prev) => {
+            const next = { ...prev };
+            for (const def of CHARTS) {
+              const allowedTypes = SENSOR_MAP[def.key] ?? [def.key];
+              const matched = list.filter(
+                (s) => allowedTypes.includes(s.type) && s.lastValue != null
+              );
+              const vals = matched.map((s) => Math.max(0, s.lastValue ?? 0));
+              if (vals.length > 0) {
+                // Seed first time, otherwise extend for real-time shape
+                const existing = next[def.key];
+                const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+                if (!existing || existing.length < 2) {
+                  // Seed with slight synthetic variation so the line
+                  // isn't perfectly flat on first load
+                  const spread = avg * 0.02 || 1;
+                  next[def.key] = [
+                    avg - spread,
+                    avg + spread * 0.5,
+                    avg + spread,
+                  ];
+                } else {
+                  // Add a new point from the average, keep last 20
+                  next[def.key] = [...existing.slice(-19), avg];
+                }
+              }
             }
-          }
-          setChartPoints(points);
+            return next;
+          });
+
           setLoading(false);
         }
       } catch (err) {
