@@ -17,6 +17,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { eq, sql, desc } from "drizzle-orm";
+import Redis from "ioredis";
 import {
   sensors,
   sensorReadings,
@@ -38,6 +39,41 @@ const PROFILES: Record<
   vibration:   { base: 1.5, amplitude: 1.5, noise: 0.4, unit: "mm/s" },
   co2:         { base: 450, amplitude: 100, noise: 20, unit: "ppm" },
 };
+
+// ── Redis helpers ────────────────────────────────────────────────────────
+function createRedisClient() {
+  const host = process.env.REDIS_HOST || "localhost";
+  const port = Number(process.env.REDIS_PORT) || 6379;
+  const password = process.env.REDIS_PASSWORD;
+  if (!password) {
+    console.warn("   [redis] REDIS_PASSWORD not set — alerts won't be published to Valkey");
+    return null;
+  }
+  const client = new Redis({
+    host, port, password,
+    lazyConnect: true,
+    maxRetriesPerRequest: 0,     // don't retry — crash on auth failure
+    retryStrategy: () => null,   // disable reconnect
+    enableOfflineQueue: false,   // don't queue commands while disconnected
+  });
+  client.on("error", (err) => {
+    console.error("   [redis] Connection error (non-fatal):", (err as Error).message);
+  });
+  return client;
+}
+
+async function publishAlert(
+  redis: Redis | null,
+  alert: { id: string; assetId: string; severity: string; message: string },
+) {
+  if (!redis) return;
+  try {
+    const subs = await redis.publish("alert.created", JSON.stringify(alert));
+    console.log(`   [redis] Published alert to ${subs} subscriber(s): ${alert.severity} - ${alert.message.slice(0, 60)}`);
+  } catch (err) {
+    console.warn(`   [redis] Publish failed (non-fatal): ${(err as Error).message}`);
+  }
+}
 
 // ── DB helpers ──────────────────────────────────────────────────────────
 function createPool() {
@@ -140,6 +176,7 @@ async function runLoop(maxIterations?: number) {
   console.log(`   Monitoring ${allSensors.length} sensors, tick every ${INTERVAL_MS / 1000}s`);
 
   let tick = 0;
+  const redis = createRedisClient();
 
   async function tickOnce() {
     tick++;
@@ -190,13 +227,25 @@ async function runLoop(maxIterations?: number) {
             .limit(1)
             .then((r) => r[0]?.name ?? "Unknown");
 
-          await db.insert(alerts).values({
-            sensorId: s.id,
-            assetId: s.assetId,
-            severity,
-            status: "open",
-            message: `${s.type} threshold breached on ${asset}: ${val}${s.unit} (max ${threshold}${s.unit})`,
-          });
+          const [newAlert] = await db.insert(alerts)
+            .values({
+              sensorId: s.id,
+              assetId: s.assetId,
+              severity,
+              status: "open",
+              message: `${s.type} threshold breached on ${asset}: ${val}${s.unit} (max ${threshold}${s.unit})`,
+            })
+            .returning({ id: alerts.id });
+
+          // Publish to Redis so the WebSocket pushes a real-time notification
+          if (newAlert) {
+            await publishAlert(redis, {
+              id: newAlert.id,
+              assetId: s.assetId,
+              severity,
+              message: `${s.type} threshold breached on ${asset}: ${val}${s.unit} (max ${threshold}${s.unit})`,
+            });
+          }
         }
       }
     }
@@ -204,6 +253,25 @@ async function runLoop(maxIterations?: number) {
     // 3. Batch-insert all new readings
     if (newReadings.length > 0) {
       await db.insert(sensorReadings).values(newReadings);
+
+      // Publish live readings to Redis for WebSocket broadcasting
+      if (redis) {
+        for (const r of newReadings) {
+          try {
+            await redis.publish(
+              "sensor.reading",
+              JSON.stringify({
+                sensorId: r.sensorId,
+                assetId: r.assetId,
+                value: r.value,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          } catch {
+            // non-fatal
+          }
+        }
+      }
     }
 
     const totalSensors = allSensors.length;
@@ -237,6 +305,7 @@ async function runLoop(maxIterations?: number) {
     clearInterval(interval);
     console.log("\n🛑 Simulator stopping …");
     await pool.end();
+    await redis.quit().catch(() => {});
     process.exit(0);
   };
   process.on("SIGINT", shutdown);

@@ -4,6 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, gte, desc, isNotNull, inArray } from 'drizzle-orm';
 import { alerts, sensors, sensorReadings, workOrders, assets } from '@digital-twin-fm/db';
+import { RealtimeGateway } from '../ws/realtime.gateway';
 
 @Injectable()
 export class AlertEngineService {
@@ -11,6 +12,7 @@ export class AlertEngineService {
 
   constructor(
     @Inject('DB') private readonly db: NodePgDatabase,
+    private readonly gateway: RealtimeGateway,
   ) {}
 
   /**
@@ -111,6 +113,18 @@ export class AlertEngineService {
 
         this.logger.log(`Created alert ${alert.id} (${severity}) for sensor ${sensor.id}: ${message}`);
 
+        // Broadcast alert via WebSocket so connected clients get a live notification
+        try {
+          this.gateway.broadcastAlert({
+            id: alert.id,
+            assetId: sensor.assetId,
+            severity,
+            message,
+          });
+        } catch {
+          // WebSocket broadcast is non-fatal
+        }
+
         // 6. Auto-create work order for critical / high alerts
         if (severity === 'critical' || severity === 'high') {
           const asset = await this.db
@@ -131,6 +145,18 @@ export class AlertEngineService {
           });
 
           this.logger.log(`Auto-created work order for alert ${alert.id}`);
+
+          // Broadcast work order update via WebSocket
+          try {
+            this.gateway.broadcastWorkOrderUpdate({
+              alertId: alert.id,
+              assetId: sensor.assetId,
+              severity,
+              message,
+            });
+          } catch {
+            // WebSocket broadcast is non-fatal
+          }
         }
       } catch (err) {
         this.logger.error({ err, sensorId: sensor.id }, 'Error evaluating sensor threshold');
