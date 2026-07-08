@@ -305,7 +305,7 @@ async function runLoop(maxIterations?: number) {
     clearInterval(interval);
     console.log("\n🛑 Simulator stopping …");
     await pool.end();
-    await redis.quit().catch(() => {});
+    if (redis) await redis.quit().catch(() => {});
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
