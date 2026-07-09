@@ -2,7 +2,7 @@
 /**
  * Digital Twin FM — Database seed script
  *
- * Populates a realistic Singapore Expo Hall 7 demo:
+ * Populates a realistic demo convention centre with multi-floor layout.
  *   1 building → 2 floors (Exhibition Level + Upper Mezzanine) → 8 rooms →
  *   20 assets → 60 sensors → 1000 readings → 5 alerts → 8 work orders
  *
@@ -119,7 +119,7 @@ async function main() {
   );
 
   // 1 building (fixed UUID to match codebase defaults).
-  // Singapore Expo Hall 7: 2 main levels — Exhibition Level + Upper Mezzanine.
+  // 2 main levels — Exhibition Level + Upper Mezzanine.
   // totalFloors MUST match BUILDING_FLOOR_COUNT below. Drift between this
   // and apps/web/src/design-system/tokens.ts → building.floorCount surfaces
   // immediately in the dashboard "selected floor" UI and the AI copilot
@@ -132,8 +132,8 @@ async function main() {
     .insert(buildings)
     .values({
       id: "9a83477a-4b19-444a-9345-0e07f90d16b0",
-      name: "Singapore Expo — Hall 7",
-      address: "1 Expo Drive, Singapore 486150",
+      name: "Demo Convention Centre",
+      address: "1 Convention Drive, Singapore 486150",
       totalFloors: BUILDING_FLOOR_COUNT,
     })
     .returning();

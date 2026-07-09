@@ -63,7 +63,7 @@ export function DigitalTwinClient({ initialAssets, initialError, modelUrl }: Dig
           <AssetDetailPanel asset={selectedAsset} onClose={() => setSelectedId(null)} />
         )}
 
-        <CopilotWidget contextHint="User is viewing the 3D digital twin of Singapore Expo Hall 7." />
+        <CopilotWidget contextHint="User is viewing the 3D digital twin of the demo convention centre." />
       </div>
     </div>
   );
