@@ -19,7 +19,7 @@ fi
 # 2. Start infra dependencies (Docker containers)
 echo "  [infra] Starting PostgreSQL, Valkey, Mosquitto…"
 if docker info &>/dev/null; then
-  docker compose up -d postgres valkey mqtt 2>&1 | sed 's/^/     /'
+  docker compose up -d postgres valkey mosquitto 2>&1 | sed 's/^/     /'
   echo "  [infra] Waiting for PostgreSQL to be healthy…"
   for i in $(seq 1 30); do
     if docker inspect --format='{{.State.Health.Status}}' dtfm-postgres 2>/dev/null | grep -q healthy; then
@@ -41,17 +41,17 @@ if docker info &>/dev/null; then
   docker compose run --rm db-migrate 2>&1 | sed 's/^/     /' || true
 else
   echo "  [WARN] Docker not available — infra services must be running manually"
-  echo "         Start them with:  docker compose up -d postgres valkey mqtt"
+  echo "         Start them with:  docker compose up -d postgres valkey mosquitto"
   echo "         Or open Docker Desktop first."
 fi
 
 # 3. Export overrides (per‑service only)
-export AI_SERVICE_URL=${AI_SERVICE_URL:-http://localhost:8010}
+export AI_SERVICE_URL=${AI_SERVICE_URL:-http://localhost:8011}
 
 # 4. Start each service in background, logs to .logs/
-echo "  [start] ai-service          → port 8010"
+echo "  [start] ai-service          → port 8011"
 cd "$PROJECT_ROOT/apps/ai-service"
-uvicorn app.main:app --reload --port 8010 > "$LOGDIR/ai-service.log" 2>&1 &
+uvicorn app.main:app --reload --port 8011 > "$LOGDIR/ai-service.log" 2>&1 &
 AI_PID=$!
 
 cd "$PROJECT_ROOT"
