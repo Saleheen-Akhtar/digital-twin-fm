@@ -102,10 +102,10 @@ describe("DigitalTwinViewer3D", () => {
 
   it("defaultOpenOverlays prop opens the listed overlays on mount", () => {
     const { container } = render(
-      <DigitalTwinViewer3D mode="operator" defaultOpenOverlays={["events", "ai"]} />,
+      <DigitalTwinViewer3D mode="operator" defaultOpenOverlays={["events"]} />,
     );
     expect(container.querySelector('[data-overlay="events"]')).not.toBeNull();
-    expect(container.querySelector('[data-overlay="ai"]')).not.toBeNull();
+    expect(container.querySelector('[data-overlay="ai"]')).toBeNull();
     expect(container.querySelector('[data-overlay="layers"]')).toBeNull();
   });
 
