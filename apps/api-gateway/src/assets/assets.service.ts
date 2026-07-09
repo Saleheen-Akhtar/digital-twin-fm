@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { assets, floors, sensors, sensorReadings } from '@digital-twin-fm/db';
 import type { Asset, AssetStatus, AssetType, Sensor, SensorReading } from '@digital-twin-fm/types';
 
