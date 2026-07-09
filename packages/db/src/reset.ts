@@ -18,7 +18,7 @@ import {
   workOrders,
   maintenanceLogs,
 } from "./schema";
-import { eq, sql, inArray } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 faker.seed(42);
 
