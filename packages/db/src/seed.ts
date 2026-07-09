@@ -159,41 +159,47 @@ async function main() {
     )
     .returning();
 
-  // 20 assets distributed across the 2 floors according to a realistic
-  // convention-hall MEP layout. Plant-room equipment (boilers, primary
-  // pumps) sits on the exhibition level behind the service wall;
+  // Assets are distributed per-floor based on floor square footage
+  // and equipment density rules defined below. Plant-room equipment
+  // (boilers, chillers, primary pumps) sits on the exhibition level
   // mezzanine services the upper-level AHUs and exhaust.
+  // Floor square footage drives equipment count. Real facilities follow
+  // rough rules: 1 AHU per 2000m², 1 chiller per 4000m², 1 lighting
+  // zone per 800m², 1 fan per 1500m², 1 elevator per floor.
+  interface FloorArea {
+    level: 1 | 2;
+    sqm: number;       // gross floor area in m²
+    name: string;
+  }
+  const FLOOR_AREAS: FloorArea[] = [
+    { level: 1, sqm: 7200, name: "Exhibition Level" },
+    { level: 2, sqm: 2400, name: "Upper Mezzanine" },
+  ];
+
+  // Equipment density rules: count = round(floorSqm / density)
+  const DENSITY_RULES: { type: AssetTypeDb; densitySqm: number; minPerFloor: number }[] = [
+    { type: "ahu",      densitySqm: 2000, minPerFloor: 0 },
+    { type: "chiller",  densitySqm: 4000, minPerFloor: 0 },
+    { type: "boiler",   densitySqm: 4000, minPerFloor: 0 },
+    { type: "pump",     densitySqm: 2000, minPerFloor: 1 },
+    { type: "fan",      densitySqm: 1500, minPerFloor: 0 },
+    { type: "elevator", densitySqm: 9000, minPerFloor: 0 },
+    { type: "lighting", densitySqm: 500,  minPerFloor: 1 },
+  ];
+
+  // Derive ASSET_PLAN from floor area and density rules
+  const ASSET_PLAN: { type: AssetTypeDb; floor: 1 | 2 }[] = [];
   const assetTypes = ["ahu", "chiller", "boiler", "pump", "fan", "elevator", "lighting"] as const;
   type AssetTypeDb = (typeof assetTypes)[number];
 
-  // 1-based floor numbers from the DB. Distribution totals 20 assets.
-  // Floor 1 (Exhibition Level) = 15: 3 AHU + 2 Chiller + 5 Lighting +
-  //   1 Fan + 1 Elevator + 2 Boiler + 1 Pump (plant room)
-  // Floor 2 (Upper Mezzanine) = 5: 2 Pump + 2 Fan + 1 Lighting
-  const ASSET_PLAN: { type: AssetTypeDb; floor: 1 | 2 }[] = [
-    // Floor 1 — Exhibition Level (15)
-    { type: "ahu", floor: 1 },
-    { type: "ahu", floor: 1 },
-    { type: "ahu", floor: 1 },
-    { type: "chiller", floor: 1 },
-    { type: "chiller", floor: 1 },
-    { type: "lighting", floor: 1 },
-    { type: "lighting", floor: 1 },
-    { type: "lighting", floor: 1 },
-    { type: "lighting", floor: 1 },
-    { type: "lighting", floor: 1 },
-    { type: "fan", floor: 1 },
-    { type: "elevator", floor: 1 },
-    { type: "boiler", floor: 1 },
-    { type: "boiler", floor: 1 },
-    { type: "pump", floor: 1 },
-    // Floor 2 — Upper Mezzanine (5)
-    { type: "pump", floor: 2 },
-    { type: "pump", floor: 2 },
-    { type: "fan", floor: 2 },
-    { type: "fan", floor: 2 },
-    { type: "lighting", floor: 2 },
-  ];
+  for (const fa of FLOOR_AREAS) {
+    for (const rule of DENSITY_RULES) {
+      const count = Math.max(rule.minPerFloor, Math.round(fa.sqm / rule.densitySqm));
+      for (let i = 0; i < count; i++) {
+        ASSET_PLAN.push({ type: rule.type, floor: fa.level });
+      }
+    }
+  }
 
   // Map DB floor 1/2 → viewer floor 0/1 (viewer is 0-indexed).
   const dbFloorToViewerFloor = (dbLevel: number): 0 | 1 =>

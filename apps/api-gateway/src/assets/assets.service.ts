@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, sql } from 'drizzle-orm';
-import { assets, floors, sensors, sensorReadings } from '@digital-twin-fm/db';
+import { assets, floors, rooms, sensors, sensorReadings } from '@digital-twin-fm/db';
 import type { Asset, AssetStatus, AssetType, Sensor, SensorReading } from '@digital-twin-fm/types';
 
 export interface ListAssetsFilter {
@@ -28,6 +28,8 @@ interface AssetRow {
   createdAt: string;
   updatedAt: string;
   floorLevel: number | null;
+  floorName: string | null;
+  roomName: string | null;
 }
 
 @Injectable()
@@ -61,9 +63,12 @@ export class AssetsService {
         createdAt: assets.createdAt,
         updatedAt: assets.updatedAt,
         floorLevel: floors.level,
+        floorName: floors.name,
+        roomName: rooms.name,
       })
       .from(assets)
       .leftJoin(floors, eq(assets.floorId, floors.id))
+      .leftJoin(rooms, eq(assets.roomId, rooms.id))
       .where(where);
 
     return rows as AssetRow[];
@@ -89,15 +94,24 @@ export class AssetsService {
         createdAt: assets.createdAt,
         updatedAt: assets.updatedAt,
         floorLevel: floors.level,
+        floorName: floors.name,
+        roomName: rooms.name,
       })
       .from(assets)
       .leftJoin(floors, eq(assets.floorId, floors.id))
+      .leftJoin(rooms, eq(assets.roomId, rooms.id))
       .where(eq(assets.id, id))
       .limit(1);
     return (rows[0] as AssetRow | undefined) ?? null;
   }
 
-  async findSensorsWithReadings(assetId: string): Promise<{ sensors: Sensor[]; readingsBySensor: Record<string, SensorReading[]> }> {
+  async findSensorsWithReadings(assetId: string): Promise<{
+    sensors: Sensor[];
+    readingsBySensor: Record<string, SensorReading[]>;
+    roomName: string | null;
+    floorName: string | null;
+    floorLevel: number | null;
+  }> {
     const sensorRows = await this.db
       .select()
       .from(sensors)
@@ -105,7 +119,7 @@ export class AssetsService {
     const allSensors = sensorRows as unknown as Sensor[];
 
     if (allSensors.length === 0) {
-      return { sensors: [], readingsBySensor: {} };
+      return { sensors: [], readingsBySensor: {}, roomName: null, floorName: null, floorLevel: null };
     }
 
     // Batch-fetch latest readings: for each sensor, get the 10 most recent
@@ -148,6 +162,15 @@ export class AssetsService {
       });
     }
 
-    return { sensors: allSensors, readingsBySensor };
+    // Get location context for the response
+    const assetDetail = await this.findOne(assetId);
+
+    return {
+      sensors: allSensors,
+      readingsBySensor,
+      roomName: assetDetail?.roomName ?? null,
+      floorName: assetDetail?.floorName ?? null,
+      floorLevel: assetDetail?.floorLevel ?? null,
+    };
   }
 }
