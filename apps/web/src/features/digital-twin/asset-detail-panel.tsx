@@ -73,6 +73,8 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
   const [readingsBySensor, setReadingsBySensor] = useState<Record<string, SensorReading[]>>({});
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
+  const [roomName, setRoomName] = useState<string | null>(null);
+  const [floorName, setFloorName] = useState<string | null>(null);
 
   const cacheRef = useRef<Map<string, AssetDetailCacheEntry>>(new Map());
   const panelRef = useRef<HTMLDivElement>(null);
@@ -100,13 +102,15 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
       try {
         const api = createBrowserApiClient();
         const [sensorsData, allAlerts] = await Promise.all([
-          api.get<{ sensors: Sensor[]; readingsBySensor: Record<string, SensorReading[]> }>(`/assets/${encodeURIComponent(asset.id)}/sensors`),
+          api.get<{ sensors: Sensor[]; readingsBySensor: Record<string, SensorReading[]>; roomName: string | null; floorName: string | null }>(`/assets/${encodeURIComponent(asset.id)}/sensors`),
           api.get<Alert[]>(`/alerts?assetId=${encodeURIComponent(asset.id)}&limit=5`),
         ]);
         if (cancelled) return;
 
         setSensors(sensorsData.sensors);
         setReadingsBySensor(sensorsData.readingsBySensor);
+        setRoomName(sensorsData.roomName);
+        setFloorName(sensorsData.floorName);
         setAlerts(allAlerts);
 
         cacheRef.current.set(asset.id, {
@@ -206,6 +210,24 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
             )}
           </div>
         </div>
+
+        {/* Location context */}
+        {(roomName || floorName) && (
+          <div className="px-4 py-2 bg-slate-50/60 border-b border-slate-100 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+            {floorName && (
+              <span className="flex items-center gap-1">
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                {floorName}
+              </span>
+            )}
+            {roomName && (
+              <span className="flex items-center gap-1">
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                {roomName}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Content */}
         <div className="px-4 py-3 space-y-3">
