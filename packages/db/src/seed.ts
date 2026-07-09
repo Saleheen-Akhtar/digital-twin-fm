@@ -270,12 +270,22 @@ async function main() {
         // Pick a room on this floor for FK
         const roomOnFloor = roomRows.filter((r) => r.floorId === floorRow.id);
         const room = roomOnFloor[i % roomOnFloor.length];
+        const zoneCode = room.name === "North Zone" ? "NRTH" :
+          room.name === "South Zone" ? "STH" :
+          room.name === "East Zone" ? "EST" :
+          room.name === "West Zone" ? "WST" : "ZZ";
+        // Plant equipment gets "PLANT" zone, mezzanine gets "MEZZ"
+        const locationTag = isPlant
+          ? (plan.floor === 1 ? "PLANT" : "MEZZ")
+          : zoneCode;
+        const abbr: Record<string, string> = { ahu: "AHU", chiller: "CH", boiler: "BLR", pump: "PUMP", fan: "FAN", elevator: "ELV", lighting: "LGT" };
+        const prefix = `${abbr[plan.type] ?? typeCode}-${locationTag}`;
 
         return {
           buildingId: building.id,
           floorId: floorRow.id,
           roomId: room.id,
-          name: `${typeCode}-${String(idx).padStart(3, "0")}`,
+          name: `${prefix}-${String(idx).padStart(2, "0")}`,
           type: plan.type,
           status: faker.helpers.weightedArrayElement([
             { weight: 70, value: "ok" },
