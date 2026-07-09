@@ -3,7 +3,7 @@ import { Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, inArray, sql, isNotNull } from 'drizzle-orm';
-import { alerts, sensors, sensorReadings, workOrders, assets } from '@digital-twin-fm/db';
+import { alerts, sensors, sensorReadings, workOrders } from '@digital-twin-fm/db';
 import { RealtimeGateway } from '../ws/realtime.gateway';
 
 @Injectable()
