@@ -43,7 +43,7 @@ export class AlertEngineService {
 
     const windowStart = new Date(Date.now() - 5 * 60 * 1000);
 
-    // 2. Fetch latest reading per sensor IN ONE QUERY (DISTINCT ON)
+    // 2. Fetch latest reading per sensor IN ONE QUERY using Drizzle's SQL builder
     const sensorIds = thresholdSensors.map((s) => s.id);
     const latestReadings = await this.db.execute<{
       sensor_id: string;
@@ -54,20 +54,20 @@ export class AlertEngineService {
         SELECT DISTINCT ON (sr.sensor_id)
           sr.sensor_id, sr.value, sr.timestamp
         FROM ${sensorReadings} sr
-        WHERE sr.sensor_id = ANY(${sensorIds})
+        WHERE sr.sensor_id = ANY(ARRAY[${sql.join(sensorIds.map((id) => sql`${id}::uuid`), sql`, `)}])
           AND sr.timestamp >= ${windowStart.toISOString()}
         ORDER BY sr.sensor_id, sr.timestamp DESC
       `,
     );
 
-    if (latestReadings.length === 0) {
+    if (!latestReadings.rows || latestReadings.rows.length === 0) {
       this.logger.log('No recent readings found — skipping');
       return;
     }
 
     // Build a map: sensorId → reading
     const readingBySensor = new Map<string, { value: number; timestamp: string }>();
-    for (const row of latestReadings) {
+    for (const row of latestReadings.rows) {
       readingBySensor.set(row.sensor_id, { value: row.value, timestamp: row.timestamp });
     }
 
@@ -175,7 +175,15 @@ export class AlertEngineService {
 
       const assetNameMap = new Map(assetRows.map((a) => [a.id, a.name]));
 
-      const workOrderValues = criticalAlertIds.map((a) => ({
+      const workOrderValues: Array<{
+        assetId: string;
+        alertId: string;
+        title: string;
+        description: string;
+        type: 'corrective';
+        priority: string;
+        status: 'open';
+      }> = criticalAlertIds.map((a) => ({
         assetId: a.assetId,
         alertId: a.id,
         title: `Auto: ${a.severity} — threshold breach`,
@@ -185,7 +193,9 @@ export class AlertEngineService {
         status: 'open' as const,
       }));
 
-      await this.db.insert(workOrders).values(workOrderValues);
+      // Cast for Drizzle work order insert — the $type<WorkOrderPriority> on schema doesn't
+      // match severity values at the type level even though the sets are identical
+      await this.db.insert(workOrders).values(workOrderValues as any);
       this.logger.log(`Auto-created ${workOrderValues.length} work orders`);
 
       // Broadcast work order updates (non-blocking)
