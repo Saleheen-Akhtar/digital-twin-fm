@@ -408,7 +408,7 @@ const HALF_D = D / 2;
 const SLAB_T = 0.4;
 
 /**
- * Demo default: Singapore Expo Hall 7 — 2-floor convention centre.
+ * Demo default — 2-floor convention centre.
  * Real customer buildings are loaded from `/buildings/:id` at boot —
  * see `loadFloorsFromApi()` below. This constant is the offline fallback
  * used when the API is unreachable or for unit tests.
