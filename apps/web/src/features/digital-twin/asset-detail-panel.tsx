@@ -99,31 +99,19 @@ export function AssetDetailPanel({ asset, onClose }: AssetDetailPanelProps) {
     (async () => {
       try {
         const api = createBrowserApiClient();
-        const [allSensors, allAlerts] = await Promise.all([
-          api.get<Sensor[]>("/sensors"),
+        const [sensorsData, allAlerts] = await Promise.all([
+          api.get<{ sensors: Sensor[]; readingsBySensor: Record<string, SensorReading[]> }>(`/assets/${encodeURIComponent(asset.id)}/sensors`),
           api.get<Alert[]>(`/alerts?assetId=${encodeURIComponent(asset.id)}&limit=5`),
         ]);
-        const assetSensors = allSensors.filter((s) => s.assetId === asset.id);
         if (cancelled) return;
 
-        const readings: Record<string, SensorReading[]> = {};
-        await Promise.all(
-          assetSensors.slice(0, 4).map(async (s) => {
-            const r = await api.get<SensorReading[]>(
-              `/sensors/${encodeURIComponent(s.id)}/readings?limit=10`,
-            );
-            readings[s.id] = r;
-          }),
-        );
-        if (cancelled) return;
-
-        setSensors(assetSensors);
+        setSensors(sensorsData.sensors);
+        setReadingsBySensor(sensorsData.readingsBySensor);
         setAlerts(allAlerts);
-        setReadingsBySensor(readings);
 
         cacheRef.current.set(asset.id, {
-          sensors: assetSensors,
-          readingsBySensor: readings,
+          sensors: sensorsData.sensors,
+          readingsBySensor: sensorsData.readingsBySensor,
           alerts: allAlerts,
           fetchedAt: Date.now(),
         });
