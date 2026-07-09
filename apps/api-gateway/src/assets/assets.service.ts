@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and } from 'drizzle-orm';
-import { assets, floors } from '@digital-twin-fm/db';
-import type { Asset, AssetStatus, AssetType } from '@digital-twin-fm/types';
+import { eq, and, sql } from 'drizzle-orm';
+import { assets, floors, sensors, sensorReadings } from '@digital-twin-fm/db';
+import type { Asset, AssetStatus, AssetType, Sensor, SensorReading } from '@digital-twin-fm/types';
 
 export interface ListAssetsFilter {
   buildingId?: string;
@@ -95,5 +95,59 @@ export class AssetsService {
       .where(eq(assets.id, id))
       .limit(1);
     return (rows[0] as AssetRow | undefined) ?? null;
+  }
+
+  async findSensorsWithReadings(assetId: string): Promise<{ sensors: Sensor[]; readingsBySensor: Record<string, SensorReading[]> }> {
+    const sensorRows = await this.db
+      .select()
+      .from(sensors)
+      .where(eq(sensors.assetId, assetId));
+    const allSensors = sensorRows as unknown as Sensor[];
+
+    if (allSensors.length === 0) {
+      return { sensors: [], readingsBySensor: {} };
+    }
+
+    // Batch-fetch latest readings: for each sensor, get the 10 most recent
+    // Use raw SQL for the DISTINCT ON + LATERAL pattern Drizzle can't express
+    const sensorIdLiterals = allSensors.map((s) => sql`${s.id}::uuid`);
+    const inClause = sql.join(sensorIdLiterals, sql.raw(', '));
+
+    const readings = await this.db.execute<{
+      sensor_id: string;
+      id: string;
+      value: number;
+      unit: string;
+      quality: string;
+      timestamp: string;
+    }>(
+      sql`
+        WITH latest AS (
+          SELECT DISTINCT ON (sr.sensor_id)
+            sr.sensor_id, sr.id, sr.value, sr.unit, sr.quality, sr.timestamp
+          FROM ${sensorReadings} sr
+          WHERE sr.sensor_id IN (${inClause})
+          ORDER BY sr.sensor_id, sr.timestamp DESC
+          LIMIT 10
+        )
+        SELECT * FROM latest ORDER BY sensor_id, timestamp DESC
+      `,
+    );
+
+    const readingsBySensor: Record<string, SensorReading[]> = {};
+    for (const r of readings.rows ?? []) {
+      if (!readingsBySensor[r.sensor_id]) readingsBySensor[r.sensor_id] = [];
+      readingsBySensor[r.sensor_id].push({
+        id: r.id,
+        sensorId: r.sensor_id,
+        assetId,
+        timestamp: r.timestamp,
+        value: r.value,
+        unit: r.unit,
+        quality: r.quality as any,
+      });
+    }
+
+    return { sensors: allSensors, readingsBySensor };
   }
 }
