@@ -167,7 +167,7 @@ export class AlertEngineService {
     );
 
     if (criticalAlertIds.length > 0) {
-      const assetIds = [...new Set(criticalAlertIds.map((a) => a.assetId))];
+      const assetIds: string[] = [...new Set(criticalAlertIds.map((a) => a.assetId))].filter(Boolean) as string[];
       const assetRows = await this.db
         .select({ id: assets.id, name: assets.name })
         .from(assets)
@@ -175,16 +175,8 @@ export class AlertEngineService {
 
       const assetNameMap = new Map(assetRows.map((a) => [a.id, a.name]));
 
-      const workOrderValues: Array<{
-        assetId: string;
-        alertId: string;
-        title: string;
-        description: string;
-        type: 'corrective';
-        priority: string;
-        status: 'open';
-      }> = criticalAlertIds.map((a) => ({
-        assetId: a.assetId,
+      const workOrderValues = criticalAlertIds.map((a) => ({
+        assetId: a.assetId!,
         alertId: a.id,
         title: `Auto: ${a.severity} — threshold breach`,
         description: a.message,
@@ -193,8 +185,6 @@ export class AlertEngineService {
         status: 'open' as const,
       }));
 
-      // Cast for Drizzle work order insert — the $type<WorkOrderPriority> on schema doesn't
-      // match severity values at the type level even though the sets are identical
       await this.db.insert(workOrders).values(workOrderValues as any);
       this.logger.log(`Auto-created ${workOrderValues.length} work orders`);
 
