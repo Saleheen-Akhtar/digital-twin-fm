@@ -173,7 +173,7 @@ export class AlertEngineService {
         .from(assets)
         .where(inArray(assets.id, assetIds));
 
-      const assetNameMap = new Map(assetRows.map((a) => [a.id, a.name]));
+      // Work order title uses severity from the alert
 
       const workOrderValues = criticalAlertIds.map((a) => ({
         assetId: a.assetId!,
