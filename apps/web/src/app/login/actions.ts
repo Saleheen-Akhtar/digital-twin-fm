@@ -1,6 +1,6 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getServerEnv } from '@/env';
 import { createApiClient } from '@/lib/api-client';
@@ -27,14 +27,13 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     // the user is silently "logged in" with a token that the api-gateway
     // will reject on the next request.
     //
-    // Per Finding 18 (Medium): `secure` must be on in any non-dev
-    // environment, not just `production`. The pre-existing code used
-    // `process.env.NODE_ENV === 'production'`, which would leak the
-    // access token in cleartext over HTTP on any staging/preview env.
-    const isDev = process.env.NODE_ENV === 'development';
+    // Per Finding 18 (Medium): `secure` should only be set when the
+    // actual connection is HTTPS. `process.env.NODE_ENV === 'production'`
+    // is wrong for Docker deployments behind HTTP localhost.
+    const secure = (await headers()).get('x-forwarded-proto') === 'https';
     (await cookies()).set('dtfm_token', accessToken, {
       httpOnly: true,
-      secure: !isDev,
+      secure,
       sameSite: 'lax',
       path: '/',
       maxAge: 15 * 60, // 15 minutes — match the access token TTL
