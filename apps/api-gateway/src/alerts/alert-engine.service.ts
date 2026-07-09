@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, gte, desc, inArray, sql, isNotNull } from 'drizzle-orm';
+import { and, inArray, sql, isNotNull } from 'drizzle-orm';
 import { alerts, sensors, sensorReadings, workOrders, assets } from '@digital-twin-fm/db';
 import { RealtimeGateway } from '../ws/realtime.gateway';
 
@@ -167,12 +167,6 @@ export class AlertEngineService {
     );
 
     if (criticalAlertIds.length > 0) {
-      const assetIds: string[] = [...new Set(criticalAlertIds.map((a) => a.assetId))].filter(Boolean) as string[];
-      const assetRows = await this.db
-        .select({ id: assets.id, name: assets.name })
-        .from(assets)
-        .where(inArray(assets.id, assetIds));
-
       // Work order title uses severity from the alert
 
       const workOrderValues = criticalAlertIds.map((a) => ({
