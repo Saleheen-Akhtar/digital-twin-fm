@@ -188,9 +188,22 @@ async function main() {
   ];
 
   // Derive ASSET_PLAN from floor area and density rules
+  type AssetTypeDb = "ahu" | "chiller" | "boiler" | "pump" | "fan" | "elevator" | "lighting";
   const ASSET_PLAN: { type: AssetTypeDb; floor: 1 | 2 }[] = [];
-  const assetTypes = ["ahu", "chiller", "boiler", "pump", "fan", "elevator", "lighting"] as const;
-  type AssetTypeDb = (typeof assetTypes)[number];
+
+  // How each equipment type is physically mounted in the space. Drives the
+  // seeded Y so markers sit where the real device would be mounted instead of
+  // at a fully-random height (root cause of the "floating flagpole" look).
+  type MountKind = "floor" | "ceiling" | "full-height";
+  const MOUNT_HEIGHT: Record<AssetTypeDb, MountKind> = {
+    chiller: "floor",
+    boiler: "floor",
+    pump: "floor",
+    ahu: "ceiling",
+    fan: "ceiling",
+    lighting: "ceiling",
+    elevator: "full-height",
+  };
 
   for (const fa of FLOOR_AREAS) {
     for (const rule of DENSITY_RULES) {
@@ -211,13 +224,116 @@ async function main() {
   //     1c=[3,16]×[-3.5,7.5], 1g=[-8,6]×[8,11.5]
   //   Floor 1 (Mezzanine):   2a=[-17,-3]×[-3,3], 2b=[3,17]×[-3,3],
   //     2c=[-5,5]×[-11,-5], 2e=[-17,-11]×[-8.5,-3.5]
-  const plantBounds: Record<number, { xRange: readonly [number, number]; zRange: readonly [number, number] }> = {
-    // Floor 1 (DB) = viewer 0: real Plant Room (room 1g)
-    1: { xRange: [-6, 4] as const, zRange: [9, 10.5] as const },
-    // Floor 2 (DB) = viewer 1: mezzanine pumps in Hall B West
-    2: { xRange: [-15, -5] as const, zRange: [-2, 2] as const },
-  };
   const plantTypes = new Set<AssetTypeDb>(["boiler", "chiller", "pump"]);
+
+  // ── Room geometry — MUST stay in sync with apps/web BUILDING_FLOORS.
+  // Each entry mirrors a viewer room polygon (rectVertices(cx, cz, w, d) →
+  // x∈[cx-w/2, cx+w/2], z∈[cz-d/2, cz+d/2]). Assets are sampled
+  // strictly INSIDE these so the dev floor-plan validator (viewer-building.tsx
+  // validateFloorPlan) never flags an out-of-bounds asset.
+  interface RoomPoly {
+    id: string;
+    floor: 0 | 1; // viewer 0-indexed floor
+    xMin: number;
+    xMax: number;
+    zMin: number;
+    zMax: number;
+  }
+  const ROOM_POLYS: RoomPoly[] = [
+    // Floor 0 (Exhibition)
+    { id: "1a", floor: 0, xMin: -8, xMax: 8, zMin: -12.25, zMax: -7.75 },
+    { id: "1b", floor: 0, xMin: -16, xMax: -3, zMin: -3.5, zMax: 7.5 },
+    { id: "1c", floor: 0, xMin: 3, xMax: 16, zMin: -3.5, zMax: 7.5 },
+    { id: "1d", floor: 0, xMin: -7, xMax: 7, zMin: -7.25, zMax: -2 },
+    { id: "1e", floor: 0, xMin: -15, xMax: -11, zMin: 8, zMax: 11.5 },
+    { id: "1f", floor: 0, xMin: 11, xMax: 15, zMin: 8, zMax: 11.5 },
+    { id: "1g", floor: 0, xMin: -8, xMax: 6, zMin: 8, zMax: 11.5 },
+    // Floor 1 (Mezzanine)
+    { id: "2a", floor: 1, xMin: -17, xMax: -3, zMin: -3, zMax: 3 },
+    { id: "2b", floor: 1, xMin: 3, xMax: 17, zMin: -3, zMax: 3 },
+    { id: "2c", floor: 1, xMin: -5, xMax: 5, zMin: -11, zMax: -5 },
+    { id: "2d", floor: 1, xMin: -8, xMax: 8, zMin: 5, zMax: 11 },
+    { id: "2e", floor: 1, xMin: -16, xMax: -11, zMin: -8.5, zMax: -3.5 },
+    { id: "2f", floor: 1, xMin: -2.5, xMax: 2.5, zMin: -4.65, zMax: -0.65 },
+  ];
+
+  // Point-in-rectangle test (all rooms are axis-aligned rects).
+  function insideRoom(x: number, z: number, r: RoomPoly): boolean {
+    return x >= r.xMin && x <= r.xMax && z >= r.zMin && z <= r.zMax;
+  }
+
+  // Rejection-sample a point strictly inside a room polygon. Guarantees the
+  // asset lands inside the room (validator-safe) while staying deterministic
+  // per-floor via faker's seeded RNG.
+  function sampleInsideRoom(r: RoomPoly): { x: number; z: number } {
+    const pad = 0.5; // keep clear of walls
+    const xMin = r.xMin + pad;
+    const xMax = r.xMax - pad;
+    const zMin = r.zMin + pad;
+    const zMax = r.zMax - pad;
+    // Outer loop is bounded; with padding > 0 rejection is effectively zero.
+    let x = faker.number.float({ min: xMin, max: xMax });
+    let z = faker.number.float({ min: zMin, max: zMax });
+    let guard = 0;
+    while (!insideRoom(x, z, r) && guard < 16) {
+      x = faker.number.float({ min: xMin, max: xMax });
+      z = faker.number.float({ min: zMin, max: zMax });
+      guard++;
+    }
+    return { x, z };
+  }
+
+  // Min spacing (in world units) between two asset markers in the same room.
+  // Prevents the stacked/overlapping cluster look from fully-random placement.
+  const MIN_SPACING = 1.5;
+
+  // Already-placed asset positions per room id — reset implicitly per room
+  // because each room gets its own array. Used by the min-distance check.
+  const placedByRoom = new Map<string, { x: number; z: number }[]>();
+
+  // True if (x,z) is closer than MIN_SPACING to any already-placed point.
+  function tooClose(x: number, z: number, placed: { x: number; z: number }[]): boolean {
+    return placed.some((p) => Math.hypot(p.x - x, p.z - z) < MIN_SPACING);
+  }
+
+  // Pick the room an asset belongs in by type + floor.
+  function roomForAsset(type: AssetTypeDb, viewerFloor: 0 | 1): RoomPoly {
+    if (plantTypes.has(type)) {
+      return ROOM_POLYS.find((r) => r.id === (viewerFloor === 0 ? "1g" : "2e"))!;
+    }
+    // Public-facing equipment → a hall on its floor
+    const halls = ROOM_POLYS.filter(
+      (r) => r.floor === viewerFloor && (r.id === "1b" || r.id === "1c" || r.id === "2a" || r.id === "2b"),
+    );
+    const idx = Math.abs(hashStr(`${type}-${viewerFloor}`)) % halls.length;
+    return halls[idx];
+  }
+
+  // Tiny stable string hash (no extra dep).
+  function hashStr(s: string): number {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
+    return h;
+  }
+
+  // Map a geometry room id (viewer BUILDING_FLOORS) → its DB room row
+  // (rooms table uses zone names N/S/E/W, not viewer ids). Used for the
+  // asset→room FK so we reference a real uuid, not a viewer id like "1c".
+  const GEOM_ZONE: Record<string, "N" | "S" | "E" | "W"> = {
+    "1a": "N", "1d": "S", "1b": "W", "1c": "E",
+    "1e": "N", "1f": "N", "1g": "N",
+    "2a": "W", "2b": "E", "2c": "S", "2d": "N", "2e": "N", "2f": "N",
+  };
+  const ZONE_IDX: Record<"N" | "S" | "E" | "W", number> = { N: 0, S: 1, E: 2, W: 3 };
+  function dbRoomForGeometry(
+    geomId: string,
+    viewerFloor: 0 | 1,
+    roomRows: { id: string; name: string; floorId: string }[],
+  ): { id: string; name: string } {
+    const zone = GEOM_ZONE[geomId] ?? "N";
+    const offset = viewerFloor * 4; // 4 rooms per floor (N,S,E,W)
+    return roomRows[offset + ZONE_IDX[zone]];
+  }
 
   const typeCounter: Record<AssetTypeDb, number> = {
     ahu: 0,
@@ -232,7 +348,7 @@ async function main() {
   const assetRows = await db
     .insert(assets)
     .values(
-      ASSET_PLAN.map((plan, i) => {
+      ASSET_PLAN.map((plan) => {
         const idx = ++typeCounter[plan.type];
         const typeCode = plan.type.toUpperCase();
         const isPlant = plantTypes.has(plan.type);
@@ -240,46 +356,47 @@ async function main() {
         const viewerFloor = dbFloorToViewerFloor(plan.floor);
         const floorRow = floorRows[plan.floor - 1];
 
-        // Deterministic 3D position — always inside a room polygon
-        let x: number;
-        let z: number;
-        if (isPlant) {
-          // Place inside the matching plant/mechanical room on this floor
-          const bounds = plantBounds[plan.floor];
-          x = faker.number.float({ min: bounds.xRange[0], max: bounds.xRange[1] });
-          z = faker.number.float({ min: bounds.zRange[0], max: bounds.zRange[1] });
-        } else {
-          // Public-facing equipment inside Hall A West (1b) / East (1c) on floor 0,
-          // or Hall B West (2a) / East (2b) on floor 1
-          const cols = 5;
-          const col = i % cols;
-          let row: number;
-          if (viewerFloor === 0) {
-            // Floor 0 rows span Hall A's z-range [-3.5, 7.5] — 11 units
-            row = Math.floor(i / cols);
-            x = faker.number.float({ min: -14 + col * 6, max: -12 + col * 6 });
-            z = faker.number.float({ min: -2 + row * 4.5, max: 0 + row * 4.5 });
-          } else {
-            // Floor 1 rows span Hall B's z-range [-3, 3] — 6 units
-            row = Math.floor(i / cols) % 2;  // only 5 assets on floor 1
-            x = faker.number.float({ min: -10 + col * 5, max: -8 + col * 5 });
-            z = faker.number.float({ min: -1.5 + row * 3, max: 0.5 + row * 3 });
-          }
+        // Deterministic 3D position — guaranteed INSIDE a room polygon.
+        // Root-cause fix: seed used ad-hoc faker ranges that drifted from the
+        // viewer's BUILDING_FLOORS room geometry, tripping the dev
+        // validateFloorPlan out-of-bounds check. Now we pick the asset's room
+        // by type/floor and sample strictly inside it.
+        const room = roomForAsset(plan.type, viewerFloor);
+
+        // ── Min-distance placement (Task 2) ───────────────────────────────
+        // Resample x/z (keeping the same room + grid scheme) until the point
+        // is at least MIN_SPACING from every other asset already placed in
+        // this room. Bounded to 5 tries, then we accept to avoid an infinite
+        // loop in a crowded room.
+        const placedHere = placedByRoom.get(room.id) ?? [];
+        let { x, z } = sampleInsideRoom(room);
+        for (let attempt = 0; attempt < 5 && tooClose(x, z, placedHere); attempt++) {
+          ({ x, z } = sampleInsideRoom(room));
         }
-        // Y stays inside the building's vertical envelope:
-        //   floor 0 (Exhibition): yBase=0,   yMax ≈ 8.5
-        //   floor 1 (Mezzanine):  yBase=9.0, yMax ≈ 17.5
-        const y = viewerFloor === 0
-          ? faker.number.float({ min: 0.2, max: 7.5 })
-          : faker.number.float({ min: 9.5, max: 16.5 });
+        placedHere.push({ x, z });
+        placedByRoom.set(room.id, placedHere);
+
+        // ── Type-based mount height (Task 1) ──────────────────────────────
+        // Each floor's vertical envelope (matches the viewer's BUILDING_FLOORS
+        // yBase/yMax). Equipment is seeded at a height matching how it's
+        // physically mounted — not a fully-random Y.
+        const floorYBase = viewerFloor === 0 ? 0.2 : 9.5;
+        const floorYTop = viewerFloor === 0 ? 7.5 : 16.5;
+        const mount = MOUNT_HEIGHT[plan.type];
+        const y =
+          mount === "floor"
+            ? faker.number.float({ min: floorYBase, max: floorYBase + 0.6 }) // near floor
+            : mount === "ceiling"
+              ? faker.number.float({ min: floorYTop - 0.8, max: floorYTop }) // near ceiling
+              : faker.number.float({ min: floorYBase + 0.5, max: floorYTop - 0.5 }); // full-height span
 
         // Pick a room on this floor for FK
-        const roomOnFloor = roomRows.filter((r) => r.floorId === floorRow.id);
-        const room = roomOnFloor[i % roomOnFloor.length];
-        const zoneCode = room.name === "North Zone" ? "NRTH" :
-          room.name === "South Zone" ? "STH" :
-          room.name === "East Zone" ? "EST" :
-          room.name === "West Zone" ? "WST" : "ZZ";
+        // Zone tag from the (geometry) room id the asset sits in.
+        const zoneCode =
+          room.id === "1b" || room.id === "2a" ? "WST" :
+          room.id === "1c" || room.id === "2b" ? "EST" :
+          room.id === "1a" || room.id === "2f" ? "NRTH" :
+          room.id === "1d" || room.id === "2c" ? "STH" : "ZZ";
         // Plant equipment gets "PLANT" zone, mezzanine gets "MEZZ"
         const locationTag = isPlant
           ? (plan.floor === 1 ? "PLANT" : "MEZZ")
@@ -290,7 +407,7 @@ async function main() {
         return {
           buildingId: building.id,
           floorId: floorRow.id,
-          roomId: room.id,
+          roomId: dbRoomForGeometry(room.id, viewerFloor, roomRows).id,
           name: `${prefix}-${String(idx).padStart(2, "0")}`,
           type: plan.type,
           status: faker.helpers.weightedArrayElement([
