@@ -191,6 +191,20 @@ async function main() {
   type AssetTypeDb = "ahu" | "chiller" | "boiler" | "pump" | "fan" | "elevator" | "lighting";
   const ASSET_PLAN: { type: AssetTypeDb; floor: 1 | 2 }[] = [];
 
+  // How each equipment type is physically mounted in the space. Drives the
+  // seeded Y so markers sit where the real device would be mounted instead of
+  // at a fully-random height (root cause of the "floating flagpole" look).
+  type MountKind = "floor" | "ceiling" | "full-height";
+  const MOUNT_HEIGHT: Record<AssetTypeDb, MountKind> = {
+    chiller: "floor",
+    boiler: "floor",
+    pump: "floor",
+    ahu: "ceiling",
+    fan: "ceiling",
+    lighting: "ceiling",
+    elevator: "full-height",
+  };
+
   for (const fa of FLOOR_AREAS) {
     for (const rule of DENSITY_RULES) {
       const count = Math.max(rule.minPerFloor, Math.round(fa.sqm / rule.densitySqm));
@@ -269,6 +283,19 @@ async function main() {
     return { x, z };
   }
 
+  // Min spacing (in world units) between two asset markers in the same room.
+  // Prevents the stacked/overlapping cluster look from fully-random placement.
+  const MIN_SPACING = 1.5;
+
+  // Already-placed asset positions per room id — reset implicitly per room
+  // because each room gets its own array. Used by the min-distance check.
+  const placedByRoom = new Map<string, { x: number; z: number }[]>();
+
+  // True if (x,z) is closer than MIN_SPACING to any already-placed point.
+  function tooClose(x: number, z: number, placed: { x: number; z: number }[]): boolean {
+    return placed.some((p) => Math.hypot(p.x - x, p.z - z) < MIN_SPACING);
+  }
+
   // Pick the room an asset belongs in by type + floor.
   function roomForAsset(type: AssetTypeDb, viewerFloor: 0 | 1): RoomPoly {
     if (plantTypes.has(type)) {
@@ -335,13 +362,33 @@ async function main() {
         // validateFloorPlan out-of-bounds check. Now we pick the asset's room
         // by type/floor and sample strictly inside it.
         const room = roomForAsset(plan.type, viewerFloor);
-        const { x, z } = sampleInsideRoom(room);
-        // Y stays inside the building's vertical envelope:
-        //   floor 0 (Exhibition): yBase=0,   yMax ≈ 8.5
-        //   floor 1 (Mezzanine):  yBase=9.0, yMax ≈ 17.5
-        const y = viewerFloor === 0
-          ? faker.number.float({ min: 0.2, max: 7.5 })
-          : faker.number.float({ min: 9.5, max: 16.5 });
+
+        // ── Min-distance placement (Task 2) ───────────────────────────────
+        // Resample x/z (keeping the same room + grid scheme) until the point
+        // is at least MIN_SPACING from every other asset already placed in
+        // this room. Bounded to 5 tries, then we accept to avoid an infinite
+        // loop in a crowded room.
+        const placedHere = placedByRoom.get(room.id) ?? [];
+        let { x, z } = sampleInsideRoom(room);
+        for (let attempt = 0; attempt < 5 && tooClose(x, z, placedHere); attempt++) {
+          ({ x, z } = sampleInsideRoom(room));
+        }
+        placedHere.push({ x, z });
+        placedByRoom.set(room.id, placedHere);
+
+        // ── Type-based mount height (Task 1) ──────────────────────────────
+        // Each floor's vertical envelope (matches the viewer's BUILDING_FLOORS
+        // yBase/yMax). Equipment is seeded at a height matching how it's
+        // physically mounted — not a fully-random Y.
+        const floorYBase = viewerFloor === 0 ? 0.2 : 9.5;
+        const floorYTop = viewerFloor === 0 ? 7.5 : 16.5;
+        const mount = MOUNT_HEIGHT[plan.type];
+        const y =
+          mount === "floor"
+            ? faker.number.float({ min: floorYBase, max: floorYBase + 0.6 }) // near floor
+            : mount === "ceiling"
+              ? faker.number.float({ min: floorYTop - 0.8, max: floorYTop }) // near ceiling
+              : faker.number.float({ min: floorYBase + 0.5, max: floorYTop - 0.5 }); // full-height span
 
         // Pick a room on this floor for FK
         // Zone tag from the (geometry) room id the asset sits in.
