@@ -188,9 +188,8 @@ async function main() {
   ];
 
   // Derive ASSET_PLAN from floor area and density rules
+  type AssetTypeDb = "ahu" | "chiller" | "boiler" | "pump" | "fan" | "elevator" | "lighting";
   const ASSET_PLAN: { type: AssetTypeDb; floor: 1 | 2 }[] = [];
-  const assetTypes = ["ahu", "chiller", "boiler", "pump", "fan", "elevator", "lighting"] as const;
-  type AssetTypeDb = (typeof assetTypes)[number];
 
   for (const fa of FLOOR_AREAS) {
     for (const rule of DENSITY_RULES) {
@@ -322,7 +321,7 @@ async function main() {
   const assetRows = await db
     .insert(assets)
     .values(
-      ASSET_PLAN.map((plan, i) => {
+      ASSET_PLAN.map((plan) => {
         const idx = ++typeCounter[plan.type];
         const typeCode = plan.type.toUpperCase();
         const isPlant = plantTypes.has(plan.type);
