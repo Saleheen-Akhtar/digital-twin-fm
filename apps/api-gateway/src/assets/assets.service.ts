@@ -131,14 +131,13 @@ export class AssetsService {
       sensor_id: string;
       id: string;
       value: number;
-      unit: string;
       quality: string;
       timestamp: string;
     }>(
       sql`
         WITH latest AS (
           SELECT DISTINCT ON (sr.sensor_id)
-            sr.sensor_id, sr.id, sr.value, sr.unit, sr.quality, sr.timestamp
+            sr.sensor_id, sr.id, sr.value, sr.quality, sr.timestamp
           FROM ${sensorReadings} sr
           WHERE sr.sensor_id IN (${inClause})
           ORDER BY sr.sensor_id, sr.timestamp DESC
@@ -157,7 +156,7 @@ export class AssetsService {
         assetId,
         timestamp: r.timestamp,
         value: r.value,
-        unit: r.unit,
+        // unit lives on the sensor, not the reading — pair sensor.unit on the client
         quality: r.quality as any,
       });
     }
