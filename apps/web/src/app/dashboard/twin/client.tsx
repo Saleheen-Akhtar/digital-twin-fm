@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DigitalTwinPanel } from "@/features/digital-twin/panel";
 import { AssetDetailPanel } from "@/features/digital-twin/asset-detail-panel";
+import CopilotWidget from "@/features/copilot/copilot-widget";
 import type { Asset } from "@/lib/api-client";
 
 interface DigitalTwinClientProps {
@@ -61,6 +62,8 @@ export function DigitalTwinClient({ initialAssets, initialError, modelUrl }: Dig
         {selectedAsset && (
           <AssetDetailPanel asset={selectedAsset} onClose={() => setSelectedId(null)} />
         )}
+
+        <CopilotWidget contextHint="User is viewing the 3D digital twin of the demo convention centre." />
       </div>
     </div>
   );

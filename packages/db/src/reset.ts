@@ -18,7 +18,7 @@ import {
   workOrders,
   maintenanceLogs,
 } from "./schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 faker.seed(42);
 
@@ -39,7 +39,7 @@ async function main() {
     host: process.env.POSTGRES_HOST || "localhost",
     port: Number(process.env.POSTGRES_PORT) || 5432,
     user: process.env.POSTGRES_USER || "dtfm_user",
-    password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
+    password: process.env.POSTGRES_PASSWORD ?? (() => { throw new Error("POSTGRES_PASSWORD not set — aborting"); })(),
     database: process.env.POSTGRES_DB || "dtfm_db",
   });
   const db = drizzle(pool);
@@ -96,14 +96,6 @@ async function main() {
         value: val,
         quality: "good",
       });
-
-      // Set the last value on the sensor record to match the most recent reading (i = 0)
-      if (i === 0) {
-        await db.update(sensors).set({
-          lastValue: val,
-          lastReadingAt: timestamp,
-        }).where(eq(sensors.id, s.id));
-      }
     }
   }
 
@@ -112,6 +104,20 @@ async function main() {
   for (let i = 0; i < readings.length; i += chunkSize) {
     const chunk = readings.slice(i, i + chunkSize);
     await db.insert(sensorReadings).values(chunk);
+  }
+
+  // Batch-update sensor.lastValue / lastReadingAt from the first reading of each group
+  const lastReadings = new Map<string, { value: number; timestamp: string }>();
+  for (const reading of readings) {
+    if (!lastReadings.has(reading.sensorId) || reading.timestamp > lastReadings.get(reading.sensorId)!.timestamp) {
+      lastReadings.set(reading.sensorId, { value: reading.value, timestamp: reading.timestamp });
+    }
+  }
+  const updateValues = Array.from(lastReadings.entries()).map(([sid, lr]) =>
+    sql`UPDATE ${sensors} SET last_value = ${lr.value}, last_reading_at = ${lr.timestamp} WHERE id = ${sid}`,
+  );
+  for (const statement of updateValues) {
+    await db.execute(statement);
   }
 
   console.log(`✨ Successfully generated and stored ${readings.length} baseline readings.`);
