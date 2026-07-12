@@ -13,6 +13,9 @@ import { RealtimeModule } from './ws/realtime.module';
 import { WorkOrdersModule } from './work-orders/work-orders.module';
 import { BuildingModule } from './building/building.module';
 import { CopilotModule } from './copilot/copilot.module';
+import { ActuatorsModule } from './actuators/actuators.module';
+import { DemoModule } from './demo/demo.module';
+import { PredictiveModule } from './predictive/predictive.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { ThrottlerBehindAuthGuard } from './auth/throttler-behind-auth.guard';
@@ -64,6 +67,9 @@ import { ThrottlerBehindAuthGuard } from './auth/throttler-behind-auth.guard';
     WorkOrdersModule,
     BuildingModule,
     CopilotModule,
+    ActuatorsModule,
+    DemoModule,
+    PredictiveModule,
     ThrottlerModule.forRoot([
       { name: 'burst', ttl: 1_000, limit: 20 },
       { name: 'sustained', ttl: 60_000, limit: 300 },

@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import health, copilot
+from .routers import health, copilot, predictive
 
 settings = get_settings()
 
@@ -75,6 +75,7 @@ app.add_middleware(
 
 app.include_router(health.router, tags=["health"])
 app.include_router(copilot.router, prefix="/ai", tags=["copilot"])
+app.include_router(predictive.router, tags=["predictive"])
 
 
 if __name__ == "__main__":

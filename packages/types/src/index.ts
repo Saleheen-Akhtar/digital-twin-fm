@@ -50,6 +50,10 @@ export interface Room {
   floorId: string;
   name: string;
   color?: string | null;
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
 }
 
 export interface Asset {
@@ -64,10 +68,12 @@ export interface Asset {
   model?: string | null;
   serialNumber?: string | null;
   installedAt?: string | null;
-  positionX?: number | null; // for 3D marker
+  positionX?: number | null;
   positionY?: number | null;
   positionZ?: number | null;
-  floorLevel?: number | null; // floor level (1-based, from floors table)
+  floorLevel?: number | null;
+  floorName?: string | null;
+  roomName?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,9 +124,12 @@ export interface WorkOrder {
   priority: WorkOrderPriority;
   status: WorkOrderStatus;
   assignedTo?: string;
-  createdAt: string;
-  dueAt?: string;
+  createdBy?: string;
+  startedAt?: string;
   completedAt?: string;
+  dueAt?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 // ──────────────────────────────────────────────

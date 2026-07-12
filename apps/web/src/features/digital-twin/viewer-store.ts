@@ -41,6 +41,8 @@ export interface ViewerStore {
   assetStatuses: Record<string, AssetStatus>;
   /** Connection state for the WebSocket */
   wsConnected: boolean;
+  /** Asset IDs that currently have active alerts (for alert overlays) */
+  activeAlertAssets: Set<string>;
   setSelectedFloor: (f: FloorFilter) => void;
   setSelectedType: (t: TypeFilter) => void;
   setSelectedAsset: (a: Asset | null) => void;
@@ -51,6 +53,10 @@ export interface ViewerStore {
   bulkSetAssetStatuses: (updates: Record<string, AssetStatus>) => void;
   /** Set WebSocket connection state */
   setWsConnected: (connected: boolean) => void;
+  /** Mark an asset as having an active alert */
+  addAlertAsset: (assetId: string) => void;
+  /** Remove an asset from the alert set (when alert is resolved) */
+  removeAlertAsset: (assetId: string) => void;
 }
 
 export const useViewerStore = create<ViewerStore>((set) => ({
@@ -59,6 +65,7 @@ export const useViewerStore = create<ViewerStore>((set) => ({
   selectedAsset: null,
   assetStatuses: {},
   wsConnected: false,
+  activeAlertAssets: new Set<string>(),
   setSelectedFloor: (f) => set({ selectedFloor: f }),
   setSelectedType: (t) => set({ selectedType: t }),
   setSelectedAsset: (a) => set({ selectedAsset: a }),
@@ -72,6 +79,18 @@ export const useViewerStore = create<ViewerStore>((set) => ({
       assetStatuses: { ...s.assetStatuses, ...updates },
     })),
   setWsConnected: (connected) => set({ wsConnected: connected }),
+  addAlertAsset: (assetId) =>
+    set((s) => {
+      const next = new Set(s.activeAlertAssets);
+      next.add(assetId);
+      return { activeAlertAssets: next };
+    }),
+  removeAlertAsset: (assetId) =>
+    set((s) => {
+      const next = new Set(s.activeAlertAssets);
+      next.delete(assetId);
+      return { activeAlertAssets: next };
+    }),
 }));
 
 export { type AssetStatus, type AssetType };
