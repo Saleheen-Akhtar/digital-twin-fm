@@ -12,6 +12,10 @@ import { Redis } from "ioredis";
 import mqtt from "mqtt";
 import { z } from "zod";
 
+const INITIAL_RECONNECT_PERIOD = 2_000; // 2s
+const MAX_RECONNECT_PERIOD = 30_000; // 30s cap
+const BACKOFF_MULTIPLIER = 1.5;
+
 const SensorReading = z.object({
   sensorId: z.string().min(1),
   assetId: z.string().min(1),
@@ -35,9 +39,38 @@ export type MqttListenerOptions = {
 export function startMqttListener(options: MqttListenerOptions): mqtt.MqttClient {
   const { url, redis, topic = "sensors/+/reading", log } = options;
 
-  const client: mqtt.MqttClient = mqtt.connect(url);
+  const client: mqtt.MqttClient = mqtt.connect(url, {
+    reconnectPeriod: INITIAL_RECONNECT_PERIOD,
+    connectTimeout: 10_000,
+    clean: true,
+    will: {
+      topic: "sensors/system/status",
+      payload: JSON.stringify({ status: "offline", service: "ingestion-service" }),
+      qos: 1,
+      retain: true,
+    },
+  });
+
+  let backoffAttempt = 0;
+
+  client.on("reconnect", () => {
+    backoffAttempt++;
+    const next = Math.min(
+      INITIAL_RECONNECT_PERIOD * BACKOFF_MULTIPLIER ** backoffAttempt,
+      MAX_RECONNECT_PERIOD,
+    );
+    // Apply jitter: ±20%
+    const jitter = next * (0.8 + Math.random() * 0.4);
+    client.options.reconnectPeriod = Math.round(jitter);
+    log.info(
+      { attempt: backoffAttempt, nextReconnectMs: client.options.reconnectPeriod },
+      "mqtt reconnecting",
+    );
+  });
 
   client.on("connect", () => {
+    // Reset backoff on successful connection
+    backoffAttempt = 0;
     log.info({ url, topic }, "mqtt connected");
     client.subscribe(topic, (err) => {
       if (err) {

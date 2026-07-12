@@ -123,15 +123,21 @@ function makeAsset(
   positionIndex: number,
   status: AssetStatus,
 ): Asset {
-  // Deterministic 4x3 grid, safely inside the 36×24 building with 4m margin
-  // Grid spans X: -12 to +12 (24m), Z: -8 to +8 (16m)
+  // Deterministic placement inside room polygons.
+  // Floor 0 (Exhibition): 1b=[-16,-3]×[-3.5,7.5], 1c=[3,16]×[-3.5,7.5],
+  //   1a=[-8,8]×[-12.25,-7.75], 1g=[-8,6]×[8,11.5], 1e=[-15,-11]×[8,11.5], 1f=[11,15]×[8,11.5]
+  // Floor 1 (Mezzanine):   2a=[-17,-3]×[-3,3], 2b=[3,17]×[-3,3], 2c=[-5,5]×[-11,-5]
+  // 4 columns × 3 rows: First two rows inside Hall A/B, third row in back rooms
   const cols = 4;
   const col = positionIndex % cols;
   const row = Math.floor(positionIndex / cols);
-  const gridW = 24;  // 36 building width - 2×6m margin
-  const gridD = 16;  // 24 building depth - 2×4m margin
-  const x = -gridW / 2 + (gridW / (cols - 1)) * col;
-  const z = -gridD / 2 + (gridD / 2) * row;
+  // Row 0 (z≈-2): x ∈ {-14, -4, 6, 14} — inside Hall A/B
+  // Row 1 (z≈4):  x ∈ {-14, -4, 6, 14} — inside Hall A/B
+  // Row 2 (z≈9):  x ∈ {-14, -4, 6, 14} — inside 1e/1g/1f or 2a/2b
+  const rowZ = [-2, 4, 9];
+  const colX = [-14, -4, 6, 14];
+  const x = colX[col];
+  const z = rowZ[row];
 
   const emoji = TYPE_EMOJI[type];
   const id = `${type.toLowerCase().replace(/\s/g, "")}-${index}`;

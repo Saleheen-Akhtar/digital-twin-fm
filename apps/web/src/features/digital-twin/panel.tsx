@@ -1,10 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Asset, Sensor } from "@digital-twin-fm/types";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
 import { useRealtime } from "@/hooks/useRealtime";
+import { useBrowserNotifications } from "@/hooks/useBrowserNotifications";
+import { useViewerStore } from "./viewer-store";
 
 // Raw Three.js (WebGL) — must be client-only. No SSR.
 const Viewer = dynamic(
@@ -48,6 +50,25 @@ export function DigitalTwinPanel({
 
   // Connect to the realtime WebSocket for live asset status updates
   useRealtime();
+
+  // Browser notifications for new alerts
+  const activeAlertAssets = useViewerStore((s) => s.activeAlertAssets);
+  const { notify } = useBrowserNotifications();
+
+  // When a new alert asset appears, show a browser notification
+  const prevAlertCount = useRef(0);
+  useEffect(() => {
+    const currentCount = activeAlertAssets.size;
+    if (currentCount > prevAlertCount.current) {
+      // New alert(s) added — fire one notification
+      notify({
+        title: "🚨 New Alert",
+        body: `${currentCount - prevAlertCount.current} asset(s) require attention`,
+        severity: "critical",
+      });
+    }
+    prevAlertCount.current = currentCount;
+  }, [activeAlertAssets.size, notify]);
 
   useEffect(() => {
     let cancelled = false;

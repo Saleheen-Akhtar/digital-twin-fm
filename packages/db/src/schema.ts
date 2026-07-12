@@ -72,6 +72,11 @@ export const rooms = pgTable("rooms", {
   floorId: uuid("floor_id").notNull().references(() => floors.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   color: varchar("color", { length: 32 }),
+  // Floor plan geometry (relative to floor canvas, 0-1000 units)
+  positionX: doublePrecision("position_x").default(0),
+  positionY: doublePrecision("position_y").default(0),
+  width: doublePrecision("width").default(200),
+  height: doublePrecision("height").default(150),
 });
 
 // ─────────────────────── Assets ───────────────────────
@@ -117,7 +122,7 @@ export const sensors = pgTable("sensors", {
 
 // ─────────────────────── Sensor readings (TimescaleDB hypertable) ───────────────────────
 export const sensorReadings = pgTable("sensor_readings", {
-  id: uuid("id").defaultRandom(),
+  id: uuid("id").defaultRandom().primaryKey(),
   sensorId: uuid("sensor_id").notNull(),
   assetId: uuid("asset_id").notNull(),
   timestamp: timestamp("timestamp", { mode: "string" }).notNull(),
