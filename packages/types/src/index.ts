@@ -68,10 +68,12 @@ export interface Asset {
   model?: string | null;
   serialNumber?: string | null;
   installedAt?: string | null;
-  positionX?: number | null; // for 3D marker
+  positionX?: number | null;
   positionY?: number | null;
   positionZ?: number | null;
-  floorLevel?: number | null; // floor level (1-based, from floors table)
+  floorLevel?: number | null;
+  floorName?: string | null;
+  roomName?: string | null;
   createdAt: string;
   updatedAt: string;
 }

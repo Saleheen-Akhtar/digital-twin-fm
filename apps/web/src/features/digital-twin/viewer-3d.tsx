@@ -10,7 +10,7 @@
  *     The viewer is the product, the chrome is the noise.
  *
  *   mode="operator" — for /twin dashboard. Operators need KPIs, events,
- *     layers, AI Copilot. All overlays are toggleable via a single icon
+ *     layers. All overlays are toggleable via a single icon
  *     rail (top-right). Default open: KPI strip. Other panels
  *     panels (Layers / Events / Building Health) are one click away.
  *
@@ -77,7 +77,6 @@ export type OverlayKey =
   | "floors"      // Top-left floor selector
   | "events"      // Bottom-left Live Event feed
   | "layers"      // Right Layers panel (facade/furniture/MEP/zones)
-  | "ai"          // Bottom-right AI Copilot button
   | "walk";       // Top-right Walk toggle
 
 export interface DigitalTwinViewer3DProps {
@@ -586,217 +585,6 @@ function LiveEventFeed({ events }: { events: LiveEvent[] }) {
   );
 }
 
-// ─── AI Copilot Button ─────────────────────────────────────────────
-
-function AICopilotButton() {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [response, setResponse] = useState<string | null>(null);
-  const [reasoning, setReasoning] = useState<string>("");
-  const [thinking, setThinking] = useState(false);
-
-  const suggestions = [
-    "Why is the upper level hot?",
-    "Which assets need maintenance?",
-    "Show energy consumption trend",
-    "Predict failures this week",
-  ];
-
-  const handleAsk = async (q: string) => {
-    setThinking(true);
-    setResponse("");
-    setReasoning("");
-    try {
-      const body = JSON.stringify({
-        question: q,
-        building_id: "9a83477a-4b19-444a-9345-0e07f90d16b0",
-      });
-      const res = await fetch("/api/proxy/ai/copilot/query/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        credentials: "same-origin",
-      });
-
-      if (!res.ok || !res.body) {
-        throw new Error("Stream unavailable");
-      }
-
-      setThinking(false);
-
-      let accumulated = "";
-      let accumulatedReasoning = "";
-      let lastUpdate = Date.now();
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      try {
-        // SSE stream loops until the server sends [DONE] or closes the
-        // response. The reader returns { done: true } at EOF; we break on
-        // that or on the explicit [DONE] sentinel inside the loop body.
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") {
-                setResponse(accumulated);
-                setReasoning(accumulatedReasoning);
-                return;
-              }
-              try {
-                const parsed = JSON.parse(data);
-                let updatedState = false;
-                if (parsed.reasoning) {
-                  accumulatedReasoning += parsed.reasoning;
-                  updatedState = true;
-                }
-                if (parsed.token) {
-                  accumulated += parsed.token;
-                  updatedState = true;
-                }
-
-                if (updatedState) {
-                  const now = Date.now();
-                  if (now - lastUpdate > 60) {
-                    setResponse(accumulated);
-                    setReasoning(accumulatedReasoning);
-                    lastUpdate = now;
-                  }
-                }
-              } catch {
-                // Skip malformed lines
-              }
-            }
-          }
-        }
-        setResponse(accumulated);
-        setReasoning(accumulatedReasoning);
-      } finally {
-        reader.releaseLock();
-      }
-    } catch (err) {
-      console.warn("AI service streaming failed, falling back to simulation:", err);
-      const responses: Record<string, string> = {
-        "Why is the upper level hot?": "AHU-001 on the Upper Mezzanine is running at reduced capacity (warning status). The supply air temperature sensor reads 26.2°C, which is 3.8°C above setpoint. Recommend checking the cooling coil valve actuator on the mezzanine AHU.",
-        "Which assets need maintenance?": "3 assets require attention: Chiller 1 (critical — compressor vibration 4.2mm/s), Pump 2 (warning — seal leak detected), Fan 4 (warning — bearing temperature elevated at 78°C).",
-        "Show energy consumption trend": "Current building energy: 1,248 kWh. Trending 12% higher than last week due to increased cooling load on the Exhibition Level. Peak hours: 2PM–5PM. Recommend scheduling non-critical loads to off-peak.",
-        "Predict failures this week": "Based on vibration and temperature trends: Chiller 1 has 87% probability of compressor failure within 72 hours. Boiler 2 shows gradual efficiency decline — recommend inspection within 5 days.",
-      };
-      setResponse(responses[q] || "I can analyze building systems, predict maintenance needs, optimize energy usage, and answer questions about facility operations. Try asking about specific assets or systems.");
-      setThinking(false);
-    }
-  };
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="group flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2.5 rounded-2xl shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:scale-105 transition-all duration-200"
-      >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 2a4 4 0 0 1 4 4v1a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-1l-3 4-3-4H8a3 3 0 0 1-3-3V10a3 3 0 0 1 3-3V6a4 4 0 0 1 4-4z" />
-        </svg>
-        <span className="text-[12px] font-semibold">Ask AI</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="bg-white/98 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl w-[340px] overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2a4 4 0 0 1 4 4v1a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-1l-3 4-3-4H8a3 3 0 0 1-3-3V10a3 3 0 0 1 3-3V6a4 4 0 0 1 4-4z" />
-          </svg>
-          <span className="text-[13px] font-semibold text-white">AI Copilot</span>
-        </div>
-        <button onClick={() => { setOpen(false); setResponse(null); setReasoning(""); setQuery(""); }} className="text-white/70 hover:text-white">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-      </div>
-
-      {/* Suggestions */}
-      {response === null && !thinking && (
-        <div className="px-3 py-2 border-b border-slate-100">
-          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Suggestions</div>
-          <div className="flex flex-wrap gap-1">
-            {suggestions.map((s) => (
-              <button
-                key={s}
-                onClick={() => { setQuery(s); handleAsk(s); }}
-                className="text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Response */}
-      {thinking && (
-        <div className="px-4 py-6 flex items-center justify-center gap-2">
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-        </div>
-      )}
-      {(reasoning || response) && (
-        <div className="px-4 py-3 max-h-[200px] overflow-y-auto space-y-2">
-          {reasoning && (
-            <div className="text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded-xl p-2.5 font-mono">
-              <details open className="group">
-                <summary className="flex cursor-pointer select-none items-center gap-1 font-semibold text-slate-600 hover:text-slate-800">
-                  <svg className="w-3 h-3 animate-spin text-slate-400 group-open:animate-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="12" cy="12" r="10" strokeDasharray="30 10"/>
-                  </svg>
-                  <span>Thinking Process</span>
-                </summary>
-                <div className="mt-1 whitespace-pre-wrap leading-relaxed border-t border-slate-200/60 pt-1 text-slate-500/80">{reasoning}</div>
-              </details>
-            </div>
-          )}
-          {response && (
-            <div className="text-[11px] text-slate-600 bg-slate-50 rounded-xl p-3 leading-relaxed">
-              {response}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="px-3 py-2 border-t border-slate-100">
-        <div className="flex gap-1.5">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && query.trim()) handleAsk(query); }}
-            placeholder="Ask about your building..."
-            className="flex-1 text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 text-slate-700"
-          />
-          <button
-            onClick={() => { if (query.trim()) handleAsk(query); }}
-            className="bg-blue-600 text-white px-3 py-1.5 rounded-xl text-[11px] font-medium hover:bg-blue-700 transition-colors"
-          >
-            Ask
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Viewer Component ─────────────────────────────────────────
 
 export function DigitalTwinViewer3D({
@@ -1100,15 +888,8 @@ export function DigitalTwinViewer3D({
             </div>
           )}
 
-          {/* ── AI Copilot (when its overlay is on) ── */}
-          {isOpen("ai") && (
-            <div className="absolute bottom-3 right-3 z-20" data-overlay="ai">
-              <AICopilotButton />
-            </div>
-          )}
-
-          {/* ── Controls hint (only when neither AI nor walk is active) ── */}
-          {!walkMode && !isOpen("ai") && (
+          {/* ── Controls hint ── */}
+          {!walkMode && (
             <div className="absolute bottom-3 right-3 z-10 bg-white/90 backdrop-blur border border-slate-200 rounded-xl shadow-sm px-3 py-1.5 pointer-events-none text-xs text-slate-500">
               Drag rotate · Scroll zoom · Click asset to inspect
             </div>
@@ -1140,7 +921,6 @@ function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailPr
     { key: "floors", icon: "🏢", label: "Floors", title: "Floor selector" },
     { key: "events", icon: "🔔", label: "Events", title: "Live Event Feed" },
     { key: "layers", icon: "🧱", label: "Layers", title: "Layers panel" },
-    { key: "ai", icon: "💬", label: "AI", title: "AI Copilot" },
   ];
 
   return (

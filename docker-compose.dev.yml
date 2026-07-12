@@ -1,0 +1,168 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Dev override for Digital Twin FM
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml watch
+#
+# What this does vs the production stack:
+#   - The 4 app services (web, api-gateway, ingestion, ai) run their DEV
+#     servers (next dev / nest start --watch / tsx watch / uvicorn --reload)
+#     instead of the pre-built prod bundles.
+#   - Source + config are bind-mounted (live edit), but `node_modules` is
+#     NOT mounted — the container's installed deps are kept via anonymous
+#     volumes so pnpm's symlinked layout keeps resolving inside the container.
+#   - `docker compose watch` syncs file changes live; it only rebuilds the
+#     image when pnpm-lock.yaml changes (dependency install).
+#
+# Infra services (postgres, valkey, mosquitto) are inherited unchanged from
+# docker-compose.yml.
+#
+# NOTE: meant to REPLACE the prod app containers. Stop the prod `web` first
+# (port 3000 clash) if it's running. Do NOT run both stacks' app containers.
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.dev.Dockerfile
+    image: dtfm-web-dev
+    container_name: dtfm-web-dev
+    command: ["pnpm", "dev"]
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      NEXT_OUTPUT: standalone
+      API_GATEWAY_URL: http://api-gateway:4000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
+    volumes:
+      # Live source + config (sync)
+      - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
+      # Protect the container's installed node_modules from the bind mount
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - /app/packages/db/node_modules
+      - /app/packages/types/node_modules
+      - /app/packages/ui/node_modules
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/web/src
+          target: /app/apps/web/src
+        - action: sync
+          path: ./packages
+          target: /app/packages
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/api-gateway.dev.Dockerfile
+    image: dtfm-api-dev
+    container_name: dtfm-api-dev
+    command: ["pnpm", "dev"]
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      MVP_ADMIN_PASSWORD: ${MVP_ADMIN_PASSWORD:-}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-dtfm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-dtfm_db}
+      POSTGRES_SSL: "false"
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      AI_SERVICE_URL: http://ai:8000
+      MQTT_URL: mqtt://mosquitto:1883
+    volumes:
+      - ./apps/api-gateway:/app/apps/api-gateway
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/api-gateway/node_modules
+      - /app/packages/db/node_modules
+      - /app/packages/types/node_modules
+      - /app/packages/ui/node_modules
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/api-gateway/src
+          target: /app/apps/api-gateway/src
+        - action: sync
+          path: ./packages
+          target: /app/packages
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: docker/ingestion-service.dev.Dockerfile
+    image: dtfm-ingestion-dev
+    container_name: dtfm-ingestion-dev
+    command: ["pnpm", "dev"]
+    environment:
+      NODE_ENV: development
+      INGESTION_HOST: 0.0.0.0
+      INGESTION_PORT: 4100
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      MQTT_URL: mqtt://mosquitto:1883
+      INGESTION_LOG_LEVEL: debug
+    volumes:
+      - ./apps/ingestion-service:/app/apps/ingestion-service
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/ingestion-service/node_modules
+      - /app/packages/db/node_modules
+      - /app/packages/types/node_modules
+      - /app/packages/ui/node_modules
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/ingestion-service/src
+          target: /app/apps/ingestion-service/src
+        - action: sync
+          path: ./packages
+          target: /app/packages
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+
+  ai:
+    build:
+      context: .
+      dockerfile: docker/ai-service.dev.Dockerfile
+    image: dtfm-ai-dev
+    container_name: dtfm-ai-dev
+    command: ["pnpm", "dev"]
+    environment:
+      PYTHONUNBUFFERED: 1
+      PORT: 8000
+      AI_HOST: 0.0.0.0
+      AI_SERVICE_PORT: 8000
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LITELLM_MODEL: ${LITELLM_MODEL:-openai/deepseek-v4-flash-free}
+      LITELLM_API_BASE: ${LITELLM_API_BASE:-https://opencode.ai/zen/v1}
+      OPENCODE_ZEN_API_KEY: ${OPENCODE_ZEN_API_KEY:-}
+      API_GATEWAY_URL: http://api-gateway:4000
+      AI_CORS_ORIGIN: ${AI_CORS_ORIGIN:-http://localhost:3000}
+    volumes:
+      - ./apps/ai-service:/app/apps/ai-service
+      - /app/node_modules
+      - /app/apps/ai-service/node_modules
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/ai-service/app
+          target: /app/apps/ai-service/app
+        - action: rebuild
+          path: ./apps/ai-service/requirements.txt

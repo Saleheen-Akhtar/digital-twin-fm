@@ -28,7 +28,7 @@ export interface SensorReadingPayload {
 export class RealtimeRedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RealtimeRedisService.name);
   private readonly redis: Redis;
-  private readonly channel = 'sensor.reading';
+  private readonly channels = ['sensor.reading', 'alert.created'];
 
   constructor(
     private readonly gateway: RealtimeGateway,
@@ -47,22 +47,35 @@ export class RealtimeRedisService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     try {
       await this.redis.connect();
-      await this.redis.subscribe(this.channel);
-      this.logger.log(`Subscribed to Redis channel "${this.channel}"`);
+      await this.redis.subscribe(...this.channels);
+      this.logger.log(`Subscribed to Redis channels: ${this.channels.join(', ')}`);
 
       this.redis.on('message', (channel, message) => {
-        if (channel !== this.channel) return;
-        try {
-          const reading: SensorReadingPayload = JSON.parse(message);
-          this.gateway.broadcastSensorReading({
-            sensorId: reading.sensorId,
-            assetId: reading.assetId,
-            value: reading.value,
-            unit: reading.unit,
-            timestamp: reading.timestamp,
-          });
-        } catch (err) {
-          this.logger.error('Failed to parse sensor reading from Redis', err);
+        if (channel === 'sensor.reading') {
+          try {
+            const reading: SensorReadingPayload = JSON.parse(message);
+            this.gateway.broadcastSensorReading({
+              sensorId: reading.sensorId,
+              assetId: reading.assetId,
+              value: reading.value,
+              unit: reading.unit,
+              timestamp: reading.timestamp,
+            });
+          } catch (err) {
+            this.logger.error('Failed to parse sensor reading from Redis', err);
+          }
+        } else if (channel === 'alert.created') {
+          try {
+            const alert = JSON.parse(message);
+            this.gateway.broadcastAlert({
+              assetId: alert.assetId,
+              severity: alert.severity,
+              message: alert.message,
+              id: alert.id,
+            });
+          } catch (err) {
+            this.logger.error('Failed to parse alert from Redis', err);
+          }
         }
       });
     } catch (err) {
@@ -72,7 +85,7 @@ export class RealtimeRedisService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     try {
-      await this.redis.unsubscribe(this.channel);
+      await this.redis.unsubscribe(...this.channels);
       await this.redis.quit();
     } catch {
       // ignore errors during shutdown
