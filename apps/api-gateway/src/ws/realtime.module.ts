@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RealtimeGateway } from './realtime.gateway';
-import { RealtimeService } from './realtime.service';
 import { RealtimeRedisService } from './realtime-redis.service';
 
 @Module({
@@ -16,7 +15,7 @@ import { RealtimeRedisService } from './realtime-redis.service';
       }),
     }),
   ],
-  providers: [RealtimeGateway, RealtimeService, RealtimeRedisService],
-  exports: [RealtimeGateway, RealtimeService],
+  providers: [RealtimeGateway, RealtimeRedisService],
+  exports: [RealtimeGateway],
 })
 export class RealtimeModule {}

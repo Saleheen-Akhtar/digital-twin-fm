@@ -37,7 +37,7 @@ export class BuildingsService {
       buildingId: f.buildingId,
       level: f.level,
       name: f.name,
-      rooms: roomRows.filter((r) => r.floorId === f.id),
+      rooms: roomRows.filter((r) => r.floorId === f.id).map(mapRoom),
     }));
   }
 
@@ -73,7 +73,7 @@ export class BuildingsService {
       .insert(rooms)
       .values({ floorId, name: dto.name, color: dto.color ?? null })
       .returning();
-    return { id: row.id, floorId: row.floorId, name: row.name, color: row.color ?? undefined };
+    return mapRoom(row);
   }
 
   async deleteZone(buildingId: string, floorId: string, zoneId: string): Promise<boolean> {
@@ -97,7 +97,7 @@ export class BuildingsService {
     buildingId: string,
     floorId: string,
     zoneId: string,
-    dto: { name?: string; color?: string },
+    dto: { name?: string; color?: string; positionX?: number; positionY?: number; width?: number; height?: number },
   ): Promise<Room | null> {
     const matchingFloor = await this.db
       .select()
@@ -106,9 +106,13 @@ export class BuildingsService {
       .limit(1);
     if (!matchingFloor[0]) return null;
 
-    const updateFields: Record<string, string> = {};
+    const updateFields: Record<string, string | number> = {};
     if (dto.name !== undefined) updateFields.name = dto.name;
     if (dto.color !== undefined) updateFields.color = dto.color;
+    if (dto.positionX !== undefined) updateFields.position_x = dto.positionX;
+    if (dto.positionY !== undefined) updateFields.position_y = dto.positionY;
+    if (dto.width !== undefined) updateFields.width = dto.width;
+    if (dto.height !== undefined) updateFields.height = dto.height;
 
     if (Object.keys(updateFields).length === 0) {
       const existing = await this.db
@@ -116,7 +120,7 @@ export class BuildingsService {
         .from(rooms)
         .where(and(eq(rooms.id, zoneId), eq(rooms.floorId, floorId)))
         .limit(1);
-      return existing[0] ?? null;
+      return existing[0] ? mapRoom(existing[0]) : null;
     }
 
     const [updated] = await this.db
@@ -126,6 +130,19 @@ export class BuildingsService {
       .returning();
 
     if (!updated) return null;
-    return { id: updated.id, floorId: updated.floorId, name: updated.name, color: updated.color ?? undefined };
+    return mapRoom(updated);
   }
+}
+
+function mapRoom(r: typeof rooms.$inferSelect): Room {
+  return {
+    id: r.id,
+    floorId: r.floorId,
+    name: r.name,
+    color: r.color ?? undefined,
+    positionX: r.positionX ?? undefined,
+    positionY: r.positionY ?? undefined,
+    width: r.width ?? undefined,
+    height: r.height ?? undefined,
+  };
 }
