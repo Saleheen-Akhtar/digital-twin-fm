@@ -210,7 +210,7 @@ export default function WorkOrdersPage() {
         {/* Header */}
         <section className="flex items-center justify-between px-2 sm:px-1">
           <div>
-            <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-slate-950">Work Orders</h1>
+            <h1 className="text-2xl sm:text-[32px] font-semibold tracking-[-0.04em] text-slate-950">Work Orders</h1>
             <p className="mt-1 text-[15px] text-slate-500">
               {loading ? "Loading..." : `${orders.length} total work orders`}
             </p>
@@ -259,7 +259,7 @@ export default function WorkOrdersPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-100 text-[13px] text-slate-500">

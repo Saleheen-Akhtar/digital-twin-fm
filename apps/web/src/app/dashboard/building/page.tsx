@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
 import type { Building, Floor, Room } from "@/lib/api-client";
+import { FloorPlan } from "@/features/building/floor-plan";
 
 const COLOR_PRESETS = [
   "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe",
@@ -173,10 +174,10 @@ export default function BuildingPage() {
       )}
 
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{building?.name ?? "Building"}</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">{building?.name ?? "Building"}</h1>
+          <p className="mt-1 text-xs sm:text-sm text-slate-500">
             {floors.length} {(floors.length === 1 ? "floor" : "floors")} · {totalRooms} zones
             {building?.address ? ` · ${building.address}` : ""}
           </p>
@@ -345,12 +346,13 @@ function FloorCard({
   floor: Floor;
   buildingId?: string;
   savingId: string | null;
-  onUpdateZone: (room: Room, updates: { name?: string; color?: string }) => void;
+  onUpdateZone: (room: Room, updates: { name?: string; color?: string; positionX?: number; positionY?: number; width?: number; height?: number }) => void;
   onAddZone: () => void;
   onDeleteFloor: (id: string, name: string) => void;
   onDeleteZone: (zoneId: string, name: string) => void;
 }) {
   const rooms = floor.rooms ?? [];
+  const [showPlan, setShowPlan] = useState(false);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -370,6 +372,10 @@ function FloorCard({
             className="rounded-lg bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-100 transition-colors">
             + Zone
           </button>
+          <button onClick={() => setShowPlan((s) => !s)}
+            className="rounded-lg bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+            {showPlan ? "List" : "Plan"}
+          </button>
           <button onClick={() => onDeleteFloor(floor.id, floor.name)}
             className="rounded-lg bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-500 hover:bg-red-100 transition-colors">
             Del
@@ -377,24 +383,30 @@ function FloorCard({
         </div>
       </div>
 
-      {/* Zones */}
-      <div className="divide-y divide-slate-50">
-        {rooms.length === 0 ? (
-          <div className="px-5 py-6 text-center text-[13px] text-slate-400">No zones — click + Zone to add one</div>
-        ) : (
-          rooms.map((room) => (
-            <ZoneCard
-              key={room.id}
-              room={room}
-              floorId={floor.id}
-              buildingId={buildingId}
-              savingId={savingId}
-              onUpdate={(updates) => onUpdateZone(room, updates)}
-              onDelete={(name) => onDeleteZone(room.id, name)}
-            />
-          ))
-        )}
+      {/* Zones / Floor Plan */}
+      {showPlan ? (
+        <div className="p-3">
+          <FloorPlan zones={rooms} />
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-50">
+          {rooms.length === 0 ? (
+            <div className="px-5 py-6 text-center text-[13px] text-slate-400">No zones — click + Zone to add one</div>
+          ) : (
+            rooms.map((room) => (
+              <ZoneCard
+                key={room.id}
+                room={room}
+                floorId={floor.id}
+                buildingId={buildingId}
+                savingId={savingId}
+                onUpdate={(updates) => onUpdateZone(room, updates)}
+                onDelete={(name) => onDeleteZone(room.id, name)}
+              />
+            ))
+          )}
       </div>
+      )}
     </div>
   );
 }
