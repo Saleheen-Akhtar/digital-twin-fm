@@ -99,12 +99,13 @@ const isDev = process.env.NODE_ENV !== 'production';
 const csp = [
   "default-src 'self'",
   // Next.js fast refresh requires unsafe-eval in development + blob: for HMR
-  `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval' blob:" : ""}`,
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  // Allow connecting to the API gateway, dev websockets, and blob: for loading 3D textures
-  `connect-src 'self' blob: ${isDev ? "http://localhost:4000 http://127.0.0.1:4000 ws://localhost:4000 ws://localhost:3000" : ""}`,
+  // Allow connecting to the api gateway (internal DNS in Docker, localhost in dev),
+  // websockets for realtime, and blob: for 3D textures
+  `connect-src 'self' blob: ws: http://api-gateway:4000 http://localhost:4000 http://127.0.0.1:4000 ws://localhost:4000 ws://localhost:3000`,
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   "frame-ancestors 'none'",
@@ -128,9 +129,6 @@ const analyzerEnabled = process.env.ANALYZE === 'true';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   transpilePackages: ['@digital-twin-fm/db'],
   output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   async headers() {

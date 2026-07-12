@@ -45,7 +45,7 @@ function findMonorepoRoot(startDir: string): string {
     const pkgPath = resolve(dir, 'package.json');
     if (existsSync(pkgPath) && statSync(pkgPath).isFile()) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
         const pkg = require(pkgPath) as { workspaces?: unknown };
         if (pkg.workspaces) return dir;
       } catch {

@@ -23,15 +23,15 @@ export const HERO = {
     "A real-time 3D digital twin for HVAC, chillers, boilers, pumps, and exhaust fans — with live sensor data, AI-powered insights, and instant fault alerts across every floor of your building.",
   cta: { label: "Open Live Dashboard", href: "/dashboard" },
   secondaryCta: { label: "Sign In", href: "/login" },
-  liveLabel: "Streaming live from Singapore Expo — Hall 7",
+  liveLabel: "Streaming live from Demo Convention Centre",
 } as const;
 
 /**
  * Static demo stats. The "Building Floors" count is a fallback only — the
  * hero on the landing page resolves `STATS.items` at render time and
  * overrides `Building Floors` with whatever the API reports. If the API
- * is down it shows the design-token default (currently 2 for Singapore
- * Expo Hall 7). This keeps the marketing copy honest as soon as a
+ * is down it shows the design-token default (currently 2 for our
+ * demo building). This keeps the marketing copy honest as soon as a
  * customer onboards with their own building.
  */
 export const STATS = {
