@@ -167,7 +167,9 @@ export function DashboardLiveMonitoring({
           <p className="mt-1 flex items-center gap-2 text-[12px] text-slate-500">
             <span
               className={`inline-block h-2 w-2 rounded-full ${
-                wsConnected ? "bg-emerald-500" : "bg-amber-400"
+                wsConnected
+                  ? "bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.6)]"
+                  : "bg-amber-400"
               }`}
             />
             {statusLabel}

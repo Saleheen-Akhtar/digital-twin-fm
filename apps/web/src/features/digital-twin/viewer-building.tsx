@@ -14,6 +14,7 @@
 import { useRef, useState, useMemo, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
+import { useViewerStore } from "./viewer-store";
 import { Html, Edges, Grid, useGLTF } from "@react-three/drei";
 import {
   colors,
@@ -407,7 +408,7 @@ const HALF_D = D / 2;
 const SLAB_T = 0.4;
 
 /**
- * Demo default: Singapore Expo Hall 7 — 2-floor convention centre.
+ * Demo default — 2-floor convention centre.
  * Real customer buildings are loaded from `/buildings/:id` at boot —
  * see `loadFloorsFromApi()` below. This constant is the offline fallback
  * used when the API is unreachable or for unit tests.
@@ -1387,6 +1388,31 @@ const STATUS_COLORS_HEX: Record<string, number> = {
   info: 0x3b82f6,
 };
 
+// Map an asset's viewer type → how its beacon pole should be drawn so the
+// marker reads as physically mounted (grounded floor unit vs hanging ceiling
+// fixture vs full-height feature) rather than a floating 3-unit flagpole.
+// `length` = pole height; `sphereOffset` = sphere position along the pole
+// from the asset's own Y (negative hangs *below* the mount point).
+function getPoleStyle(type: string): { length: number; sphereOffset: number } {
+  switch (type) {
+    case "Chiller":
+    case "Boiler":
+    case "Pump":
+      // Floor-mounted: short stub that plants the unit on the ground.
+      return { length: 0.8, sphereOffset: 0.4 };
+    case "Air Handler":
+    case "Fan":
+    case "Lighting":
+      // Ceiling-mounted: sphere hangs just below the mount point.
+      return { length: 0.8, sphereOffset: -0.5 };
+    case "Elevator":
+      // Full-height feature: tall, glowing column.
+      return { length: 3.0, sphereOffset: 1.5 };
+    default:
+      return { length: 1.0, sphereOffset: 0.5 };
+  }
+}
+
 export function AssetMarker3D({ asset, selected, onClick }: {
   asset: Asset;
   selected: boolean;
@@ -1395,6 +1421,10 @@ export function AssetMarker3D({ asset, selected, onClick }: {
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
   const [hovered, setHovered] = useState(false);
   const groupRef = useRef<THREE.Group>(null);
+  const alertRingRef = useRef<THREE.Mesh>(null);
+  const hasAlert = useViewerStore((s) => s.activeAlertAssets.has(asset.id));
+  // Pole geometry keyed by mounted type (floor stub / ceiling hang / full-height).
+  const pole = getPoleStyle(asset.type);
 
   // SVG icons for each asset type
   const assetIcon = useMemo(() => {
@@ -1442,6 +1472,16 @@ export function AssetMarker3D({ asset, selected, onClick }: {
       } else {
         groupRef.current.rotation.set(0, 0, 0);
       }
+    }
+
+    // Alert ring pulse animation
+    if (alertRingRef.current && hasAlert) {
+      const t = state.clock.getElapsedTime();
+      // Fast, dramatic pulse for alerts
+      const pulse = 0.5 + 0.5 * Math.sin(t * 4.0);
+      alertRingRef.current.scale.setScalar(1 + pulse * 0.3);
+      const mat = alertRingRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.3 + pulse * 0.5;
     }
   });
 
@@ -1500,13 +1540,13 @@ export function AssetMarker3D({ asset, selected, onClick }: {
       </mesh>
 
       {/* ── Vertical status beacon pole + emissive sphere ── */}
-      {/* Thin pole */}
-      <mesh position={[0, 0.6, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, 3.0, 8]} />
+      {/* Thin pole — length + sphere hang keyed to mount type via getPoleStyle */}
+      <mesh position={[0, pole.sphereOffset, 0]}>
+        <cylinderGeometry args={[0.03, 0.03, pole.length, 8]} />
         <meshStandardMaterial color={conditionRingColor} roughness={0.3} metalness={0.5} />
       </mesh>
-      {/* Glowing sphere at top of pole */}
-      <mesh position={[0, 2.1, 0]}>
+      {/* Glowing sphere at the end of the pole */}
+      <mesh position={[0, pole.sphereOffset, 0]}>
         <sphereGeometry args={[0.18, 16, 16]} />
         <meshStandardMaterial
           color={conditionRingColor}
@@ -1519,7 +1559,7 @@ export function AssetMarker3D({ asset, selected, onClick }: {
       </mesh>
       {/* Point light at beacon top */}
       <pointLight
-        position={[0, 2.1, 0]}
+        position={[0, pole.sphereOffset, 0]}
         intensity={asset.status === "ok" || asset.status === "info" ? 1.5 : asset.status === "critical" ? 3.0 : asset.status === "warning" ? 0.5 : 0}
         distance={4}
         color={conditionRingColor}
@@ -1538,6 +1578,20 @@ export function AssetMarker3D({ asset, selected, onClick }: {
       <group scale={1.5}>
         {renderShape()}
       </group>
+
+      {/* Alert ring overlay — pulses red when the asset has an active alert */}
+      {hasAlert && (
+        <mesh position={[0, 0.6, 0]} ref={alertRingRef}>
+          <ringGeometry args={[0.9, 1.6, 32]} />
+          <meshBasicMaterial
+            color="#ef4444"
+            transparent
+            opacity={0.5}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
       {selected && (
         <mesh>
           <sphereGeometry args={[1.4, 16, 16]} />

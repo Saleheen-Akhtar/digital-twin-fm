@@ -1,7 +1,7 @@
 # Digital Twin Viewer — Accuracy & Dynamism Refactor
 
 **Date:** 2026-06-27
-**Scope:** Singapore Expo Hall 7 demo + dynamic-multi-floor support
+**Scope:** Demo convention centre + dynamic-multi-floor support
 **Status:** Implemented
 
 ---
