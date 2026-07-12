@@ -17,6 +17,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { eq, sql, desc } from "drizzle-orm";
+import Redis from "ioredis";
 import {
   sensors,
   sensorReadings,
@@ -39,13 +40,48 @@ const PROFILES: Record<
   co2:         { base: 450, amplitude: 100, noise: 20, unit: "ppm" },
 };
 
+// ── Redis helpers ────────────────────────────────────────────────────────
+function createRedisClient() {
+  const host = process.env.REDIS_HOST || "localhost";
+  const port = Number(process.env.REDIS_PORT) || 6379;
+  const password = process.env.REDIS_PASSWORD;
+  if (!password) {
+    console.warn("   [redis] REDIS_PASSWORD not set — alerts won't be published to Valkey");
+    return null;
+  }
+  const client = new Redis({
+    host, port, password,
+    lazyConnect: true,
+    maxRetriesPerRequest: 0,     // don't retry — crash on auth failure
+    retryStrategy: () => null,   // disable reconnect
+    enableOfflineQueue: false,   // don't queue commands while disconnected
+  });
+  client.on("error", (err) => {
+    console.error("   [redis] Connection error (non-fatal):", (err as Error).message);
+  });
+  return client;
+}
+
+async function publishAlert(
+  redis: Redis | null,
+  alert: { id: string; assetId: string; severity: string; message: string },
+) {
+  if (!redis) return;
+  try {
+    const subs = await redis.publish("alert.created", JSON.stringify(alert));
+    console.log(`   [redis] Published alert to ${subs} subscriber(s): ${alert.severity} - ${alert.message.slice(0, 60)}`);
+  } catch (err: unknown) {
+    console.warn(`   [redis] Publish failed (non-fatal): ${(err as Error).message}`);
+  }
+}
+
 // ── DB helpers ──────────────────────────────────────────────────────────
 function createPool() {
   return new Pool({
     host: process.env.POSTGRES_HOST || "localhost",
     port: Number(process.env.POSTGRES_PORT) || 5432,
     user: process.env.POSTGRES_USER || "dtfm_user",
-    password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
+    password: process.env.POSTGRES_PASSWORD ?? (() => { throw new Error("POSTGRES_PASSWORD not set — aborting"); })(),
     database: process.env.POSTGRES_DB || "dtfm_db",
   });
 }
@@ -140,6 +176,7 @@ async function runLoop(maxIterations?: number) {
   console.log(`   Monitoring ${allSensors.length} sensors, tick every ${INTERVAL_MS / 1000}s`);
 
   let tick = 0;
+  const redis = createRedisClient();
 
   async function tickOnce() {
     tick++;
@@ -167,10 +204,25 @@ async function runLoop(maxIterations?: number) {
         .set({ lastValue: val, lastReadingAt: now.toISOString() })
         .where(eq(sensors.id, s.id));
 
-      // 2. Threshold check
-      const threshold = s.thresholdHigh;
-      if (threshold != null && val > threshold) {
-        // Check if there's already an open alert for this sensor
+      // 2. Threshold check — both high AND low
+      const high = s.thresholdHigh;
+      const low = s.thresholdLow;
+      let breached = false;
+      let direction: "high" | "low" = "high";
+      let exceededValue: number | null = null;
+
+      if (high != null && val > high) {
+        breached = true;
+        direction = "high";
+        exceededValue = high;
+      } else if (low != null && val < low) {
+        breached = true;
+        direction = "low";
+        exceededValue = low;
+      }
+
+      if (breached && exceededValue !== null) {
+        // Deduplicate: don't create another open alert for the same sensor
         const existing = await db
           .select({ id: alerts.id })
           .from(alerts)
@@ -182,7 +234,15 @@ async function runLoop(maxIterations?: number) {
           .limit(1);
 
         if (existing.length === 0) {
-          const severity = val > threshold * 1.3 ? "critical" : "high";
+          // Deviation-based severity matching the AlertEngineService formula
+          const range = (high ?? 100) - (low ?? 0);
+          const mid = ((high ?? 100) + (low ?? 0)) / 2;
+          const deviation = Math.abs(val - mid) / (range / 2);
+          const severity =
+            deviation > 2.5 ? "critical" :
+            deviation > 1.5 ? "high" :
+            deviation > 1.0 ? "medium" : "low";
+
           const asset = await db
             .select({ name: assets.name })
             .from(assets)
@@ -190,13 +250,25 @@ async function runLoop(maxIterations?: number) {
             .limit(1)
             .then((r) => r[0]?.name ?? "Unknown");
 
-          await db.insert(alerts).values({
-            sensorId: s.id,
-            assetId: s.assetId,
-            severity,
-            status: "open",
-            message: `${s.type} threshold breached on ${asset}: ${val}${s.unit} (max ${threshold}${s.unit})`,
-          });
+          const [newAlert] = await db.insert(alerts)
+            .values({
+              sensorId: s.id,
+              assetId: s.assetId,
+              severity,
+              status: "open",
+              message: `${s.type} ${direction} threshold breached on ${asset}: ${val}${s.unit} (${direction} ${exceededValue}${s.unit})`,
+            })
+            .returning({ id: alerts.id });
+
+          // Publish to Redis so the WebSocket pushes a real-time notification
+          if (newAlert) {
+            await publishAlert(redis, {
+              id: newAlert.id,
+              assetId: s.assetId,
+              severity,
+              message: `${s.type} ${direction} threshold breached on ${asset}: ${val}${s.unit} (${direction} ${exceededValue}${s.unit})`,
+            });
+          }
         }
       }
     }
@@ -204,6 +276,25 @@ async function runLoop(maxIterations?: number) {
     // 3. Batch-insert all new readings
     if (newReadings.length > 0) {
       await db.insert(sensorReadings).values(newReadings);
+
+      // Publish live readings to Redis for WebSocket broadcasting
+      if (redis) {
+        for (const r of newReadings) {
+          try {
+            await redis.publish(
+              "sensor.reading",
+              JSON.stringify({
+                sensorId: r.sensorId,
+                assetId: r.assetId,
+                value: r.value,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          } catch {
+            // non-fatal
+          }
+        }
+      }
     }
 
     const totalSensors = allSensors.length;
@@ -227,7 +318,7 @@ async function runLoop(maxIterations?: number) {
         console.log("✅ Simulator finished (max iterations reached)");
         await pool.end();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("❌ Simulator tick error:", err);
     }
   }, INTERVAL_MS);
@@ -237,6 +328,7 @@ async function runLoop(maxIterations?: number) {
     clearInterval(interval);
     console.log("\n🛑 Simulator stopping …");
     await pool.end();
+    if (redis) await redis.quit().catch(() => {});
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
@@ -260,7 +352,7 @@ async function main() {
   }
 }
 
-main().catch((err) => {
+main().catch((err: unknown) => {
   console.error("❌ Simulator failed:", err);
   process.exit(1);
 });

@@ -90,34 +90,81 @@ const STRIPPED_RESPONSE_HEADERS = new Set([
   'content-encoding', // fetch in the browser handles decompression
 ]);
 
+/** Local IP aliases that should be treated as equivalent for CSRF. */
+const LOCAL_HOSTNAMES = new Set([
+  'localhost',
+  '127.0.0.1',
+  '0.0.0.0',
+  '::1',
+  '[::1]',
+]);
+
+/**
+ * Compare two candidate origins (as URLs) against the request's origin.
+ *
+ * Returns true if either candidate matches the request's origin exactly, or
+ * if both parse to the same protocol + port and their hostnames are both
+ * local-machine aliases (localhost / 127.0.0.1 / 0.0.0.0 / ::1).
+ *
+ * This handles the common Docker / dev-server case where Next.js binds to
+ * `0.0.0.0:N` but the browser sends `Origin: http://localhost:N`.
+ */
+function originMatches(candidate: URL, req: NextRequest): boolean {
+  const candidateOrigin = candidate.origin;
+  const reqOrigin = req.nextUrl.origin;
+
+  // Fast path: exact match.
+  if (candidateOrigin === reqOrigin) return true;
+
+  // Protocol + port must at least match for a local-hostname equivalence
+  // to be safe.
+  try {
+    const reqUrl = new URL(reqOrigin);
+    if (candidate.protocol !== reqUrl.protocol) return false;
+    if (candidate.port !== reqUrl.port) return false;
+
+    // Both hostnames are local-machine aliases → safe to treat as same origin.
+    return (
+      LOCAL_HOSTNAMES.has(candidate.hostname) &&
+      LOCAL_HOSTNAMES.has(reqUrl.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function isSameOrigin(req: NextRequest): boolean {
   const origin = req.headers.get('origin');
   const referer = req.headers.get('referer');
-  if (!origin && !referer) {
-    // Same-origin browser requests on a same-origin page (e.g. fetch
-    // from a Client Component) do not always include Origin. Referer
-    // is also optional in some privacy modes. We treat absence of
-    // both as "probably same-origin" — but only for the simple
-    // non-state-changing method (GET). For state-changing methods
-    // (POST/PUT/...), we require a matching Origin.
-    return true;
-  }
+
+  // No headers at all — assume same-origin (GET requests, direct nav).
+  if (!origin && !referer) return true;
+
+  // Check Origin if present.
   if (origin) {
     try {
       const originUrl = new URL(origin);
-      return originUrl.origin === req.nextUrl.origin;
-    } catch {
+      if (originMatches(originUrl, req)) return true;
+      // Origin is valid but doesn't match — definitely cross-origin.
       return false;
+    } catch {
+      // Origin is not a valid URL (e.g. the literal string "null" sent
+      // by some browsers/extensions in privacy-sensitive contexts).
+      // Fall through to the Referer check instead of rejecting.
     }
   }
+
+  // Fallback: check Referer.
   if (referer) {
     try {
       const refererUrl = new URL(referer);
-      return refererUrl.origin === req.nextUrl.origin;
+      return originMatches(refererUrl, req);
     } catch {
       return false;
     }
   }
+
+  // Origin either absent or invalid, and no Referer to fall back on.
   return false;
 }
 
@@ -162,6 +209,10 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path?: string[]
   //    Origin. GETs are safe to allow without one (no side effect).
   const isStateChanging = req.method !== 'GET';
   if (isStateChanging && !isSameOrigin(req)) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[proxy] CSRF guard: method=${req.method} path=${req.nextUrl.pathname} origin=${req.headers.get('origin') || '(none)'} referer=${req.headers.get('referer') || '(none)'} nextUrlOrigin=${req.nextUrl.origin}`,
+    );
     return NextResponse.json({ error: 'CrossOriginForbidden' }, { status: 403 });
   }
 

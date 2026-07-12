@@ -56,5 +56,8 @@ __pycache__/
 # Graphify / code analysis output
 graphify-out/
 
+# 127.0.0.1:0 — garbage directory created by Node.js dev tools
+127.0.0.1[[force]]:0[[force]]
+
 # TypeScript
 *.tsbuildinfo

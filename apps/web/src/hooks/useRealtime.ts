@@ -36,6 +36,8 @@ export function useRealtime(): UseRealtimeResult {
   const connected = useViewerStore((s) => s.wsConnected);
   const setWsConnected = useViewerStore((s) => s.setWsConnected);
   const setAssetStatus = useViewerStore((s) => s.setAssetStatus);
+  const addAlertAsset = useViewerStore((s) => s.addAlertAsset);
+  const removeAlertAsset = useViewerStore((s) => s.removeAlertAsset);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,10 +88,21 @@ export function useRealtime(): UseRealtimeResult {
           },
         );
 
-        // 4. Handle new alerts (for future alert overlays)
+        // 4. Handle new alerts — mark the asset for visual overlay
         socket.on("alert:created", (alert: { assetId?: string; severity?: string; message?: string }) => {
           console.log("[useRealtime] Alert:", alert.severity, alert.message);
-          // Future: add to alert overlay store
+          if (alert.assetId && !cancelled) {
+            addAlertAsset(alert.assetId);
+            // Also set the asset status to "critical" when an alert fires
+            setAssetStatus(alert.assetId, "critical");
+          }
+        });
+
+        // 5. Handle alert resolved — remove the overlay
+        socket.on("alert:resolved", (alert: { assetId?: string }) => {
+          if (alert.assetId && !cancelled) {
+            removeAlertAsset(alert.assetId);
+          }
         });
 
         socketRef.current = socket;
@@ -109,7 +122,7 @@ export function useRealtime(): UseRealtimeResult {
       }
       setWsConnected(false);
     };
-  }, [setWsConnected, setAssetStatus]);
+  }, [setWsConnected, setAssetStatus, addAlertAsset, removeAlertAsset]);
 
   return { connected };
 }
