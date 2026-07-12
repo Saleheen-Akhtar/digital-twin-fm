@@ -156,6 +156,7 @@ export class RealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect
 
   /** Broadcast new alert */
   broadcastAlert(alert: any) {
+    this.logger.log(`Broadcasting alert: ${alert.id?.slice(0, 8)} (${alert.severity})`);
     this.server.to('all').emit('alert:created', alert);
   }
 
