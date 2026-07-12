@@ -10,10 +10,10 @@ No ML model — uses rule-based heuristics suitable for the simulated demo.
 
 import logging
 import statistics
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from httpx import AsyncClient
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Any
 
 from ..config import get_settings
@@ -89,7 +89,6 @@ class AssetHealthDetail(BaseModel):
 
 async def _fetch_json(url: str) -> Any:
     """Helper to GET JSON from the api-gateway."""
-    settings = get_settings()
     async with AsyncClient(timeout=15.0) as client:
         resp = await client.get(url)
         if resp.status_code != 200:

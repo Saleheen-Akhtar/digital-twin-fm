@@ -6,7 +6,6 @@ import { useSensorRealtime } from "@/hooks/useSensorRealtime";
 import { useRealtime } from "@/hooks/useRealtime";
 import { useBrowserNotifications } from "@/hooks/useBrowserNotifications";
 import { useViewerStore } from "@/features/digital-twin/viewer-store";
-import CopilotWidget from "@/features/copilot/copilot-widget";
 import type { Sensor, Building } from "@/lib/api-client";
 
 type ChartDef = {
@@ -22,14 +21,16 @@ const CHARTS: ChartDef[] = [
   { key: "temperature", label: "Temperature", unit: "°C", color: "#ef4444", bgGrad: "from-red-500/5 to-red-500/[0.02]", icon: "M12 2v20M2 12h20" },
   { key: "power", label: "Power", unit: "kW", color: "#22c55e", bgGrad: "from-emerald-500/5 to-emerald-500/[0.02]", icon: "M13 2L3 14h9l-1 8 10-12h-9l1-8z" },
   { key: "humidity", label: "Humidity", unit: "%", color: "#3b82f6", bgGrad: "from-blue-500/5 to-blue-500/[0.02]", icon: "M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" },
-  { key: "occupancy", label: "CO₂", unit: "ppm", color: "#8b5cf6", bgGrad: "from-violet-500/5 to-violet-500/[0.02]", icon: "M12 2a10 10 0 1 0 10 10h-10V2z" },
+  { key: "occupancy", label: "Occupancy", unit: "", color: "#f59e0b", bgGrad: "from-amber-500/5 to-amber-500/[0.02]", icon: "M12 2a10 10 0 1 0 10 10h-10V2z" },
+  { key: "co2", label: "CO₂", unit: "ppm", color: "#8b5cf6", bgGrad: "from-violet-500/5 to-violet-500/[0.02]", icon: "M12 2a10 10 0 1 0 10 10h-10V2z" },
 ];
 
 const SENSOR_MAP: Record<string, string[]> = {
   temperature: ["temperature"],
   power: ["power"],
   humidity: ["humidity"],
-  occupancy: ["occupancy", "co2"],
+  occupancy: ["occupancy"],
+  co2: ["co2"],
 };
 
 function MiniChart({ points, color }: { points: number[]; color: string }) {
@@ -90,9 +91,6 @@ export default function MonitoringPage() {
   const [selectedChart, setSelectedChart] = useState<string | null>(null);
   const [chartPoints, setChartPoints] = useState<Record<string, number[]>>({});
   const [buildingId, setBuildingId] = useState<string | null>(null);
-  const [copilotInsight, setCopilotInsight] = useState<string | null>(null);
-  const [copilotLoading, setCopilotLoading] = useState(false);
-  const [copilotQuestion, setCopilotQuestion] = useState("");
 
   // WebSocket live sensor readings
   const { readings: liveReadings, connected: wsConnected, error: wsError } = useSensorRealtime();
@@ -128,24 +126,6 @@ export default function MonitoringPage() {
       return { ...prev, [chartKey]: updated };
     });
   }, []);
-
-  const askCopilot = useCallback(async (question: string) => {
-    if (!question.trim() || !buildingId) return;
-    setCopilotLoading(true);
-    setCopilotInsight(null);
-    try {
-      const api = createBrowserApiClient();
-      const res = await api.post<{ answer: string }>("/ai/copilot/query", {
-        question: question.trim(),
-        building_id: buildingId,
-      });
-      setCopilotInsight(res.answer);
-    } catch {
-      setCopilotInsight("Failed to get AI response. The copilot service may be offline.");
-    } finally {
-      setCopilotLoading(false);
-    }
-  }, [buildingId]);
 
   // Merge live WS readings into sensor state
   useEffect(() => {
@@ -403,57 +383,9 @@ export default function MonitoringPage() {
                 </button>
               </div>
             )}
-
-            {/* ── Copilot Insight ── */}
-            <section className="px-2 sm:px-1">
-              <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 2a10 10 0 1 0 10 10h-10V2z" /><path d="M12 12 2 2" /><path d="M12 12 22 2" />
-                    </svg>
-                    <span className="text-[14px] font-medium text-slate-800">AI Insight</span>
-                  </div>
-                  {!buildingId && (
-                    <span className="text-[12px] text-slate-400">No building loaded</span>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Ask about building health…"
-                    value={copilotQuestion}
-                    onChange={(e) => setCopilotQuestion(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !copilotLoading) {
-                        askCopilot(copilotQuestion);
-                        setCopilotQuestion("");
-                      }
-                    }}
-                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none"
-                  />
-                  <button
-                    onClick={() => { askCopilot(copilotQuestion); setCopilotQuestion(""); }}
-                    disabled={copilotLoading || !copilotQuestion.trim() || !buildingId}
-                    className="rounded-xl bg-indigo-500 px-4 py-2 text-[13px] font-medium text-white hover:bg-indigo-600 disabled:opacity-40"
-                  >
-                    {copilotLoading ? "…" : "Ask"}
-                  </button>
-                </div>
-
-                {copilotInsight && (
-                  <div className="mt-3 rounded-xl border border-indigo-100 bg-white px-4 py-3 text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">
-                    {copilotInsight}
-                  </div>
-                )}
-              </div>
-            </section>
           </>
         )}
       </div>
-
-      <CopilotWidget contextHint="User is viewing the live monitoring dashboard for Singapore Expo Hall 7." />
     </div>
   );
 }

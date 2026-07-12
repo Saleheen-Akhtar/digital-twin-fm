@@ -17,4 +17,11 @@ export class AssetsController {
     if (!a) throw new NotFoundException(`Asset ${id} not found`);
     return a;
   }
+
+  @Get(':id/sensors')
+  async findSensors(@Param('id') id: string) {
+    const a = await this.service.findOne(id);
+    if (!a) throw new NotFoundException(`Asset ${id} not found`);
+    return this.service.findSensorsWithReadings(id);
+  }
 }

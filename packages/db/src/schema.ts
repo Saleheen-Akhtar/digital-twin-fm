@@ -122,7 +122,7 @@ export const sensors = pgTable("sensors", {
 
 // ─────────────────────── Sensor readings (TimescaleDB hypertable) ───────────────────────
 export const sensorReadings = pgTable("sensor_readings", {
-  id: uuid("id").defaultRandom(),
+  id: uuid("id").defaultRandom().primaryKey(),
   sensorId: uuid("sensor_id").notNull(),
   assetId: uuid("asset_id").notNull(),
   timestamp: timestamp("timestamp", { mode: "string" }).notNull(),
