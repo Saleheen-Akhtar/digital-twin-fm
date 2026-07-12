@@ -366,12 +366,44 @@ async function main() {
         // ── Min-distance placement (Task 2) ───────────────────────────────
         // Resample x/z (keeping the same room + grid scheme) until the point
         // is at least MIN_SPACING from every other asset already placed in
-        // this room. Bounded to 5 tries, then we accept to avoid an infinite
-        // loop in a crowded room.
+        // this room. Bounded rejection sampling first; if the room is so
+        // crowded that 24 random tries still collide, fall back to a
+        // deterministic spiral offset (MIN_SPACING steps around the room
+        // centre). The fallback guarantees the spacing invariant holds even
+        // in the densest room instead of silently accepting an overlap.
         const placedHere = placedByRoom.get(room.id) ?? [];
         let { x, z } = sampleInsideRoom(room);
-        for (let attempt = 0; attempt < 5 && tooClose(x, z, placedHere); attempt++) {
+        let attempt = 0;
+        while (tooClose(x, z, placedHere) && attempt < 24) {
           ({ x, z } = sampleInsideRoom(room));
+          attempt++;
+        }
+        if (tooClose(x, z, placedHere)) {
+          // Spiral fallback: walk outward from the room centroid in
+          // MIN_SPACING-ring steps until a non-colliding slot is found.
+          const cx = (room.xMin + room.xMax) / 2;
+          const cz = (room.zMin + room.zMax) / 2;
+          const pad = 0.5;
+          const maxR = Math.max(room.xMax - room.xMin, room.zMax - room.zMin) / 2 - pad;
+          let ring = 1;
+          let placed = false;
+          while (!placed && ring * MIN_SPACING <= maxR) {
+            const r = ring * MIN_SPACING;
+            for (let k = 0; k < 12 && !placed; k++) {
+              const a = (k / 12) * 2 * Math.PI;
+              const sx = cx + r * Math.cos(a);
+              const sz = cz + r * Math.sin(a);
+              if (insideRoom(sx, sz, room) && !tooClose(sx, sz, placedHere)) {
+                x = sx;
+                z = sz;
+                placed = true;
+              }
+            }
+            ring++;
+          }
+          // Extremely dense room: keep the original sample rather than leave
+          // the asset outside the room bounds.
+          if (!placed) ({ x, z } = sampleInsideRoom(room));
         }
         placedHere.push({ x, z });
         placedByRoom.set(room.id, placedHere);
