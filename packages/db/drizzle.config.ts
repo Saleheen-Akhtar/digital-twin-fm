@@ -8,7 +8,7 @@ export default defineConfig({
     host: process.env.POSTGRES_HOST || "localhost",
     port: Number(process.env.POSTGRES_PORT) || 5432,
     user: process.env.POSTGRES_USER || "dtfm_user",
-    password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
+    password: process.env.POSTGRES_PASSWORD ?? (() => { throw new Error("POSTGRES_PASSWORD not set — aborting"); })(),
     database: process.env.POSTGRES_DB || "dtfm_db",
   },
 });
