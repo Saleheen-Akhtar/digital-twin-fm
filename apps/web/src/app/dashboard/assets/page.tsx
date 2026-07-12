@@ -51,7 +51,7 @@ export default function AssetsPage() {
     <div className="flex-1 px-3 pb-4 pt-5 sm:px-5 lg:px-6">
       <div className="mx-auto flex max-w-[1460px] flex-col gap-4">
         <section className="px-2 sm:px-1">
-          <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-slate-950">Assets</h1>
+          <h1 className="text-2xl sm:text-[32px] font-semibold tracking-[-0.04em] text-slate-950">Assets</h1>
           <p className="mt-1 text-[15px] text-slate-500">
             {loading ? "Loading..." : `${assets.length} registered assets`}
           </p>
