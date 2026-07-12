@@ -20,6 +20,11 @@ export class WorkOrdersController {
     return wo;
   }
 
+  @Get(':id/logs')
+  async findLogs(@Param('id') id: string) {
+    return this.service.getLogs(id);
+  }
+
   @Post()
   create(@Body() dto: CreateWorkOrderDto): Promise<WorkOrderDto> {
     return this.service.create(dto);

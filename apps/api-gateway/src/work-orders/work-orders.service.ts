@@ -1,16 +1,17 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc } from 'drizzle-orm';
-import { workOrders } from '@digital-twin-fm/db';
-import type { WorkOrder, WorkOrderStatus, WorkOrderPriority } from '@digital-twin-fm/types';
+import { workOrders, maintenanceLogs } from '@digital-twin-fm/db';
+import type { WorkOrder } from '@digital-twin-fm/types';
 import { CreateWorkOrderDto } from './dto/create-work-order.dto';
 import { UpdateWorkOrderDto } from './dto/update-work-order.dto';
 
 export interface ListWorkOrdersFilter {
-  status?: WorkOrderStatus;
-  priority?: WorkOrderPriority;
+  status?: WorkOrder['status'];
+  priority?: WorkOrder['priority'];
   assetId?: string;
   limit?: number;
+  q?: string;
 }
 
 function mapWorkOrder(r: typeof workOrders.$inferSelect): WorkOrder {
@@ -24,9 +25,12 @@ function mapWorkOrder(r: typeof workOrders.$inferSelect): WorkOrder {
     priority: r.priority,
     status: r.status,
     assignedTo: r.assignedTo ?? undefined,
-    createdAt: r.createdAt,
+    createdBy: r.createdBy ?? undefined,
     dueAt: r.dueAt ?? undefined,
+    startedAt: r.startedAt ?? undefined,
     completedAt: r.completedAt ?? undefined,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
   };
 }
 
@@ -47,6 +51,12 @@ export class WorkOrdersService {
       .where(where)
       .orderBy(desc(workOrders.createdAt))
       .limit(filter.limit ?? 100);
+
+    if (filter.q) {
+      const q = filter.q.toLowerCase();
+      return rows.filter(r => r.title.toLowerCase().includes(q)).map(mapWorkOrder);
+    }
+
     return rows.map(mapWorkOrder);
   }
 
@@ -66,6 +76,9 @@ export class WorkOrdersService {
         priority: dto.priority ?? 'medium',
       })
       .returning();
+
+    await this.logAction(rows[0].id, 'created', 'Work order created');
+
     return mapWorkOrder(rows[0]);
   }
 
@@ -90,6 +103,17 @@ export class WorkOrdersService {
       if (dto.status === 'completed') {
         updateData.completedAt = now;
       }
+      await this.logAction(id, dto.status, `Status changed to ${dto.status}`);
+    }
+
+    if (dto.title !== undefined) updateData.title = dto.title;
+    if (dto.description !== undefined) updateData.description = dto.description;
+    if (dto.priority !== undefined) updateData.priority = dto.priority;
+    if (dto.assignedTo !== undefined) {
+      updateData.assignedTo = dto.assignedTo;
+      if (!existing[0].assignedTo && dto.assignedTo) {
+        await this.logAction(id, 'assigned', `Assigned to ${dto.assignedTo}`);
+      }
     }
 
     const rows = await this.db
@@ -99,5 +123,25 @@ export class WorkOrdersService {
       .returning();
 
     return mapWorkOrder(rows[0]);
+  }
+
+  /**
+   * Fetch maintenance log entries for a work order.
+   */
+  async getLogs(workOrderId: string) {
+    return this.db
+      .select()
+      .from(maintenanceLogs)
+      .where(eq(maintenanceLogs.workOrderId, workOrderId))
+      .orderBy(desc(maintenanceLogs.createdAt))
+      .limit(50);
+  }
+
+  private async logAction(workOrderId: string, action: string, notes?: string) {
+    await this.db.insert(maintenanceLogs).values({
+      workOrderId,
+      action,
+      notes: notes ?? null,
+    }).onConflictDoNothing();
   }
 }
