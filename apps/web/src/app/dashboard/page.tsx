@@ -26,6 +26,7 @@ import {
   type MetricCardData,
 } from './dashboard-model';
 import { LiveIndicator } from './live-indicator';
+import { DemoControls } from './demo-controls';
 
 export const metadata = { title: 'Dashboard - Digital Twin FM' };
 export const dynamic = 'force-dynamic';
@@ -263,6 +264,7 @@ export default async function DashboardPage() {
       <div className="mx-auto mt-2 max-w-[1460px] px-2 sm:px-1">
         <LiveIndicator serverTimestamp={new Date().toISOString()} />
       </div>
+      <DemoControls />
     </div>
   );
 }
