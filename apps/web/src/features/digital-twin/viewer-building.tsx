@@ -95,24 +95,6 @@ function rectVertices(cx: number, cz: number, w: number, d: number): Point2D[] {
   ];
 }
 
-/**
- * Compute {cx, cz, w, d} bounding box from polygon vertices.
- */
-function zoneBoundsFromVertices(verts: Point2D[]): { cx: number; cz: number; w: number; d: number } {
-  const xs = verts.map(v => v.x);
-  const zs = verts.map(v => v.z);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minZ = Math.min(...zs);
-  const maxZ = Math.max(...zs);
-  return {
-    cx: (minX + maxX) / 2,
-    cz: (minZ + maxZ) / 2,
-    w: maxX - minX,
-    d: maxZ - minZ,
-  };
-}
-
 // ─── Polygon validation ──────────────────────────────────────────
 
 /**
@@ -517,11 +499,6 @@ if (process.env.NODE_ENV !== "production") {
   // Validate polygon room data for overlap and asset-in-zone
   validateFloorPlan(BUILDING_FLOORS);
 }
-
-/** Roof parameters (sawtooth, from tokens). */
-const ROOF_RIDGES = B.roofRidgeCount;    // 6
-const ROOF_RIDGE_H = B.roofRidgeH;       // 3.0
-const ROOF_RIDGE_W = W / ROOF_RIDGES;    // 6
 
 // ─── Zone rectangle (clickable) ────────────────────────────────────
 
