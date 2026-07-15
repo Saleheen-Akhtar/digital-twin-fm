@@ -199,29 +199,32 @@ function friendlyName(type: AssetType, index: number): string {
 export const SEED_ASSETS: Asset[] = (() => {
   // 2-floor convention hall layout. Mirrors packages/db/src/seed.ts ASSET_PLAN.
   // Floor 0 = Exhibition Level, Floor 1 = Upper Mezzanine.
-  const plan: { type: AssetType; floor: number }[] = [
+  // Coordinates follow the actual room program rather than a generic grid:
+  // heavy plant is grouped in the ground-floor plant room, fixtures sit in
+  // occupied halls, and upper-floor systems stay in their service areas.
+  const plan: { type: AssetType; floor: number; x: number; z: number }[] = [
     // Floor 0 — Exhibition Level (15)
-    { type: "Air Handler", floor: 0 },
-    { type: "Air Handler", floor: 0 },
-    { type: "Air Handler", floor: 0 },
-    { type: "Chiller", floor: 0 },
-    { type: "Chiller", floor: 0 },
-    { type: "Lighting", floor: 0 },
-    { type: "Lighting", floor: 0 },
-    { type: "Lighting", floor: 0 },
-    { type: "Lighting", floor: 0 },
-    { type: "Lighting", floor: 0 },
-    { type: "Fan", floor: 0 },
-    { type: "Elevator", floor: 0 },
-    { type: "Boiler", floor: 0 },
-    { type: "Boiler", floor: 0 },
-    { type: "Pump", floor: 0 },
+    { type: "Air Handler", floor: 0, x: -6, z: 9.4 },
+    { type: "Air Handler", floor: 0, x: -2.5, z: 9.4 },
+    { type: "Air Handler", floor: 0, x: 1, z: 9.4 },
+    { type: "Chiller", floor: 0, x: 4.2, z: 9.2 },
+    { type: "Chiller", floor: 0, x: 5.8, z: 9.2 },
+    { type: "Lighting", floor: 0, x: -13, z: 1 },
+    { type: "Lighting", floor: 0, x: -6, z: 4 },
+    { type: "Lighting", floor: 0, x: 5, z: 1 },
+    { type: "Lighting", floor: 0, x: 13, z: 4 },
+    { type: "Lighting", floor: 0, x: 0, z: -10 },
+    { type: "Fan", floor: 0, x: 0, z: -5.5 },
+    { type: "Elevator", floor: 0, x: -15.5, z: 0 },
+    { type: "Boiler", floor: 0, x: -3.5, z: 10.6 },
+    { type: "Boiler", floor: 0, x: -1.5, z: 10.6 },
+    { type: "Pump", floor: 0, x: 2.2, z: 10.6 },
     // Floor 1 — Upper Mezzanine (5)
-    { type: "Pump", floor: 1 },
-    { type: "Pump", floor: 1 },
-    { type: "Fan", floor: 1 },
-    { type: "Fan", floor: 1 },
-    { type: "Lighting", floor: 1 },
+    { type: "Pump", floor: 1, x: -14, z: -6 },
+    { type: "Pump", floor: 1, x: -12.2, z: -6 },
+    { type: "Fan", floor: 1, x: -10, z: 0 },
+    { type: "Fan", floor: 1, x: 10, z: 0 },
+    { type: "Lighting", floor: 1, x: 0, z: -8 },
   ];
   // 3 AHU + 2 Chiller + 2 Boiler + 3 Pump + 3 Fan + 1 Elevator + 6 Lighting = 20.
   const typeCounters: Record<AssetType, number> = {
@@ -239,7 +242,7 @@ export const SEED_ASSETS: Asset[] = (() => {
     const idx = ++typeCounters[p.type];
     const status = STATUS_PATTERN[i % STATUS_PATTERN.length];
     const a = makeAsset(p.type, p.floor, idx, i, status);
-    return a;
+    return { ...a, x: p.x, z: p.z };
   });
 })();
 
