@@ -95,24 +95,6 @@ function rectVertices(cx: number, cz: number, w: number, d: number): Point2D[] {
   ];
 }
 
-/**
- * Compute {cx, cz, w, d} bounding box from polygon vertices.
- */
-function zoneBoundsFromVertices(verts: Point2D[]): { cx: number; cz: number; w: number; d: number } {
-  const xs = verts.map(v => v.x);
-  const zs = verts.map(v => v.z);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minZ = Math.min(...zs);
-  const maxZ = Math.max(...zs);
-  return {
-    cx: (minX + maxX) / 2,
-    cz: (minZ + maxZ) / 2,
-    w: maxX - minX,
-    d: maxZ - minZ,
-  };
-}
-
 // ─── Polygon validation ──────────────────────────────────────────
 
 /**
@@ -308,7 +290,7 @@ export function findRoomAt(floors: FloorData[], floorLevel: number, x: number, z
  * Falls back to raw world coords when no room is matched.
  */
 export function resolveAssetPosition(
-  asset: { id: string; floor: number; x: number; y?: number; z: number },
+  asset: { id: string; type?: string; floor: number; x: number; y?: number; z: number },
   floors: FloorData[],
 ): { x: number; y: number; z: number } {
   const rawX = asset.x ?? 0;
@@ -324,11 +306,85 @@ export function resolveAssetPosition(
 
   const clamped = clampToRoom(room, rawX, rawZ);
   const floorY = floor?.yBase ?? 6.5;
+  const floorHeight = floor?.height ?? 8.5;
+  // Map assets to their physical mounting plane when source data does not
+  // carry a height. The anchor (y) is the SURFACE the unit is mounted on,
+  // not an arbitrary offset:
+  //   - Floor plant (Chiller/Boiler/Pump/Vent/Elevator base): the slab  → y = floorY
+  //   - Ceiling kit (Air Handler/Fan/Lighting): ceiling service zone    → y = floorY + h - 0.3
+  //   - Desk/surface sensor: snaps to the known desk-top height         → y = floorY + 0.78
+  //   - Elevator: tall feature column from the slab                     → y = floorY
+  // A supplied API height (asset.y) always wins, so real survey data
+  // overrides these inferred anchors.
+  const ceilingMounted = ["Air Handler", "Fan", "Lighting"].includes(asset.type ?? "");
+  const deskMounted = (asset.type ?? "") === "Sensor" || (asset.type ?? "") === "Equipment";
+  let inferredY: number;
+  if (ceilingMounted) inferredY = floorY + floorHeight - 0.3;
+  else if (deskMounted) inferredY = floorY + 0.78; // desk-top surface (OfficeDesk top local +0.75)
+  else inferredY = floorY; // floor-mounted (incl. Elevator base)
   return {
     x: clamped.x,
-    y: asset.y ?? (floorY + 1.0),
+    y: asset.y ?? inferredY,
     z: clamped.z,
   };
+}
+
+/**
+ * Resolve every asset's (x, z) on a floor, then enforce a minimum spacing
+ * so markers never visually overlap/clump. For each floor we resolve all
+ * positions first (already clamped to their room), then sweep pairwise: any
+ * two markers closer than `minDist` get nudged apart along a small spiral
+ * offset until clear. Per-floor only — markers on different floors never
+ * collide because they live on different slabs.
+ *
+ * Returns a map of assetId → { x, z } override that the marker renderer
+ * applies on top of resolveAssetPosition (keeping the corrected y/anchor).
+ */
+export function resolveFloorLayout(
+  assets: { id: string; type?: string; floor: number; x: number; y?: number; z: number }[],
+  floors: FloorData[],
+  minDist = 0.6,
+): Map<string, { x: number; z: number }> {
+  const out = new Map<string, { x: number; z: number }>();
+  const byFloor = new Map<number, typeof assets>();
+  for (const a of assets) {
+    const lvl = a.floor ?? 0;
+    if (!byFloor.has(lvl)) byFloor.set(lvl, []);
+    byFloor.get(lvl)!.push(a);
+  }
+  const spiral = (k: number): [number, number] => {
+    // k-th step of a small golden-angle spiral around the anchor
+    const r = 0.45 * Math.sqrt(k + 1);
+    const t = k * 2.39996323;
+    return [r * Math.cos(t), r * Math.sin(t)];
+  };
+  for (const [, group] of byFloor) {
+    const placed = group.map((a) => {
+      const r = resolveAssetPosition(a, floors);
+      return { id: a.id, x: r.x, z: r.z };
+    });
+    for (let i = 0; i < placed.length; i++) {
+      let attempts = 0;
+      for (let j = 0; j < i; j++) {
+        const dx = placed[i].x - placed[j].x;
+        const dz = placed[i].z - placed[j].z;
+        const d = Math.hypot(dx, dz);
+        if (d < minDist) {
+          // nudge `i` outward along the spiral until it clears all prior
+          while (attempts < 24) {
+            const [ox, oz] = spiral(attempts);
+            placed[i].x = placed[j].x + ox;
+            placed[i].z = placed[j].z + oz;
+            const nd = Math.hypot(placed[i].x - placed[j].x, placed[i].z - placed[j].z);
+            attempts++;
+            if (nd >= minDist) break;
+          }
+        }
+      }
+    }
+    for (const p of placed) out.set(p.id, { x: p.x, z: p.z });
+  }
+  return out;
 }
 
 /**
@@ -518,11 +574,6 @@ if (process.env.NODE_ENV !== "production") {
   validateFloorPlan(BUILDING_FLOORS);
 }
 
-/** Roof parameters (sawtooth, from tokens). */
-const ROOF_RIDGES = B.roofRidgeCount;    // 6
-const ROOF_RIDGE_H = B.roofRidgeH;       // 3.0
-const ROOF_RIDGE_W = W / ROOF_RIDGES;    // 6
-
 // ─── Zone rectangle (clickable) ────────────────────────────────────
 
 interface ZoneBoxProps {
@@ -595,8 +646,12 @@ function ZoneBox({ zone, floorY, floorHeight: _floorHeight, selected, onSelect }
       {/* Zone label — only visible on hover or selection */}
       {(hovered || selected) && (
         <Html position={[zone.cx, floorY + 0.5, zone.cz]} center>
-          <div className="bg-white/90 backdrop-blur border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-800 shadow-md pointer-events-none whitespace-nowrap">
-            {zone.name}
+          <div className="relative flex flex-col items-center pointer-events-none">
+            {/* small leader tick pointing down to the zone edge */}
+            <div className="w-px h-3 bg-slate-300/80" />
+            <div className="bg-white/95 backdrop-blur-xl border border-slate-200/70 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-800 shadow-sm whitespace-nowrap">
+              {zone.name}
+            </div>
           </div>
         </Html>
       )}
@@ -660,7 +715,8 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
   const mullionColor = "#8a9baa";
   const pilasterColor = "#b8c4d0";
   const midBandColor = "#a0b0bb";
-  const baseOpacity = transparent ? 0.15 : 0.35;
+  // Solid structural shell for the overview; fade only during floor isolation.
+  const baseOpacity = transparent ? 0.22 : 0.82;
   const h = floorHeight;
   const halfW = W / 2;
   const halfD = D / 2;
@@ -674,7 +730,7 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
     metalness: 0,
     transparent: true,
     opacity: baseOpacity,
-    transmission: 0.35,
+    transmission: transparent ? 0.45 : 0.08,
     thickness: 1.2,
     ior: 1.4,
     envMapIntensity: 0.4,
@@ -744,10 +800,10 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         <boxGeometry args={[W - 1.2, h * 0.55, 0.03]} />
         <meshPhysicalMaterial
           color={glassColor}
-          transparent opacity={transparent ? 0.08 : 0.2}
+          transparent opacity={transparent ? 0.12 : 0.42}
           roughness={0.05} metalness={0}
           clearcoat={0.3} clearcoatRoughness={0.2}
-          transmission={transparent ? 0.85 : 0.65}
+          transmission={transparent ? 0.55 : 0.22}
           thickness={0.5} ior={1.5}
           envMapIntensity={transparent ? 0.2 : 0.5}
         />
@@ -785,9 +841,9 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         return (
           <mesh key={`sw-${wx.toFixed(1)}`} position={[wx, floorY + h * 0.6, -halfD - 0.02]}>
             <planeGeometry args={[1.8, h * 0.4]} />
-            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.08 : 0.2}
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.12 : 0.34}
               roughness={0.1} metalness={0} clearcoat={0.2} clearcoatRoughness={0.3}
-              transmission={transparent ? 0.85 : 0.65} thickness={0.5} ior={1.5}
+              transmission={transparent ? 0.55 : 0.18} thickness={0.5} ior={1.5}
               envMapIntensity={0.3} side={THREE.DoubleSide} />
           </mesh>
         );
@@ -798,9 +854,9 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         return (
           <mesh key={`lw-${wz.toFixed(1)}`} position={[-halfW - 0.02, floorY + h * 0.6, wz]} rotation={[0, Math.PI / 2, 0]}>
             <planeGeometry args={[1.8, h * 0.4]} />
-            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.08 : 0.2}
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.12 : 0.34}
               roughness={0.1} metalness={0} clearcoat={0.2} clearcoatRoughness={0.3}
-              transmission={transparent ? 0.85 : 0.65} thickness={0.5} ior={1.5}
+              transmission={transparent ? 0.55 : 0.18} thickness={0.5} ior={1.5}
               envMapIntensity={0.3} side={THREE.DoubleSide} />
           </mesh>
         );
@@ -811,9 +867,9 @@ function ExteriorWalls({ floorY, floorHeight, transparent = false }: {
         return (
           <mesh key={`rw-${wz.toFixed(1)}`} position={[halfW + 0.02, floorY + h * 0.6, wz]} rotation={[0, Math.PI / 2, 0]}>
             <planeGeometry args={[1.8, h * 0.4]} />
-            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.08 : 0.2}
+            <meshPhysicalMaterial color={glassColor} transparent opacity={transparent ? 0.12 : 0.34}
               roughness={0.1} metalness={0} clearcoat={0.2} clearcoatRoughness={0.3}
-              transmission={transparent ? 0.85 : 0.65} thickness={0.5} ior={1.5}
+              transmission={transparent ? 0.55 : 0.18} thickness={0.5} ior={1.5}
               envMapIntensity={0.3} side={THREE.DoubleSide} />
           </mesh>
         );
@@ -1391,32 +1447,35 @@ const STATUS_COLORS_HEX: Record<string, number> = {
 // Map an asset's viewer type → how its beacon pole should be drawn so the
 // marker reads as physically mounted (grounded floor unit vs hanging ceiling
 // fixture vs full-height feature) rather than a floating 3-unit flagpole.
-// `length` = pole height; `sphereOffset` = sphere position along the pole
-// from the asset's own Y (negative hangs *below* the mount point).
+// `length` = pole height (base planted on the slab at y=0);
+// `sphereOffset` = orb height above the slab. Floor kit (chiller/boiler/
+// pump) sits low & grounded; ceiling kit (AHU/fan/lighting) hangs its orb
+// up near the ceiling; elevator gets a tall feature column.
 function getPoleStyle(type: string): { length: number; sphereOffset: number } {
   switch (type) {
     case "Chiller":
     case "Boiler":
     case "Pump":
-      // Floor-mounted: short stub that plants the unit on the ground.
-      return { length: 0.8, sphereOffset: 0.4 };
+      // Floor-mounted plant — short grounded stub, orb just above the unit.
+      return { length: 0.9, sphereOffset: 0.7 };
     case "Air Handler":
     case "Fan":
     case "Lighting":
-      // Ceiling-mounted: sphere hangs just below the mount point.
-      return { length: 0.8, sphereOffset: -0.5 };
+      // Ceiling-mounted — tall thin pole up to the ceiling, orb near the top.
+      return { length: 0.55, sphereOffset: -0.55 };
     case "Elevator":
       // Full-height feature: tall, glowing column.
-      return { length: 3.0, sphereOffset: 1.5 };
+      return { length: 4.5, sphereOffset: 3.5 };
     default:
-      return { length: 1.0, sphereOffset: 0.5 };
+      return { length: 1.4, sphereOffset: 1.0 };
   }
 }
 
-export function AssetMarker3D({ asset, selected, onClick }: {
+export function AssetMarker3D({ asset, selected, onClick, layoutOverride }: {
   asset: Asset;
   selected: boolean;
   onClick: (id: string) => void;
+  layoutOverride?: { x: number; z: number } | null;
 }) {
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
   const [hovered, setHovered] = useState(false);
@@ -1441,19 +1500,33 @@ export function AssetMarker3D({ asset, selected, onClick }: {
     return icons[asset.type] ?? `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>`;
   }, [asset.type]);
 
-  // Generate a colored dot sprite (no text — real icon shown in hover label)
+  // Status disc with the asset's real equipment emoji baked on top.
+  // Replaces the old plain coloured dot so markers read as actual kit,
+  // not placeholder blobs. White glyph on the status-colored disc.
   const iconTexture = useMemo(() => {
-    const size = 32;
+    const size = 128;
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;
     const ctx = canvas.getContext("2d")!;
+    // Solid status-coloured disc
     ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
+    ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
     ctx.fillStyle = `#${hexColor.toString(16).padStart(6, "0")}`;
     ctx.fill();
-    return new THREE.CanvasTexture(canvas);
-  }, [hexColor]);
+    // Subtle rim for legibility against bright scenes
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.stroke();
+    // Equipment glyph (emoji) centred
+    ctx.font = `${Math.floor(size * 0.6)}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(asset.emoji, size / 2, size / 2 + size * 0.04);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.anisotropy = 4;
+    return tex;
+  }, [hexColor, asset.emoji]);
 
   // Gentle pulse animation based on status
   useFrame((state) => {
@@ -1485,17 +1558,27 @@ export function AssetMarker3D({ asset, selected, onClick }: {
     }
   });
 
-  // Map asset (x, y, z) floor coords to 3D position — clamped to room polygon
-  const resolved = resolveAssetPosition(asset, BUILDING_FLOORS);
+  // Map asset (x, y, z) floor coords to 3D position — clamped to room polygon.
+  // `layoutOverride` (from resolveFloorLayout) applies the min-distance
+  // resampling so markers never overlap.
+  const resolved = resolveAssetPosition(
+    layoutOverride
+      ? { ...asset, x: layoutOverride.x, z: layoutOverride.z }
+      : asset,
+    BUILDING_FLOORS,
+  );
   const pos: [number, number, number] = [resolved.x, resolved.y, resolved.z];
 
   // Status condition badge color
   const conditionRingColor = STATUS_COLORS[asset.status] ?? "#22c55e";
   const conditionRingOpacity = asset.status === "offline" ? 0.25 : 0.55;
   const showConditionGlow = asset.status === "critical" || asset.status === "warning";
+  const ceilingMounted = asset.type === "Air Handler" || asset.type === "Fan" || asset.type === "Lighting";
 
+  // Equipment icon disc — sits at the beacon orb height so it reads as the
+  // unit's callout, grounded on the pole rather than floating.
   const renderShape = () => (
-    <sprite scale={[0.6, 0.6, 1]} position={[0, 0.6, 0]}>
+    <sprite scale={[0.7, 0.7, 1]} position={[0, pole.sphereOffset, 0]}>
       <spriteMaterial map={iconTexture} transparent depthTest={false} />
     </sprite>
   );
@@ -1516,8 +1599,8 @@ export function AssetMarker3D({ asset, selected, onClick }: {
         onClick(asset.id);
       }}
     >
-      {/* Status condition ring on floor beneath asset */}
-      <mesh position={[0, -0.9, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Status condition ring — sits flat ON the slab beneath the asset */}
+      {!ceilingMounted && <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.8, 1.2, 24]} />
         <meshBasicMaterial
           color={conditionRingColor}
@@ -1526,9 +1609,9 @@ export function AssetMarker3D({ asset, selected, onClick }: {
           depthWrite={false}
           side={THREE.DoubleSide}
         />
-      </mesh>
-      {/* Inner solid dot */}
-      <mesh position={[0, -0.89, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      </mesh>}
+      {/* Inner solid dot — also on the slab */}
+      {!ceilingMounted && <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.55, 16]} />
         <meshBasicMaterial
           color={conditionRingColor}
@@ -1537,15 +1620,21 @@ export function AssetMarker3D({ asset, selected, onClick }: {
           depthWrite={false}
           side={THREE.DoubleSide}
         />
-      </mesh>
+      </mesh>}
 
       {/* ── Vertical status beacon pole + emissive sphere ── */}
-      {/* Thin pole — length + sphere hang keyed to mount type via getPoleStyle */}
-      <mesh position={[0, pole.sphereOffset, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, pole.length, 8]} />
-        <meshStandardMaterial color={conditionRingColor} roughness={0.3} metalness={0.5} />
+      {/* Pole base is planted on the slab (y=0); getPoleStyle picks the
+          height/orb position per mount type so floor kit and ceiling kit
+          read correctly. */}
+      <mesh position={[0, ceilingMounted ? -pole.length / 2 : pole.length / 2, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, pole.length, 10]} />
+        <meshStandardMaterial color="#94a3b8" roughness={0.28} metalness={0.7} />
       </mesh>
-      {/* Glowing sphere at the end of the pole */}
+      <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.16, 0.16, 0.04, 16]} />
+        <meshStandardMaterial color="#94a3b8" roughness={0.35} metalness={0.65} />
+      </mesh>
+      {/* Glowing sphere at the orb height */}
       <mesh position={[0, pole.sphereOffset, 0]}>
         <sphereGeometry args={[0.18, 16, 16]} />
         <meshStandardMaterial
@@ -1568,20 +1657,18 @@ export function AssetMarker3D({ asset, selected, onClick }: {
       {/* Glow point-light for critical / warning */}
       {showConditionGlow && (
         <pointLight
-          position={[0, 0, 0]}
+          position={[0, pole.sphereOffset, 0]}
           intensity={asset.status === "critical" ? 2.5 : 0.8}
           distance={3.5}
           color={conditionRingColor}
         />
       )}
-      {/* Scaled-up equipment model */}
-      <group scale={1.5}>
-        {renderShape()}
-      </group>
+      {/* Equipment icon disc (real emoji on status disc) */}
+      {renderShape()}
 
       {/* Alert ring overlay — pulses red when the asset has an active alert */}
       {hasAlert && (
-        <mesh position={[0, 0.6, 0]} ref={alertRingRef}>
+        <mesh position={[0, pole.sphereOffset, 0]} ref={alertRingRef}>
           <ringGeometry args={[0.9, 1.6, 32]} />
           <meshBasicMaterial
             color="#ef4444"
@@ -1593,14 +1680,14 @@ export function AssetMarker3D({ asset, selected, onClick }: {
         </mesh>
       )}
       {selected && (
-        <mesh>
+        <mesh position={[0, pole.sphereOffset, 0]}>
           <sphereGeometry args={[1.4, 16, 16]} />
           <meshBasicMaterial color="#3b82f6" transparent opacity={0.15} />
         </mesh>
       )}
       {/* ── Hover label with real SVG icon (hidden until hover) ── */}
       {hovered && (
-        <Html distanceFactor={6} position={[0, 3.5, 0]} center>
+        <Html distanceFactor={6} position={[0, pole.sphereOffset + 0.6, 0]} center>
           <div
             className="flex items-center gap-1.5 px-2 py-1 rounded-lg whitespace-nowrap pointer-events-none shadow-lg"
             style={{

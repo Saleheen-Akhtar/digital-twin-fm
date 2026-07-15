@@ -7,6 +7,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../auth/jwt-auth.guard';
 import { PredictiveService } from './predictive.service';
 
@@ -39,8 +40,17 @@ export class PredictiveController {
 
   /**
    * Public: minimal asset list for ai-service health scoring.
+   *
+   * `@SkipThrottle()` — this is an internal service-to-service read
+   * that the ai-service fans out to for every asset (one GET per asset
+   * per health-score request). Unauthenticated (no JWT on the
+   * server-to-server call), so without the exemption it would hit the
+   * global burst limit (20 req/s) and ~half the assets would 429 →
+   * "Insufficient data". Mirrors the existing exemption on
+   * `sensor-readings.controller.ts` for the same internal-call reason.
    */
   @Public()
+  @SkipThrottle()
   @Get('assets')
   async getAssets(): Promise<PredictiveAsset[]> {
     return this.predictiveService.getAssets();
@@ -48,8 +58,13 @@ export class PredictiveController {
 
   /**
    * Public: raw sensor readings for an asset.
+   *
+   * `@SkipThrottle()` — see getAssets(): the ai-service calls this
+   * once per asset during health scoring; throttling it starves the
+   * predictive tab of data.
    */
   @Public()
+  @SkipThrottle()
   @Get('sensor-readings/:assetId')
   async getSensorReadings(
     @Param('assetId') assetId: string,
