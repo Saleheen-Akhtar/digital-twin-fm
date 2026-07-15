@@ -185,6 +185,35 @@ services:
       API_GATEWAY_URL: http://api-gateway:4000
       AI_CORS_ORIGIN: ${AI_CORS_ORIGIN:-http://localhost:3000}
 
+  # ── Sensor data generator ──────────────────────────────────
+  # Keeps sensor_readings fresh so time-windowed features
+  # (predictive health scores, live monitoring, dashboards)
+  # never go blank. Without this, seed data ages out after 2h and
+  # the predictive tab shows "Insufficient data" for every asset.
+  simulator:
+    build:
+      context: .
+      dockerfile: docker/simulator.Dockerfile
+    image: dtfm-api
+    container_name: dtfm-simulator
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-dtfm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-dtfm_db}
+      REDIS_HOST: valkey
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    command: ["sh", "-c", "corepack enable && pnpm --filter @digital-twin-fm/db exec tsx src/simulator.ts run"]
+
   # Optional: Caddy reverse proxy (recommended for staging/prod)
   # caddy:
   #   image: caddy:2

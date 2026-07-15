@@ -36,6 +36,7 @@ import {
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
+import { BarChart3, Bell, Building2, Footprints, HeartPulse, Layers, Thermometer, Users, Zap } from "lucide-react";
 import { useViewerStore } from "./viewer-store";
 import {
   camera as CAM,
@@ -48,6 +49,7 @@ import {
   floorFootprintBounds,
   buildingGlobalBounds,
   floorWalkableBounds,
+  resolveFloorLayout,
   validateFloorPlan,
   type FloorFilter,
 } from "./viewer-building";
@@ -261,6 +263,14 @@ function SceneContent({
   const cameraControlsRef = useRef<CameraControls>(null!);
   const selectedAsset = useViewerStore((state) => state.selectedAsset);
 
+  // A3 — min-distance resampling so markers never overlap/clump.
+  // Computed once per asset set; the marker applies the {x,z} override
+  // on top of its per-type anchor (y stays correct).
+  const floorLayout = useMemo(
+    () => resolveFloorLayout(allAssets, BUILDING_FLOORS, 0.6),
+    [allAssets],
+  );
+
   // Set walkable boundary on CameraControls when floor changes
   useEffect(() => {
     const cc = cameraControlsRef.current as unknown as { boundary: THREE.Box3; boundaryEnclosesCamera: boolean };
@@ -357,6 +367,7 @@ function SceneContent({
               asset={asset}
               selected={selectedAsset?.id === asset.id}
               onClick={() => onAssetClick(asset)}
+              layoutOverride={floorLayout.get(asset.id) ?? null}
             />
           ))}
 
@@ -528,6 +539,7 @@ function MiniKPIBar({ kpis }: { kpis: ReturnType<typeof useLiveKPIs> }) {
     { label: "Occupancy", value: `${kpis.occupancy}%`, icon: "👥", color: "#8b5cf6" },
     { label: "Energy", value: `${kpis.energy} kWh`, icon: "📊", color: "#06b6d4" },
   ];
+  const icons = { Temperature: Thermometer, Power: Zap, Alerts: Bell, Occupancy: Users, Energy: BarChart3 };
 
   return (
     <div className="flex gap-1">
@@ -536,7 +548,7 @@ function MiniKPIBar({ kpis }: { kpis: ReturnType<typeof useLiveKPIs> }) {
           key={item.label}
           className="bg-white/95 backdrop-blur-xl border border-slate-200/70 rounded-xl shadow-sm px-2.5 py-1.5 text-center min-w-[80px] transition-all hover:shadow-md hover:scale-[1.02]"
         >
-          <div className="text-sm mb-0.5">{item.icon}</div>
+          {(() => { const Icon = icons[item.label as keyof typeof icons]; return <Icon size={16} strokeWidth={2.25} className="mx-auto mb-0.5" style={{ color: item.color }} />; })()}
           <div className="text-[13px] font-bold tracking-tight" style={{ color: item.color }}>{item.value}</div>
           <div className="text-[8px] font-medium text-slate-400 uppercase tracking-wider">{item.label}</div>
         </div>
@@ -915,13 +927,14 @@ interface IconRailProps {
 }
 
 function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailProps) {
-  const buttons: { key: OverlayKey; icon: string; label: string; title: string }[] = [
-    { key: "kpis", icon: "📊", label: "KPIs", title: "Live KPIs" },
-    { key: "health", icon: "💚", label: "Health", title: "Building Health" },
-    { key: "floors", icon: "🏢", label: "Floors", title: "Floor selector" },
-    { key: "events", icon: "🔔", label: "Events", title: "Live Event Feed" },
-    { key: "layers", icon: "🧱", label: "Layers", title: "Layers panel" },
+  const buttons: { key: OverlayKey; label: string; title: string }[] = [
+    { key: "kpis", label: "KPIs", title: "Live KPIs" },
+    { key: "health", label: "Health", title: "Building Health" },
+    { key: "floors", label: "Floors", title: "Floor selector" },
+    { key: "events", label: "Events", title: "Live Event Feed" },
+    { key: "layers", label: "Layers", title: "Layers panel" },
   ];
+  const icons = { KPIs: BarChart3, Health: HeartPulse, Floors: Building2, Events: Bell, Layers } as const;
 
   return (
     <div
@@ -930,6 +943,7 @@ function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailPr
     >
       {buttons.map((b) => {
         const active = openOverlays.has(b.key);
+        const Icon = icons[b.label as keyof typeof icons];
         return (
           <button
             key={b.key}
@@ -943,7 +957,7 @@ function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailPr
                 : "text-slate-600 hover:bg-slate-100"
             }`}
           >
-            {b.icon}
+            <Icon size={18} strokeWidth={2.2} />
           </button>
         );
       })}
@@ -960,7 +974,7 @@ function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailPr
             : "text-slate-700 hover:bg-slate-100"
         }`}
       >
-        🚶 <span className="hidden sm:inline">{walkMode ? "Exit" : "Walk"}</span>
+        <Footprints size={16} strokeWidth={2.2} /> <span className="hidden sm:inline">{walkMode ? "Exit" : "Walk"}</span>
       </button>
     </div>
   );
