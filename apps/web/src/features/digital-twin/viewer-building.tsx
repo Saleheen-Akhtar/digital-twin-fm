@@ -676,7 +676,7 @@ function FloorSlab({ y, width = W, depth = D, thickness = SLAB_T, transparent = 
         <meshPhysicalMaterial
           color={colors.building.slab}
           transparent={transparent}
-          opacity={transparent ? 0.15 : 1}
+          opacity={transparent ? 0.24 : 1}
           roughness={0.55}
           metalness={0}
         />
@@ -1471,11 +1471,13 @@ function getPoleStyle(type: string): { length: number; sphereOffset: number } {
   }
 }
 
-export function AssetMarker3D({ asset, selected, onClick, layoutOverride }: {
+export function AssetMarker3D({ asset, selected, onClick, layoutOverride, floorY }: {
   asset: Asset;
   selected: boolean;
   onClick: (id: string) => void;
   layoutOverride?: { x: number; z: number } | null;
+  /** World Y of the asset's floor slab (for ceiling-mounted leader disc). */
+  floorY?: number;
 }) {
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
   const [hovered, setHovered] = useState(false);
@@ -1574,6 +1576,39 @@ export function AssetMarker3D({ asset, selected, onClick, layoutOverride }: {
   const conditionRingOpacity = asset.status === "offline" ? 0.25 : 0.55;
   const showConditionGlow = asset.status === "critical" || asset.status === "warning";
   const ceilingMounted = asset.type === "Air Handler" || asset.type === "Fan" || asset.type === "Lighting";
+  // Fallback floorY (asset.floor → BUILDING_FLOORS) so a ceiling-mounted
+  // marker can still drop a leader disc onto its own floor slab even if the
+  // caller didn't pass floorY explicitly.
+  const resolvedFloorY = floorY ?? BUILDING_FLOORS[asset.floor]?.yBase ?? 0;
+
+  // Soft radial-gradient "contact shadow" disc — grounds the marker to a
+  // floor plane independent of the global <ContactShadows> (which only
+  // catches shadows within 5u of world y=0). Dark neutral center fading to
+  // transparent, baked once on a canvas texture.
+  const contactTexture = useMemo(() => {
+    const size = 128;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    // jsdom (unit tests) returns a gradient object missing addColorStop;
+    // fall back to a flat fill so the suite doesn't blow up on import/render.
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    if (typeof grad?.addColorStop === "function") {
+      grad.addColorStop(0, "rgba(15,23,42,0.85)");
+      grad.addColorStop(0.55, "rgba(15,23,42,0.35)");
+      grad.addColorStop(1, "rgba(15,23,42,0)");
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = "rgba(15,23,42,0.5)";
+    }
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fill();
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.anisotropy = 4;
+    return tex;
+  }, []);
 
   // Equipment icon disc — sits at the beacon orb height so it reads as the
   // unit's callout, grounded on the pole rather than floating.
@@ -1584,9 +1619,30 @@ export function AssetMarker3D({ asset, selected, onClick, layoutOverride }: {
   );
 
   return (
-    <group
-      ref={groupRef}
-      position={pos}
+    <>
+      {/* Ceiling-mounted kit (AHU/fan/lighting): drop a soft leader disc on
+          the floor slab directly beneath the marker so a hung unit still has
+          a visible ground-plane anchor, like a BMS leader line to a floor
+          plan icon. Rendered as a sibling group at world (x,z) so it lands
+          on the slab regardless of the marker's elevated position. */}
+      {ceilingMounted && (
+        <group position={[resolved.x, resolvedFloorY + 0.01, resolved.z]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[1.4, 32]} />
+            <meshBasicMaterial
+              map={contactTexture}
+              color="#0f172a"
+              transparent
+              opacity={0.35}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        </group>
+      )}
+      <group
+        ref={groupRef}
+        position={pos}
       onPointerOver={(e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation();
         setHovered(true);
@@ -1599,6 +1655,24 @@ export function AssetMarker3D({ asset, selected, onClick, layoutOverride }: {
         onClick(asset.id);
       }}
     >
+      {/* Per-marker ground contact disc — soft radial shadow that grounds the
+          marker to its floor plane at ANY zoom, independent of the global
+          <ContactShadows> (which only reaches ~5u around world y=0). Floor-
+          mounted kit gets the disc at its own base; ceiling-mounted kit gets
+          a matching leader disc on the floor slab directly beneath it. */}
+      {!ceilingMounted && (
+        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[1.4, 32]} />
+          <meshBasicMaterial
+            map={contactTexture}
+            color="#0f172a"
+            transparent
+            opacity={0.35}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
       {/* Status condition ring — sits flat ON the slab beneath the asset */}
       {!ceilingMounted && <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.8, 1.2, 24]} />
@@ -1627,11 +1701,11 @@ export function AssetMarker3D({ asset, selected, onClick, layoutOverride }: {
           height/orb position per mount type so floor kit and ceiling kit
           read correctly. */}
       <mesh position={[0, ceilingMounted ? -pole.length / 2 : pole.length / 2, 0]}>
-        <cylinderGeometry args={[0.05, 0.05, pole.length, 10]} />
+        <cylinderGeometry args={[0.09, 0.09, pole.length, 10]} />
         <meshStandardMaterial color="#94a3b8" roughness={0.28} metalness={0.7} />
       </mesh>
       <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.16, 0.16, 0.04, 16]} />
+        <cylinderGeometry args={[0.2, 0.2, 0.05, 16]} />
         <meshStandardMaterial color="#94a3b8" roughness={0.35} metalness={0.65} />
       </mesh>
       {/* Glowing sphere at the orb height */}
@@ -1710,6 +1784,7 @@ export function AssetMarker3D({ asset, selected, onClick, layoutOverride }: {
         </Html>
       )}
     </group>
+    </>
   );
 }
 
@@ -1724,8 +1799,41 @@ function Elevator() {
     }
   });
 
+  // Translucent shaft the cab rides inside — grounds the elevator so it
+  // reads as "in a shaft" rather than a lone box gliding through the
+  // inter-floor void in All Floors view. Spans L1 slab (y=0) to above L2.
+  const SHAFT_X = -HALF_W + 2.5;
+  const SHAFT_BOTTOM = 0;
+  const SHAFT_TOP = 17.5;
+  const SHAFT_H = SHAFT_TOP - SHAFT_BOTTOM;
+  const SHAFT_MIDY = (SHAFT_TOP + SHAFT_BOTTOM) / 2;
+
   return (
     <group position={[0, 0, 0]}>
+      {/* Elevator shaft — faint glass column so the cab is visibly contained */}
+      <mesh position={[SHAFT_X, SHAFT_MIDY, 0]}>
+        <boxGeometry args={[2.1, SHAFT_H, 2.1]} />
+        <meshPhysicalMaterial
+          color="#94a3b8"
+          transparent
+          opacity={0.08}
+          roughness={0.1}
+          metalness={0.3}
+          transmission={0.6}
+          thickness={0.3}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Shaft edge frame (4 vertical mullions) — subtle structure */}
+      {[-1, 1].map((sx) =>
+        [-1, 1].map((sz) => (
+          <mesh key={`shaft-mullion-${sx}-${sz}`} position={[SHAFT_X + sx * 1.0, SHAFT_MIDY, sz * 1.0]}>
+            <cylinderGeometry args={[0.03, 0.03, SHAFT_H, 6]} />
+            <meshStandardMaterial color="#64748b" roughness={0.4} metalness={0.6} />
+          </mesh>
+        )),
+      )}
       {/* Vertical support rails — inside building near back-left corner */}
       {[-0.9, 0.9].map((z) => (
         <mesh key={`rail-${z}`} position={[-HALF_W + 2.5, 12, z]}>
