@@ -36,12 +36,26 @@ $$;
 
 -- 2. Convert to a hypertable. This is a no-op if the table is already
 --    a hypertable (idempotent via `if_not_exists`).
-SELECT create_hypertable(
-  'sensor_readings',
-  'timestamp',
-  chunk_time_interval => INTERVAL '1 day',
-  if_not_exists => TRUE
-);
+--    GUARD: only call create_hypertable when the timescaledb extension is
+--    present. On plain PostgreSQL (RDS free tier, containerized Postgres,
+--    Render Postgres, etc.) the extension is absent and create_hypertable
+--    does not exist — skip it and keep sensor_readings as a regular table
+--    so migrations succeed on any Postgres. Predictive features still work,
+--    just without time-partitioning performance benefits.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_extension WHERE extname = 'timescaledb'
+  ) THEN
+    PERFORM create_hypertable(
+      'sensor_readings',
+      'timestamp',
+      chunk_time_interval => INTERVAL '1 day',
+      if_not_exists => TRUE
+    );
+  END IF;
+END
+$$;
 
 -- 3. The covering index. TimescaleDB creates an implicit index on
 --    (sensor_id, timestamp DESC) for hypertables, but an explicit

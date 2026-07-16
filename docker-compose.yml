@@ -67,7 +67,10 @@ services:
   # ── App services ──────────────────────────────────────────────
 
   db-migrate:
-    image: dtfm-api
+    build:
+      context: .
+      dockerfile: docker/db-migrate.Dockerfile
+    image: dtfm-db-migrate
     container_name: dtfm-db-migrate
     restart: "no"
     environment:
@@ -80,7 +83,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["node", "node_modules/@digital-twin-fm/db/migrate.mjs"]
 
   api-gateway:
     build:
@@ -89,6 +91,7 @@ services:
     image: dtfm-api
     container_name: dtfm-api
     restart: unless-stopped
+    command: ["node", "dist/main.js"]
     ports:
       - "127.0.0.1:4000:4000"
     environment:
@@ -194,7 +197,7 @@ services:
     build:
       context: .
       dockerfile: docker/simulator.Dockerfile
-    image: dtfm-api
+    image: dtfm-simulator
     container_name: dtfm-simulator
     restart: unless-stopped
     environment:
@@ -214,17 +217,22 @@ services:
         condition: service_healthy
     command: ["sh", "-c", "corepack enable && pnpm --filter @digital-twin-fm/db exec tsx src/simulator.ts run"]
 
-  # Optional: Caddy reverse proxy (recommended for staging/prod)
-  # caddy:
-  #   image: caddy:2
-  #   container_name: dtfm-caddy
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./Caddyfile:/etc/caddy/Caddyfile
-  #     - caddy_data:/data
-  #     - caddy_config:/config
+  # Caddy reverse proxy (recommended for staging/prod / public VM / EC2).
+  # Uncomment the ports + run `docker compose up -d caddy` after DNS points
+  # at this host. Auto-TLS via Let's Encrypt using the Caddyfile at repo root.
+  caddy:
+    image: caddy:2
+    container_name: dtfm-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api-gateway
 
 volumes:
   postgres_data:
@@ -232,3 +240,5 @@ volumes:
   mosquitto_data:
   mosquitto_log:
   api-uploads:
+  caddy_data:
+  caddy_config:
