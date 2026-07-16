@@ -468,6 +468,8 @@ export function RoomInterior({
             <group>
               <StorageCrate position={[cx - 2.5, floorY + 0.5, cz - 1.5]} />
               <StorageCrate position={[cx - 2.5, floorY + 0.5, cz + 1.5]} rotation={[0, 0.4, 0]} />
+              {/* Stacked pair — top crate sits directly on a base crate at the same (x,z) */}
+              <StorageCrate position={[cx - 2.5, floorY + 0.5, cz - 0.5]} rotation={[0, -0.2, 0]} />
               <StorageCrate position={[cx - 2.5, floorY + 1.5, cz - 0.5]} rotation={[0, -0.2, 0]} />
               <StorageCrate position={[cx + 2.0, floorY + 0.5, cz + 1.0]} rotation={[0, 1.1, 0]} />
             </group>
@@ -491,6 +493,8 @@ export function RoomInterior({
               <StorageCrate position={[cx - 2, floorY + 0.5, cz + 2]} />
               <StorageCrate position={[cx + 2, floorY + 0.5, cz - 1]} rotation={[0, 0.2, 0]} />
               <StorageCrate position={[cx + 2, floorY + 0.5, cz + 1]} rotation={[0, -0.5, 0]} />
+              {/* Stacked pair at (cx+2, cz) — top crate sits on its own base crate */}
+              <StorageCrate position={[cx + 2, floorY + 0.5, cz]} rotation={[0, 0.1, 0]} />
               <StorageCrate position={[cx + 2, floorY + 1.5, cz]} rotation={[0, 0.1, 0]} />
             </group>
           )}
