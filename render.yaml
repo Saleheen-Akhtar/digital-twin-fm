@@ -23,8 +23,7 @@ services:
     name: dtfm-postgres
     runtime: image
     image:
-      repository: postgres
-      tag: "16-alpine"
+      url: postgres:16-alpine
     plan: free
     envVars:
       - key: POSTGRES_USER
