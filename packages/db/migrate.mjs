@@ -17,13 +17,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const MIGRATIONS_DIR = join(__dirname, "drizzle");
 
-const pool = new Pool({
-  host: process.env.POSTGRES_HOST || "localhost",
-  port: Number(process.env.POSTGRES_PORT) || 5432,
-  user: process.env.POSTGRES_USER || "dtfm_user",
-  password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
-  database: process.env.POSTGRES_DB || "dtfm_db",
-});
+const connectionString = process.env.DATABASE_URL;
+const pool = connectionString
+  ? new Pool({ connectionString })
+  : new Pool({
+      host: process.env.POSTGRES_HOST || "localhost",
+      port: Number(process.env.POSTGRES_PORT) || 5432,
+      user: process.env.POSTGRES_USER || "dtfm_user",
+      password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
+      database: process.env.POSTGRES_DB || "dtfm_db",
+    });
 
 const db = drizzle(pool);
 

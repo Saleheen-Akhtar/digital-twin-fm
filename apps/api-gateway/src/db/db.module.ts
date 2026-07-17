@@ -50,17 +50,26 @@ function required(name: string, value: string | undefined): string {
             (process.env.NODE_ENV === 'development' ? 'dtfm_pass' : undefined),
         );
 
-        const pool = new Pool({
-          host: process.env.POSTGRES_HOST || 'localhost',
-          port: Number(process.env.POSTGRES_PORT) || 5432,
-          user: process.env.POSTGRES_USER || 'dtfm_user',
-          password,
-          database: process.env.POSTGRES_DB || 'dtfm_db',
-          ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
-          max: 10,
-          idleTimeoutMillis: 30_000,
-          connectionTimeoutMillis: 5_000,
-        });
+        const connectionString = process.env.DATABASE_URL;
+        const pool = connectionString
+          ? new Pool({
+              connectionString,
+              ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
+              max: 10,
+              idleTimeoutMillis: 30_000,
+              connectionTimeoutMillis: 5_000,
+            })
+          : new Pool({
+              host: process.env.POSTGRES_HOST || 'localhost',
+              port: Number(process.env.POSTGRES_PORT) || 5432,
+              user: process.env.POSTGRES_USER || 'dtfm_user',
+              password,
+              database: process.env.POSTGRES_DB || 'dtfm_db',
+              ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
+              max: 10,
+              idleTimeoutMillis: 30_000,
+              connectionTimeoutMillis: 5_000,
+            });
         pool.on('error', (err) => {
           Logger.error(`pg pool error: ${err.message}`, 'DbModule');
         });
