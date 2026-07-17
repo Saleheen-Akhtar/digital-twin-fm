@@ -1,0 +1,200 @@
+# Render Blueprint — Digital Twin FM (FREE TIER)
+#
+# Deploy: connect this repo in Render Dashboard → "Blueprint" → this file.
+# All services use the free plan. Caveats (free tier only):
+#   - Web services spin down after 15 min idle → first request cold-starts (~30-60s).
+#   - Free Postgres + Redis are wiped after 90 days. Dump/restore before then,
+#     or treat as non-persistent demo data.
+#   - MQTT is intentionally DISABLED (no free broker). Ingestion reads
+#     HTTP /ingest/* → Redis pub/sub, which is the MVP path.
+#   - ai-service is Python/FastAPI; do NOT put it on Vercel (it can't run there).
+#
+# Service URLs (internal, on Render's private network):
+#   api-gateway  -> http://api-gateway:4000   (also exposed via public URL)
+#   ingestion    -> http://ingestion:4100
+#   ai-service   -> http://ai-service:8000
+# The api-gateway reaches ai-service via AI_SERVICE_URL=http://ai-service:8000.
+
+services:
+  # ── Postgres (free, 90-day expiry) ──────────────────────────
+  - type: pserv
+    name: dtfm-postgres
+    runtime: image
+    image:
+      repository: postgres
+      tag: "16-alpine"
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: POSTGRES_USER
+        value: dtfm_user
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+      - key: POSTGRES_DB
+        value: dtfm_db
+
+  # ── Redis / Valkey (free, 90-day expiry) ───────────────────
+  - type: redis
+    name: dtfm-redis
+    plan: free
+    ipAllowList: []
+
+  # ── API Gateway (NestJS) ────────────────────────────────────
+  - type: web
+    name: dtfm-api-gateway
+    runtime: docker
+    plan: free
+    dockerfilePath: ./docker/api-gateway.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        sync: false            # Render injects $PORT automatically
+      - key: POSTGRES_HOST
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: host
+      - key: POSTGRES_PORT
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: port
+      - key: POSTGRES_USER
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_USER
+      - key: POSTGRES_PASSWORD
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_PASSWORD
+      - key: POSTGRES_DB
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_DB
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: dtfm-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: dtfm-redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: dtfm-redis
+          property: password
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: MVP_ADMIN_PASSWORD
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false          # set to your Vercel web URL, e.g. https://dtfm-web.vercel.app
+      - key: AI_SERVICE_URL
+        value: http://dtfm-ai-service:8000
+      # MQTT_URL intentionally omitted → ingestion skips the broker
+
+  # ── Ingestion Service (Node/TS, Fastify) ───────────────────
+  - type: web
+    name: dtfm-ingestion
+    runtime: docker
+    plan: free
+    dockerfilePath: ./docker/ingestion-service.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: INGESTION_HOST
+        value: 0.0.0.0
+      - key: INGESTION_PORT
+        value: "4100"
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: dtfm-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: dtfm-redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: dtfm-redis
+          property: password
+      - key: INGEST_API_KEY
+        sync: false
+      # MQTT_URL intentionally absent → MQTT listener disabled (free tier, no broker)
+
+  # ── AI Service (Python/FastAPI) ─────────────────────────────
+  - type: web
+    name: dtfm-ai-service
+    runtime: docker
+    plan: free
+    dockerfilePath: ./docker/ai-service.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: AI_HOST
+        value: 0.0.0.0
+      - key: AI_SERVICE_PORT
+        value: "8000"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: LITELLM_MODEL
+        value: openai/deepseek-v4-flash-free
+      - key: LITELLM_API_BASE
+        value: https://opencode.ai/zen/v1
+      - key: OPENCODE_ZEN_API_KEY
+        sync: false
+      - key: API_GATEWAY_URL
+        value: http://dtfm-api-gateway:4000
+      - key: AI_CORS_ORIGIN
+        sync: false          # leave empty in prod (api-gateway is the only caller)
+      - key: POSTGRES_HOST
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: host
+      - key: POSTGRES_PORT
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: port
+      - key: POSTGRES_USER
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_USER
+      - key: POSTGRES_PASSWORD
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_PASSWORD
+      - key: POSTGRES_DB
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_DB

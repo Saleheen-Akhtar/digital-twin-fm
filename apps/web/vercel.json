@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "pnpm --filter @digital-twin-fm/web run build",
+  "installCommand": "pnpm install",
+  "outputDirectory": ".next",
+  "env": {
+    "NEXT_OUTPUT": "standalone",
+    "NEXT_PUBLIC_API_URL": "@dtfm-api-url",
+    "API_GATEWAY_URL": "@dtfm-api-url",
+    "JWT_ACCESS_SECRET": "@dtfm-jwt-secret"
+  }
+}
