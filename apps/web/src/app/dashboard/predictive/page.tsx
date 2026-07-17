@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
+import { useRealtime } from "@/hooks/useRealtime";
+import { useViewerStore } from "@/features/digital-twin/viewer-store";
+import type { Asset, AssetStatus } from "@/lib/api-client";
 
 // ── Types matching ai-service response ──────────────────────────────
 
@@ -11,7 +14,7 @@ interface HealthScore {
   assetType: string;
   floorLevel: number | null;
   score: number;
-  trend: "rising" | "stable" | "declining" | "critical";
+  trend: "rising" | "stable" | "declining" | "critical" | "offline";
   topRisks: string[];
   lastUpdated: string;
 }
@@ -135,6 +138,10 @@ function MiniTrendSparkline({ points, color }: { points: number[]; color: string
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function PredictivePage() {
+  // Live asset roster — sourced from the SAME /assets endpoint the
+  // Digital Twin tab uses, so the two tabs can never disagree on which
+  // assets exist. Health scores are enriched on top of this roster.
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [scores, setScores] = useState<HealthScore[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -143,25 +150,75 @@ export default function PredictivePage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [anomalyMode, setAnomalyMode] = useState(false);
 
-  const fetchScores = useCallback(async () => {
+  // ── Realtime sync ────────────────────────────────────────────────
+  // Open the same WebSocket the Digital Twin viewer uses, so live
+  // asset:updated / alert:created events flow into BOTH tabs. We read
+  // the live status overrides from the shared Zustand store below.
+  useRealtime();
+  const liveStatuses = useViewerStore((s) => s.assetStatuses);
+
+  // Enrich the live roster with health scores (keyed by assetId) and
+  // live status overrides. The roster is ALWAYS the full live asset set;
+  // an asset missing a score (ai-service hiccup) degrades gracefully to a
+  // neutral "computing" card instead of disappearing.
+  const mergedScores: HealthScore[] = useMemo(() => {
+    const scoreByAsset = new Map(scores.map((s) => [s.assetId, s]));
+    return assets.map((a) => {
+      const liveStatus = liveStatuses[a.id] as AssetStatus | undefined;
+      const hs = scoreByAsset.get(a.id);
+      if (hs) {
+        return {
+          ...hs,
+          // Live WebSocket status wins over the computed trend status so
+          // the two tabs stay visually in lockstep.
+          trend:
+            liveStatus && liveStatus !== hs.trend && (liveStatus === "critical" || liveStatus === "offline")
+              ? liveStatus
+              : hs.trend,
+        };
+      }
+      // No health score yet (transient) — show a neutral placeholder row.
+      return {
+        assetId: a.id,
+        assetName: a.name,
+        assetType: a.type,
+        floorLevel: (a as { floorLevel?: number | null }).floorLevel ?? null,
+        score: 0,
+        trend: (liveStatus ?? a.status ?? "stable") as HealthScore["trend"],
+        topRisks: ["Health score computing…"],
+        lastUpdated: "",
+      };
+    });
+  }, [assets, scores, liveStatuses]);
+
+  const fetchData = useCallback(async () => {
     try {
       const api = createBrowserApiClient();
-      const data = await api.get<HealthScoresResponse>("/predictive/health-scores");
-      setScores(data.scores);
-      setGeneratedAt(data.generatedAt);
+      // Parallel: live roster (authoritative) + health scores (enrichment)
+      const [assetList, health] = await Promise.all([
+        api.get<Asset[]>("/assets"),
+        api.get<HealthScoresResponse>("/predictive/health-scores").catch(() => null),
+      ]);
+      setAssets(assetList);
+      if (health) {
+        setScores(health.scores);
+        setGeneratedAt(health.generatedAt);
+      }
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load health scores");
+      setError(err instanceof Error ? err.message : "Failed to load assets");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchScores();
-    const interval = setInterval(fetchScores, 60_000);
+    fetchData();
+    // Refresh the live roster + scores every 60s. Realtime WebSocket
+    // handles sub-second status changes between refreshes.
+    const interval = setInterval(fetchData, 60_000);
     return () => clearInterval(interval);
-  }, [fetchScores]);
+  }, [fetchData]);
 
   const openDetail = useCallback(async (assetId: string) => {
     setDetailLoading(true);
@@ -178,12 +235,12 @@ export default function PredictivePage() {
   }, []);
 
   // ── Stats ──
-  const total = scores.length;
-  const critical = scores.filter((s) => s.trend === "critical").length;
-  const declining = scores.filter((s) => s.trend === "declining").length;
-  const stable = scores.filter((s) => s.trend === "stable").length;
-  const improving = scores.filter((s) => s.trend === "rising").length;
-  const avgScore = total > 0 ? Math.round(scores.reduce((a, s) => a + s.score, 0) / total) : 0;
+  const total = mergedScores.length;
+  const critical = mergedScores.filter((s) => s.trend === "critical").length;
+  const declining = mergedScores.filter((s) => s.trend === "declining").length;
+  const stable = mergedScores.filter((s) => s.trend === "stable").length;
+  const improving = mergedScores.filter((s) => s.trend === "rising").length;
+  const avgScore = total > 0 ? Math.round(mergedScores.reduce((a, s) => a + s.score, 0) / total) : 0;
 
   // ── Detail trends chart ──
   function TrendChart({ trends }: { trends: AssetTrendDetail[] }) {
@@ -220,7 +277,7 @@ export default function PredictivePage() {
 
   // ── Anomalies view ──
   function AnomalyCandidates() {
-    const anomalies = scores
+    const anomalies = mergedScores
       .filter((s) => s.trend === "critical" || (s.trend === "declining" && s.topRisks.length > 0))
       .sort((a, b) => a.score - b.score);
 
@@ -389,7 +446,7 @@ export default function PredictivePage() {
               /* ── Health Score Cards Grid ── */
               <section className="px-2 sm:px-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                  {scores.map((s) => (
+                  {mergedScores.map((s) => (
                     <button
                       key={s.assetId}
                       onClick={() => openDetail(s.assetId)}

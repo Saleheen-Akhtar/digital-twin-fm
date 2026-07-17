@@ -153,7 +153,9 @@ export class AlertEngineService {
           id: alert.id,
           assetId: alert.assetId,
           severity: alert.severity,
+          status: alert.status ?? "open",
           message: alert.message,
+          createdAt: alert.createdAt ?? new Date().toISOString(),
         });
       } catch {
         // WebSocket broadcast is non-fatal
