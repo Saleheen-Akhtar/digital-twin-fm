@@ -9,14 +9,16 @@
 #     HTTP /ingest/* → Redis pub/sub, which is the MVP path.
 #   - ai-service is Python/FastAPI; do NOT put it on Vercel (it can't run there).
 #
-# Service URLs (internal, on Render's private network):
-#   api-gateway  -> http://api-gateway:4000   (also exposed via public URL)
-#   ingestion    -> http://ingestion:4100
-#   ai-service   -> http://ai-service:8000
-# The api-gateway reaches ai-service via AI_SERVICE_URL=http://ai-service:8000.
+# Internal service DNS (Render private network):
+#   dtfm-api-gateway  -> http://dtfm-api-gateway:4000
+#   dtfm-ingestion    -> http://dtfm-ingestion:4100
+#   dtfm-ai-service   -> http://dtfm-ai-service:8000
+# api-gateway reaches ai-service via AI_SERVICE_URL=http://dtfm-ai-service:8000.
 
 services:
   # ── Postgres (free, 90-day expiry) ──────────────────────────
+  # NOTE: no healthCheckPath — Postgres is not an HTTP server; an HTTP
+  # healthcheck on "/" would never pass. Render pserv stays "up" without it.
   - type: pserv
     name: dtfm-postgres
     runtime: image
@@ -24,7 +26,6 @@ services:
       repository: postgres
       tag: "16-alpine"
     plan: free
-    healthCheckPath: /
     envVars:
       - key: POSTGRES_USER
         value: dtfm_user
@@ -39,6 +40,48 @@ services:
     plan: free
     ipAllowList: []
 
+  # ── DB migrate (one-shot Drizzle) ───────────────────────────
+  # Runs migrations against dtfm-postgres, then stays alive (tail -f) so
+  # Render reports it healthy. api-gateway waits on it.
+  - type: pserv
+    name: dtfm-db-migrate
+    runtime: docker
+    dockerfilePath: ./docker/db-migrate.Dockerfile
+    dockerContext: .
+    plan: free
+    startCommand: "node migrate.mjs && tail -f /dev/null"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: POSTGRES_HOST
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: host
+      - key: POSTGRES_PORT
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: port
+      - key: POSTGRES_USER
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_USER
+      - key: POSTGRES_PASSWORD
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_PASSWORD
+      - key: POSTGRES_DB
+        fromService:
+          type: pserv
+          name: dtfm-postgres
+          property: env
+          envVar: POSTGRES_DB
+
   # ── API Gateway (NestJS) ────────────────────────────────────
   - type: web
     name: dtfm-api-gateway
@@ -47,6 +90,8 @@ services:
     dockerfilePath: ./docker/api-gateway.Dockerfile
     dockerContext: .
     healthCheckPath: /health
+    dependsOn:
+      - db-migrate
     envVars:
       - key: NODE_ENV
         value: production
