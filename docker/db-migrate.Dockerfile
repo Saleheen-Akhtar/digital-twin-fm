@@ -25,4 +25,4 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app ./
 WORKDIR /app/packages/db
-CMD node migrate.mjs && tail -f /dev/null
+CMD node migrate.mjs && node -e "const h=require('http');h.createServer((_,r)=>{r.writeHead(200,{'Content-Type':'text/plain'});r.end('ok')}).listen(parseInt(process.env.PORT||'10001'),()=>console.log('health server on '+PORT))"
