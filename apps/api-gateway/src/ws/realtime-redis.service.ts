@@ -68,10 +68,12 @@ export class RealtimeRedisService implements OnModuleInit, OnModuleDestroy {
           try {
             const alert = JSON.parse(message);
             this.gateway.broadcastAlert({
+              id: alert.id,
               assetId: alert.assetId,
               severity: alert.severity,
+              status: alert.status ?? 'open',
               message: alert.message,
-              id: alert.id,
+              createdAt: alert.createdAt ?? new Date().toISOString(),
             });
           } catch (err) {
             this.logger.error('Failed to parse alert from Redis', err);

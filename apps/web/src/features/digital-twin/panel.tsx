@@ -42,10 +42,10 @@ export function DigitalTwinPanel({
   assetReadingsById: _assetReadingsById,
   modelUrl,
 }: DigitalTwinPanelProps) {
-  // The new viewer manages its own state and seed data internally.
-  // The props above are kept for API compatibility with the dashboard
-  // and the asset-detail panel, but the viewer reads from its own
-  // SEED_ASSETS / Zustand store.
+  // The viewer renders the LIVE `assets` prop (the same source the
+  // Predictive tab uses) and only falls back to the static SEED_ASSETS
+  // when the API returns zero assets. Live status overrides arrive via
+  // the realtime WebSocket (useRealtime) into the shared Zustand store.
   const setLiveReadings = useState<Record<string, string>>({})[1];
 
   // Connect to the realtime WebSocket for live asset status updates
