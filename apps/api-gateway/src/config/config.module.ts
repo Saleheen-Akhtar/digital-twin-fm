@@ -68,6 +68,7 @@ loadInfisicalOrEnvSync();
               user: process.env.POSTGRES_USER || 'dtfm_user',
               password: requireSecret(process.env.POSTGRES_PASSWORD, 'POSTGRES_PASSWORD', env),
               database: process.env.POSTGRES_DB || 'dtfm_db',
+              url: process.env.DATABASE_URL,
             },
             redis: {
               host: process.env.REDIS_HOST || '127.0.0.1',

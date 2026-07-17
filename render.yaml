@@ -17,21 +17,11 @@
 
 services:
   # ── Postgres (free, 90-day expiry) ──────────────────────────
-  # NOTE: no healthCheckPath — Postgres is not an HTTP server; an HTTP
-  # healthcheck on "/" would never pass. Render pserv stays "up" without it.
-  - type: pserv
+  # Render managed Postgres — the only way to persist data on the free plan.
+  # Use DATABASE_URL (connectionString) to connect.
+  - type: postgres
     name: dtfm-postgres
-    runtime: image
-    image:
-      url: postgres:16-alpine
     plan: free
-    envVars:
-      - key: POSTGRES_USER
-        value: dtfm_user
-      - key: POSTGRES_PASSWORD
-        value: dtfm_blueprint_deploy_2026
-      - key: POSTGRES_DB
-        value: dtfm_db
 
   # ── Redis / Valkey (free, 90-day expiry) ───────────────────
   - type: redis
@@ -40,33 +30,23 @@ services:
     ipAllowList: []
 
   # ── DB migrate (one-shot Drizzle) ───────────────────────────
-  # Runs migrations against dtfm-postgres, then stays alive (tail -f) so
-  # Render reports it healthy.
-  - type: pserv
+  # Runs migrations against dtfm-postgres, then starts a simple HTTP
+  # server for Render health checks (required for web services on free plan).
+  - type: web
     name: dtfm-db-migrate
     runtime: docker
     dockerfilePath: ./docker/db-migrate.Dockerfile
     dockerContext: .
     plan: free
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: POSTGRES_HOST
+      - key: DATABASE_URL
         fromService:
-          type: pserv
+          type: postgres
           name: dtfm-postgres
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: port
-      - key: POSTGRES_USER
-        value: dtfm_user
-      - key: POSTGRES_PASSWORD
-        value: dtfm_blueprint_deploy_2026
-      - key: POSTGRES_DB
-        value: dtfm_db
+          property: connectionString
 
   # ── API Gateway (NestJS) ────────────────────────────────────
   - type: web
@@ -79,24 +59,23 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        sync: false            # Render injects $PORT automatically
+      - key: DATABASE_URL
+        fromService:
+          type: postgres
+          name: dtfm-postgres
+          property: connectionString
       - key: POSTGRES_HOST
         fromService:
-          type: pserv
+          type: postgres
           name: dtfm-postgres
           property: host
       - key: POSTGRES_PORT
         fromService:
-          type: pserv
+          type: postgres
           name: dtfm-postgres
           property: port
-      - key: POSTGRES_USER
-        value: dtfm_user
-      - key: POSTGRES_PASSWORD
-        value: dtfm_blueprint_deploy_2026
-      - key: POSTGRES_DB
-        value: dtfm_db
+      - key: PORT
+        sync: false
       - key: REDIS_HOST
         fromService:
           type: redis
@@ -114,10 +93,9 @@ services:
       - key: MVP_ADMIN_PASSWORD
         sync: false
       - key: CORS_ORIGIN
-        sync: false          # set to your Vercel web URL, e.g. https://dtfm-web.vercel.app
+        sync: false
       - key: AI_SERVICE_URL
         value: http://dtfm-ai-service:8000
-      # MQTT_URL intentionally omitted → ingestion skips the broker
 
   # ── Ingestion Service (Node/TS, Fastify) ───────────────────
   - type: web
@@ -146,7 +124,6 @@ services:
           property: port
       - key: INGEST_API_KEY
         sync: false
-      # MQTT_URL intentionally absent → MQTT listener disabled (free tier, no broker)
 
   # ── AI Service (Python/FastAPI) ─────────────────────────────
   - type: web
@@ -163,6 +140,8 @@ services:
         value: "8000"
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: NODE_ENV
+        value: production
       - key: OPENAI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
@@ -176,20 +155,4 @@ services:
       - key: API_GATEWAY_URL
         value: http://dtfm-api-gateway:4000
       - key: AI_CORS_ORIGIN
-        sync: false          # leave empty in prod (api-gateway is the only caller)
-      - key: POSTGRES_HOST
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: host
-      - key: POSTGRES_PORT
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: port
-      - key: POSTGRES_USER
-        value: dtfm_user
-      - key: POSTGRES_PASSWORD
-        value: dtfm_blueprint_deploy_2026
-      - key: POSTGRES_DB
-        value: dtfm_db
+        sync: false
