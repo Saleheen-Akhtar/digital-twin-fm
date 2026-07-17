@@ -89,8 +89,6 @@ services:
     dockerfilePath: ./docker/api-gateway.Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    dependsOn:
-      - dtfm-db-migrate
     envVars:
       - key: NODE_ENV
         value: production
