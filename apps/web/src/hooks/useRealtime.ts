@@ -17,6 +17,7 @@ import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
 import { useViewerStore } from "@/features/digital-twin/viewer-store";
 import type { AssetStatus } from "@/features/digital-twin/viewer-data";
+import type { Alert } from "@digital-twin-fm/types";
 
 /** URL of the api-gateway. In dev this is localhost:4000. */
 const WS_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -38,6 +39,8 @@ export function useRealtime(): UseRealtimeResult {
   const setAssetStatus = useViewerStore((s) => s.setAssetStatus);
   const addAlertAsset = useViewerStore((s) => s.addAlertAsset);
   const removeAlertAsset = useViewerStore((s) => s.removeAlertAsset);
+  const addLiveAlert = useViewerStore((s) => s.addLiveAlert);
+  const removeLiveAlert = useViewerStore((s) => s.removeLiveAlert);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,20 +92,24 @@ export function useRealtime(): UseRealtimeResult {
         );
 
         // 4. Handle new alerts — mark the asset for visual overlay
-        socket.on("alert:created", (alert: { assetId?: string; severity?: string; message?: string }) => {
+        socket.on("alert:created", (alert: { id?: string; assetId?: string; severity?: string; message?: string; status?: string; createdAt?: string }) => {
           console.log("[useRealtime] Alert:", alert.severity, alert.message);
           if (alert.assetId && !cancelled) {
             addAlertAsset(alert.assetId);
             // Also set the asset status to "critical" when an alert fires
             setAssetStatus(alert.assetId, "critical");
           }
+          // Persist the full alert so the Alerts page can render it live
+          // without waiting for a refetch of /alerts.
+          if (alert.id && !cancelled) addLiveAlert(alert as Alert);
         });
 
         // 5. Handle alert resolved — remove the overlay
-        socket.on("alert:resolved", (alert: { assetId?: string }) => {
+        socket.on("alert:resolved", (alert: { assetId?: string; id?: string }) => {
           if (alert.assetId && !cancelled) {
             removeAlertAsset(alert.assetId);
           }
+          if (alert.id && !cancelled) removeLiveAlert(alert.id);
         });
 
         socketRef.current = socket;
@@ -122,7 +129,7 @@ export function useRealtime(): UseRealtimeResult {
       }
       setWsConnected(false);
     };
-  }, [setWsConnected, setAssetStatus, addAlertAsset, removeAlertAsset]);
+  }, [setWsConnected, setAssetStatus, addAlertAsset, removeAlertAsset, addLiveAlert, removeLiveAlert]);
 
   return { connected };
 }

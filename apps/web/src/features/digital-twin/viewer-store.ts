@@ -15,6 +15,7 @@
  */
 import { create } from "zustand";
 import type { Asset, AssetStatus, AssetType } from "./viewer-data";
+import type { Alert } from "@digital-twin-fm/types";
 
 /**
  * Floor filter — 0-indexed viewer floors.
@@ -43,6 +44,8 @@ export interface ViewerStore {
   wsConnected: boolean;
   /** Asset IDs that currently have active alerts (for alert overlays) */
   activeAlertAssets: Set<string>;
+  /** Live alerts pushed by the realtime WebSocket (not yet in the paginated /alerts fetch) */
+  liveAlerts: Alert[];
   setSelectedFloor: (f: FloorFilter) => void;
   setSelectedType: (t: TypeFilter) => void;
   setSelectedAsset: (a: Asset | null) => void;
@@ -57,6 +60,10 @@ export interface ViewerStore {
   addAlertAsset: (assetId: string) => void;
   /** Remove an asset from the alert set (when alert is resolved) */
   removeAlertAsset: (assetId: string) => void;
+  /** Add a live alert received over the WebSocket */
+  addLiveAlert: (alert: Alert) => void;
+  /** Remove a live alert (e.g. when resolved/closed) */
+  removeLiveAlert: (id: string) => void;
 }
 
 export const useViewerStore = create<ViewerStore>((set) => ({
@@ -66,6 +73,7 @@ export const useViewerStore = create<ViewerStore>((set) => ({
   assetStatuses: {},
   wsConnected: false,
   activeAlertAssets: new Set<string>(),
+  liveAlerts: [],
   setSelectedFloor: (f) => set({ selectedFloor: f }),
   setSelectedType: (t) => set({ selectedType: t }),
   setSelectedAsset: (a) => set({ selectedAsset: a }),
@@ -91,6 +99,13 @@ export const useViewerStore = create<ViewerStore>((set) => ({
       next.delete(assetId);
       return { activeAlertAssets: next };
     }),
+  addLiveAlert: (alert) =>
+    set((s) => {
+      if (s.liveAlerts.some((a) => a.id === alert.id)) return s;
+      return { liveAlerts: [alert, ...s.liveAlerts] };
+    }),
+  removeLiveAlert: (id) =>
+    set((s) => ({ liveAlerts: s.liveAlerts.filter((a) => a.id !== id) })),
 }));
 
 export { type AssetStatus, type AssetType };
