@@ -6,8 +6,8 @@
   "outputDirectory": ".next",
   "env": {
     "NEXT_OUTPUT": "standalone",
-    "NEXT_PUBLIC_API_URL": "@dtfm-api-url",
-    "API_GATEWAY_URL": "@dtfm-api-url",
-    "JWT_ACCESS_SECRET": "@dtfm-jwt-secret"
+    "NEXT_PUBLIC_API_URL": "https://dtfm-api-gateway.onrender.com",
+    "API_GATEWAY_URL": "https://dtfm-api-gateway.onrender.com",
+    "JWT_ACCESS_SECRET": "CHANGE_ME_32plus_chars_before_deploy"
   }
 }
