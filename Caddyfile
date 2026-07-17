@@ -1,15 +1,23 @@
-# Caddyfile — reverse proxy + automatic TLS for Digital Twin FM on EC2
+# Caddyfile — reverse proxy + automatic TLS for Digital Twin FM
 # Place at repo root as `Caddyfile`. Uncomment the `caddy:` service in
 # docker-compose.yml and run `docker compose up -d caddy`.
 #
-# Prereq: a DNS A-record for your domain pointing at the EC2 public IP.
+# IMPORTANT: because Caddy runs as a Docker container on the same
+# compose network, it must reach the other services by their COMPOSE
+# SERVICE NAMES (api-gateway, web) — NOT `localhost`, which would
+# resolve to the Caddy container itself.
+#
+# Prereq: a DNS A-record for your domain pointing at the VM public IP.
 # Caddy auto-provisions Let's Encrypt certs.
+#
+# The AI service is intentionally NOT exposed here — only api-gateway
+# reaches it (http://ai:8000 over the internal Docker network).
 
 dtfm.your-domain.com {
     # API gateway (REST + WebSocket upgrades)
-    reverse_proxy /api/* localhost:4000
-    reverse_proxy /ws/*  localhost:4000
+    reverse_proxy /api/* api-gateway:4000
+    reverse_proxy /ws/*  api-gateway:4000
 
     # Everything else → Next.js web app
-    reverse_proxy localhost:3000
+    reverse_proxy web:3000
 }

@@ -119,6 +119,8 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      ai:
+        condition: service_healthy
     volumes:
       - api-uploads:/app/apps/api-gateway/uploads
 
@@ -187,6 +189,12 @@ services:
       OPENCODE_ZEN_API_KEY: ${OPENCODE_ZEN_API_KEY:-}
       API_GATEWAY_URL: http://api-gateway:4000
       AI_CORS_ORIGIN: ${AI_CORS_ORIGIN:-http://localhost:3000}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # ── Sensor data generator ──────────────────────────────────
   # Keeps sensor_readings fresh so time-windowed features
@@ -218,9 +226,14 @@ services:
     command: ["sh", "-c", "corepack enable && pnpm --filter @digital-twin-fm/db exec tsx src/simulator.ts run"]
 
   # Caddy reverse proxy (recommended for staging/prod / public VM / EC2).
-  # Uncomment the ports + run `docker compose up -d caddy` after DNS points
-  # at this host. Auto-TLS via Let's Encrypt using the Caddyfile at repo root.
+  # Disabled by default via `profiles: [proxy]` so a plain `docker compose up -d`
+  # skips it. Enable AFTER your DNS A-record points at this host, then:
+  #   docker compose --profile proxy up -d caddy
+  # Caddy auto-issues Let's Encrypt TLS using the Caddyfile at repo root.
+  # It reaches web/api-gateway by their COMPOSE SERVICE NAMES (not localhost),
+  # because Caddy runs on the same Docker network as those containers.
   caddy:
+    profiles: ["proxy"]
     image: caddy:2
     container_name: dtfm-caddy
     ports:
