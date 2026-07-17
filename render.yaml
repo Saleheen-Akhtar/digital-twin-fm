@@ -91,7 +91,7 @@ services:
     dockerContext: .
     healthCheckPath: /health
     dependsOn:
-      - db-migrate
+      - dtfm-db-migrate
     envVars:
       - key: NODE_ENV
         value: production
