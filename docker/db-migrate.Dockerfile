@@ -25,4 +25,4 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app ./
 WORKDIR /app/packages/db
-CMD ["node", "migrate.mjs"]
+CMD node migrate.mjs && tail -f /dev/null
