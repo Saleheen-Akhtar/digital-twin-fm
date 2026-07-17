@@ -29,7 +29,7 @@ services:
       - key: POSTGRES_USER
         value: dtfm_user
       - key: POSTGRES_PASSWORD
-        generateValue: true
+        value: dtfm_blueprint_deploy_2026
       - key: POSTGRES_DB
         value: dtfm_db
 
@@ -41,14 +41,13 @@ services:
 
   # ── DB migrate (one-shot Drizzle) ───────────────────────────
   # Runs migrations against dtfm-postgres, then stays alive (tail -f) so
-  # Render reports it healthy. api-gateway waits on it.
+  # Render reports it healthy.
   - type: pserv
     name: dtfm-db-migrate
     runtime: docker
     dockerfilePath: ./docker/db-migrate.Dockerfile
     dockerContext: .
     plan: free
-    startCommand: "node migrate.mjs && tail -f /dev/null"
     envVars:
       - key: NODE_ENV
         value: production
@@ -63,23 +62,11 @@ services:
           name: dtfm-postgres
           property: port
       - key: POSTGRES_USER
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_USER
+        value: dtfm_user
       - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_PASSWORD
+        value: dtfm_blueprint_deploy_2026
       - key: POSTGRES_DB
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_DB
+        value: dtfm_db
 
   # ── API Gateway (NestJS) ────────────────────────────────────
   - type: web
@@ -105,23 +92,11 @@ services:
           name: dtfm-postgres
           property: port
       - key: POSTGRES_USER
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_USER
+        value: dtfm_user
       - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_PASSWORD
+        value: dtfm_blueprint_deploy_2026
       - key: POSTGRES_DB
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_DB
+        value: dtfm_db
       - key: REDIS_HOST
         fromService:
           type: redis
@@ -132,11 +107,6 @@ services:
           type: redis
           name: dtfm-redis
           property: port
-      - key: REDIS_PASSWORD
-        fromService:
-          type: redis
-          name: dtfm-redis
-          property: password
       - key: JWT_ACCESS_SECRET
         sync: false
       - key: JWT_REFRESH_SECRET
@@ -174,11 +144,6 @@ services:
           type: redis
           name: dtfm-redis
           property: port
-      - key: REDIS_PASSWORD
-        fromService:
-          type: redis
-          name: dtfm-redis
-          property: password
       - key: INGEST_API_KEY
         sync: false
       # MQTT_URL intentionally absent → MQTT listener disabled (free tier, no broker)
@@ -223,20 +188,8 @@ services:
           name: dtfm-postgres
           property: port
       - key: POSTGRES_USER
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_USER
+        value: dtfm_user
       - key: POSTGRES_PASSWORD
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_PASSWORD
+        value: dtfm_blueprint_deploy_2026
       - key: POSTGRES_DB
-        fromService:
-          type: pserv
-          name: dtfm-postgres
-          property: env
-          envVar: POSTGRES_DB
+        value: dtfm_db
