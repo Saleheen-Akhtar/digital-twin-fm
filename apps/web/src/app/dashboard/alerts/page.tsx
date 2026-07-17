@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
+import { useRealtime } from "@/hooks/useRealtime";
+import { useViewerStore } from "@/features/digital-twin/viewer-store";
 import type { Alert, WorkOrder } from "@/lib/api-client";
 
 const SEVERITY_STYLES: Record<string, { dot: string; label: string; bg: string }> = {
@@ -67,10 +69,20 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ackMsg, setAckMsg] = useState<string | null>(null);
+  const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
   const [woForm, setWoForm] = useState<WOFormState>({
     open: false, alertId: "", assetId: "", title: "",
     priority: "medium", submitting: false, success: false,
   });
+
+  // Deep-link support: /dashboard/alerts?assetId=XXX (used by notification
+  // clicks) scrolls to and highlights the newest alert for that asset.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const assetId = params.get("assetId");
+    if (assetId) setHighlightAssetId(assetId);
+  }, []);
 
   const api = createBrowserApiClient();
 
@@ -155,9 +167,33 @@ export default function AlertsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [woForm.assetId, woForm.alertId, woForm.title, woForm.priority]);
 
-  const criticalCount = alerts.filter((a) => a.severity === "critical" || a.severity === "high").length;
-  const mediumCount = alerts.filter((a) => a.severity === "medium").length;
-  const lowCount = alerts.filter((a) => a.severity === "low").length;
+  // Open the same realtime WebSocket the rest of the app uses, and pull in
+  // any alerts that arrived live (so a notification click lands on the real
+  // alert instead of only the pre-fetched seed list).
+  useRealtime();
+  const liveAlerts = useViewerStore((s) => s.liveAlerts);
+
+  // Merge the live WebSocket alerts with the fetched list. Live alerts are
+  // de-duplicated by id and take precedence (they carry the newest state).
+  const mergedAlerts = useMemo(() => {
+    const fetched = Array.isArray(alerts)
+      ? alerts.filter(
+          (a) => a.status !== "cancelled" && a.status !== "resolved" && a.status !== "closed",
+        )
+      : [];
+    const liveUnseen = liveAlerts.filter(
+      (la) =>
+        la.status !== "cancelled" &&
+        la.status !== "resolved" &&
+        la.status !== "closed" &&
+        !fetched.some((a) => a.id === la.id),
+    );
+    return [...liveUnseen, ...fetched];
+  }, [alerts, liveAlerts]);
+
+  const criticalCount = mergedAlerts.filter((a) => a.severity === "critical" || a.severity === "high").length;
+  const mediumCount = mergedAlerts.filter((a) => a.severity === "medium").length;
+  const lowCount = mergedAlerts.filter((a) => a.severity === "low").length;
 
   return (
     <div className="flex-1 px-3 pb-4 pt-5 sm:px-5 lg:px-6">
@@ -167,7 +203,7 @@ export default function AlertsPage() {
           <div>
             <h1 className="text-2xl sm:text-[32px] font-semibold tracking-[-0.04em] text-slate-950">Alerts</h1>
             <p className="mt-1 text-[15px] text-slate-500">
-              {loading ? "Loading..." : `${alerts.length} unresolved alerts`}
+              {loading ? "Loading..." : `${mergedAlerts.length} unresolved alerts`}
             </p>
           </div>
         </section>
@@ -180,7 +216,7 @@ export default function AlertsPage() {
         )}
 
         {/* Summary Cards */}
-        {!loading && alerts.length > 0 && (
+        {!loading && mergedAlerts.length > 0 && (
           <section className="grid gap-3 sm:grid-cols-3 px-2 sm:px-1">
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
               <span className="text-[28px] font-bold text-red-600">{criticalCount}</span>
@@ -207,7 +243,7 @@ export default function AlertsPage() {
           <div className="flex items-center justify-center py-16 text-[15px] text-slate-400">
             Loading alerts...
           </div>
-        ) : alerts.length === 0 ? (
+        ) : mergedAlerts.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-16">
             <svg className="h-12 w-12 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -220,14 +256,23 @@ export default function AlertsPage() {
           <>
             {/* Alert Cards */}
             <div className="grid gap-3 px-2 sm:px-1">
-              {alerts.map((alert) => {
+              {mergedAlerts.map((alert) => {
                 const style = SEVERITY_STYLES[alert.severity] ?? SEVERITY_STYLES.low;
                 const badge = STATUS_BADGE[alert.status] ?? STATUS_BADGE.open;
                 const isOpen = alert.status === "open";
+                const isHighlighted =
+                  highlightAssetId != null && alert.assetId === highlightAssetId;
                 return (
                   <div
                     key={alert.id}
-                    className={`rounded-2xl border bg-white p-4 shadow-[0_4px_12px_rgba(15,23,42,0.03)]`}
+                    ref={
+                      isHighlighted
+                        ? (el) => el?.scrollIntoView({ behavior: "smooth", block: "center" })
+                        : undefined
+                    }
+                    className={`rounded-2xl border bg-white p-4 shadow-[0_4px_12px_rgba(15,23,42,0.03)] ${
+                      isHighlighted ? "ring-2 ring-[#355fe5] border-[#355fe5]" : ""
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
