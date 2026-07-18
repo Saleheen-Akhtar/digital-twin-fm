@@ -72,6 +72,7 @@ services:
       dockerfile: docker/db-migrate.Dockerfile
     image: dtfm-db-migrate
     container_name: dtfm-db-migrate
+    command: ["node", "migrate.mjs"]
     restart: "no"
     environment:
       NODE_ENV: production
