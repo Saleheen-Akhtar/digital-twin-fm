@@ -17,16 +17,41 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const MIGRATIONS_DIR = join(__dirname, "drizzle");
 
-const connectionString = process.env.DATABASE_URL;
-const pool = connectionString
-  ? new Pool({ connectionString })
-  : new Pool({
-      host: process.env.POSTGRES_HOST || "localhost",
-      port: Number(process.env.POSTGRES_PORT) || 5432,
-      user: process.env.POSTGRES_USER || "dtfm_user",
-      password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
-      database: process.env.POSTGRES_DB || "dtfm_db",
-    });
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function connectWithRetry(maxRetries = 15, delay = 2000) {
+  const connectionString = process.env.DATABASE_URL;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const pool = connectionString
+        ? new Pool({ connectionString, connectionTimeoutMillis: 5000 })
+        : new Pool({
+            host: process.env.POSTGRES_HOST || "localhost",
+            port: Number(process.env.POSTGRES_PORT) || 5432,
+            user: process.env.POSTGRES_USER || "dtfm_user",
+            password: process.env.POSTGRES_PASSWORD || "dtfm_pass",
+            database: process.env.POSTGRES_DB || "dtfm_db",
+            connectionTimeoutMillis: 5000,
+          });
+      // Test the connection
+      const client = await pool.connect();
+      await client.query("SELECT 1");
+      client.release();
+      console.log(`✅ DB connected after ${attempt} attempt(s)`);
+      return pool;
+    } catch (err) {
+      console.log(
+        `⏳ DB not ready (attempt ${attempt}/${maxRetries}): ${err.message}`,
+      );
+      if (attempt < maxRetries) await sleep(delay);
+    }
+  }
+  throw new Error(`Failed to connect to Postgres after ${maxRetries} attempts`);
+}
+
+const pool = await connectWithRetry();
 
 const db = drizzle(pool);
 
