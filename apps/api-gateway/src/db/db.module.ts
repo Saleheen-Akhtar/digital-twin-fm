@@ -41,15 +41,6 @@ function required(name: string, value: string | undefined): string {
     {
       provide: DB_TOKEN,
       useFactory: (): NodePgDatabase<Schema> => {
-        const password = required(
-          'POSTGRES_PASSWORD',
-          process.env.POSTGRES_PASSWORD ||
-            // Local-dev convenience: only honored when NODE_ENV is explicitly
-            // development. Refuses to run in test/staging/prod without a
-            // real secret.
-            (process.env.NODE_ENV === 'development' ? 'dtfm_pass' : undefined),
-        );
-
         const connectionString = process.env.DATABASE_URL;
         const pool = connectionString
           ? new Pool({
@@ -63,7 +54,11 @@ function required(name: string, value: string | undefined): string {
               host: process.env.POSTGRES_HOST || 'localhost',
               port: Number(process.env.POSTGRES_PORT) || 5432,
               user: process.env.POSTGRES_USER || 'dtfm_user',
-              password,
+              password: required(
+                'POSTGRES_PASSWORD',
+                process.env.POSTGRES_PASSWORD ||
+                  (process.env.NODE_ENV === 'development' ? 'dtfm_pass' : undefined),
+              ),
               database: process.env.POSTGRES_DB || 'dtfm_db',
               ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
               max: 10,
