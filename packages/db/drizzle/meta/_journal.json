@@ -8,6 +8,13 @@
       "when": 1780662775152,
       "tag": "0000_bouncy_vulture",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1784379128327,
+      "tag": "0001_chief_killraven",
+      "breakpoints": true
     }
   ]
 }
