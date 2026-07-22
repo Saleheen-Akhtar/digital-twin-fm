@@ -38,6 +38,7 @@ export interface ViewerStore {
   selectedFloor: FloorFilter;
   selectedType: TypeFilter;
   selectedAsset: Asset | null;
+  hoveredAsset: Asset | null;
   /** Live asset status overrides keyed by asset.id */
   assetStatuses: Record<string, AssetStatus>;
   /** Connection state for the WebSocket */
@@ -49,6 +50,7 @@ export interface ViewerStore {
   setSelectedFloor: (f: FloorFilter) => void;
   setSelectedType: (t: TypeFilter) => void;
   setSelectedAsset: (a: Asset | null) => void;
+  setHoveredAsset: (a: Asset | null) => void;
   resetAssetSelection: () => void;
   /** Update a single asset's live status */
   setAssetStatus: (assetId: string, status: AssetStatus) => void;
@@ -70,6 +72,7 @@ export const useViewerStore = create<ViewerStore>((set) => ({
   selectedFloor: "ALL",
   selectedType: "ALL",
   selectedAsset: null,
+  hoveredAsset: null,
   assetStatuses: {},
   wsConnected: false,
   activeAlertAssets: new Set<string>(),
@@ -77,6 +80,7 @@ export const useViewerStore = create<ViewerStore>((set) => ({
   setSelectedFloor: (f) => set({ selectedFloor: f }),
   setSelectedType: (t) => set({ selectedType: t }),
   setSelectedAsset: (a) => set({ selectedAsset: a }),
+  setHoveredAsset: (a) => set({ hoveredAsset: a }),
   resetAssetSelection: () => set({ selectedAsset: null }),
   setAssetStatus: (assetId, status) =>
     set((s) => ({

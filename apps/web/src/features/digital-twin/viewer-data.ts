@@ -28,7 +28,10 @@ export type AssetType =
   | "Fan"
   | "Elevator"
   | "Lighting"
+  | "Light Fixture"
+  | "HVAC Diffuser"
   | "Sensor"
+  | "Fire Alarm"
   | "Equipment";
 export type AssetStatus = "ok" | "warning" | "critical" | "offline" | "info";
 
@@ -65,7 +68,10 @@ const TYPE_EMOJI: Record<AssetType, string> = {
   Fan: "🌀",
   Elevator: "🛗",
   Lighting: "💡",
+  "Light Fixture": "💡",
+  "HVAC Diffuser": "💨",
   Sensor: "📡",
+  "Fire Alarm": "🚨",
   Equipment: "⚙️",
 };
 
@@ -235,7 +241,10 @@ export const SEED_ASSETS: Asset[] = (() => {
     Fan: 0,
     Elevator: 0,
     Lighting: 0,
+    "Light Fixture": 0,
+    "HVAC Diffuser": 0,
     Sensor: 0,
+    "Fire Alarm": 0,
     Equipment: 0,
   };
   return plan.map((p, i) => {
