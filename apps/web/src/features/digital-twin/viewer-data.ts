@@ -28,7 +28,10 @@ export type AssetType =
   | "Fan"
   | "Elevator"
   | "Lighting"
+  | "Light Fixture"
+  | "HVAC Diffuser"
   | "Sensor"
+  | "Fire Alarm"
   | "Equipment";
 export type AssetStatus = "ok" | "warning" | "critical" | "offline" | "info";
 
@@ -65,7 +68,10 @@ const TYPE_EMOJI: Record<AssetType, string> = {
   Fan: "🌀",
   Elevator: "🛗",
   Lighting: "💡",
+  "Light Fixture": "💡",
+  "HVAC Diffuser": "💨",
   Sensor: "📡",
+  "Fire Alarm": "🚨",
   Equipment: "⚙️",
 };
 
@@ -193,53 +199,95 @@ function makeAsset(
 
 function friendlyName(type: AssetType, index: number): string {
   if (type === "Fan" && index === 0) return "Exhaust Fan";
+  if (type === "Light Fixture") return `Light ${index}`;
+  if (type === "HVAC Diffuser") return `Diffuser ${index}`;
+  if (type === "Fire Alarm") return `Fire Alarm ${index}`;
+  if (type === "Sensor" && index === 0) return "Temp Sensor Lobby";
+  if (type === "Sensor" && index === 1) return "CO₂ Sensor Hall A";
+  if (type === "Sensor" && index === 2) return "Temp Sensor Hall B";
+  if (type === "Sensor" && index === 3) return "CO₂ Sensor Hall C";
+  if (type === "Sensor" && index === 4) return "Temp Sensor Meeting";
+  if (type === "Sensor" && index === 5) return "CO₂ Sensor Hall D";
+  if (type === "Sensor" && index === 6) return "Temp Sensor Roof";
   return `${type} ${index}`;
 }
 
 export const SEED_ASSETS: Asset[] = (() => {
-  // 2-floor convention hall layout. Mirrors packages/db/src/seed.ts ASSET_PLAN.
-  // Floor 0 = Exhibition Level, Floor 1 = Upper Mezzanine.
-  // Coordinates follow the actual room program rather than a generic grid:
-  // heavy plant is grouped in the ground-floor plant room, fixtures sit in
-  // occupied halls, and upper-floor systems stay in their service areas.
+  // Realistic convention centre equipment — sparse, every asset matters.
   const plan: { type: AssetType; floor: number; x: number; z: number }[] = [
-    // Floor 0 — Exhibition Level (15)
-    { type: "Air Handler", floor: 0, x: -6, z: 9.4 },
-    { type: "Air Handler", floor: 0, x: -2.5, z: 9.4 },
-    { type: "Air Handler", floor: 0, x: 1, z: 9.4 },
-    { type: "Chiller", floor: 0, x: 4.2, z: 9.2 },
-    { type: "Chiller", floor: 0, x: 5.8, z: 9.2 },
-    { type: "Lighting", floor: 0, x: -13, z: 1 },
-    { type: "Lighting", floor: 0, x: -6, z: 4 },
-    { type: "Lighting", floor: 0, x: 5, z: 1 },
-    { type: "Lighting", floor: 0, x: 13, z: 4 },
-    { type: "Lighting", floor: 0, x: 0, z: -10 },
-    { type: "Fan", floor: 0, x: 0, z: -5.5 },
-    { type: "Elevator", floor: 0, x: -15.5, z: 0 },
-    { type: "Boiler", floor: 0, x: -3.5, z: 10.6 },
-    { type: "Boiler", floor: 0, x: -1.5, z: 10.6 },
-    { type: "Pump", floor: 0, x: 2.2, z: 10.6 },
-    // Floor 1 — Upper Mezzanine (5)
-    { type: "Pump", floor: 1, x: -14, z: -6 },
-    { type: "Pump", floor: 1, x: -12.2, z: -6 },
-    { type: "Fan", floor: 1, x: -10, z: 0 },
-    { type: "Fan", floor: 1, x: 10, z: 0 },
-    { type: "Lighting", floor: 1, x: 0, z: -8 },
+    // ── L1 — Ground Floor ──────────────────────────────────────
+    // Entrance Lobby (2 lights, 1 diffuser)
+    { type: "Light Fixture", floor: 0, x: -3, z: -9.5 },
+    { type: "Light Fixture", floor: 0, x: 3, z: -9.5 },
+    { type: "HVAC Diffuser", floor: 0, x: 0, z: -9 },
+    // Exhibition Hall A (2 lights, 1 diffuser, 1 sensor)
+    { type: "Light Fixture", floor: 0, x: -9, z: -1 },
+    { type: "Light Fixture", floor: 0, x: -5, z: 2 },
+    { type: "HVAC Diffuser", floor: 0, x: -7, z: 0 },
+    { type: "Sensor", floor: 0, x: -7, z: 1 },
+    // Exhibition Hall B (2 lights, 1 diffuser, 1 sensor)
+    { type: "Light Fixture", floor: 0, x: 5, z: -1 },
+    { type: "Light Fixture", floor: 0, x: 9, z: 2 },
+    { type: "HVAC Diffuser", floor: 0, x: 7, z: 0 },
+    { type: "Sensor", floor: 0, x: 7, z: 1 },
+    // Main Corridor (2 lights)
+    { type: "Light Fixture", floor: 0, x: -1, z: 1 },
+    { type: "Light Fixture", floor: 0, x: 1, z: 1 },
+    { type: "Fire Alarm", floor: 0, x: 0, z: 0 },
+    // Lift Lobby (1 light, 1 elevator)
+    { type: "Light Fixture", floor: 0, x: 0, z: 7.5 },
+    { type: "Elevator", floor: 0, x: 0, z: 6.5 },
+    // Services Plant Room (2 major MEP)
+    { type: "Chiller", floor: 0, x: 9.5, z: 7 },
+    { type: "Pump", floor: 0, x: 11, z: 7 },
+    { type: "Fan", floor: 0, x: 11.5, z: 5.5 },
+    // Cafe (1 light)
+    { type: "Light Fixture", floor: 0, x: -9.5, z: -5.5 },
+
+    // ── L2 — Upper Level ──────────────────────────────────────
+    // Exhibition Hall C (2 lights, 1 diffuser, 1 sensor)
+    { type: "Light Fixture", floor: 1, x: -10, z: -2 },
+    { type: "Light Fixture", floor: 1, x: -7, z: 1 },
+    { type: "HVAC Diffuser", floor: 1, x: -8.5, z: -1 },
+    { type: "Sensor", floor: 1, x: -8, z: 0 },
+    // Exhibition Hall D (2 lights, 1 diffuser)
+    { type: "Light Fixture", floor: 1, x: 7, z: -2 },
+    { type: "Light Fixture", floor: 1, x: 10, z: 1 },
+    { type: "HVAC Diffuser", floor: 1, x: 8.5, z: -1 },
+    // Meeting Rooms (2 lights)
+    { type: "Light Fixture", floor: 1, x: -2, z: -5 },
+    { type: "Light Fixture", floor: 1, x: 2, z: -5 },
+    // Corridor (1 light, 1 fire alarm)
+    { type: "Light Fixture", floor: 1, x: 0, z: 1 },
+    { type: "Fire Alarm", floor: 1, x: -1.5, z: 0 },
+    // Lift Lobby (1 elevator)
+    { type: "Elevator", floor: 1, x: 0, z: 6.5 },
+    // Server Room (1 AHU, 1 light)
+    { type: "Air Handler", floor: 1, x: -10, z: 8 },
+    { type: "Light Fixture", floor: 1, x: -10, z: 6.5 },
+    // Terrace (1 light)
+    { type: "Light Fixture", floor: 1, x: -8, z: -8.5 },
+
+    // ── L3 — Roof Plant ────────────────────────────────────────
+    { type: "Chiller", floor: 2, x: -4, z: 0 },
+    { type: "Boiler", floor: 2, x: -7, z: 1 },
+    { type: "Air Handler", floor: 2, x: 6, z: 0 },
+    { type: "Air Handler", floor: 2, x: 8, z: -1 },
+    { type: "Pump", floor: 2, x: -2, z: -3 },
+    { type: "Fan", floor: 2, x: 4, z: -2 },
+    { type: "Light Fixture", floor: 2, x: 0, z: -6 },
+
+    // ── L4 — Sky Terrace ───────────────────────────────────────
+    { type: "Light Fixture", floor: 3, x: -4, z: -3 },
+    { type: "Light Fixture", floor: 3, x: 4, z: -3 },
+    { type: "Sensor", floor: 3, x: 0, z: -2 },
+    { type: "Fan", floor: 3, x: 0, z: 6 },
   ];
-  // 3 AHU + 2 Chiller + 2 Boiler + 3 Pump + 3 Fan + 1 Elevator + 6 Lighting = 20.
-  const typeCounters: Record<AssetType, number> = {
-    "Air Handler": 0,
-    Chiller: 0,
-    Boiler: 0,
-    Pump: 0,
-    Fan: 0,
-    Elevator: 0,
-    Lighting: 0,
-    Sensor: 0,
-    Equipment: 0,
-  };
+  const typeCounters: Record<string, number> = {};
   return plan.map((p, i) => {
-    const idx = ++typeCounters[p.type];
+    const t = p.type as string;
+    typeCounters[t] = (typeCounters[t] || 0) + 1;
+    const idx = typeCounters[t];
     const status = STATUS_PATTERN[i % STATUS_PATTERN.length];
     const a = makeAsset(p.type, p.floor, idx, i, status);
     return { ...a, x: p.x, z: p.z };
