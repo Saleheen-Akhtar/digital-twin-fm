@@ -53,6 +53,11 @@ tmp/
 __pycache__/
 *.pyc
 
+# Local dev utility scripts (hardcoded paths/passwords — not for public repo)
+update_env.py
+update_passwords.py
+write_env.py
+
 # Graphify / code analysis output
 graphify-out/
 
