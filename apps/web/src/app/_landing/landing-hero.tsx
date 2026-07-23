@@ -3,6 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { HERO } from "./data";
+import { colors } from "@/design-system/tokens";
 
 const Viewer = dynamic(
   () =>
@@ -13,14 +14,16 @@ const Viewer = dynamic(
     ssr: false,
     loading: () => (
       <div
-        className="w-full h-full min-h-[400px] flex items-center justify-center rounded-2xl"
+        className="w-full h-full min-h-[500px] flex items-center justify-center brutalist-border"
         style={{
-          background: "#f1f5f9",
-          color: "#94a3b8",
-          fontSize: "13px",
+          background: colors.bg.subtle,
+          color: colors.text.muted,
+          fontSize: "14px",
+          fontWeight: "bold",
+          textTransform: "uppercase"
         }}
       >
-        Loading 3D preview…
+        Loading 3D Engine...
       </div>
     ),
   },
@@ -29,110 +32,66 @@ const Viewer = dynamic(
 export function LandingHero() {
   return (
     <section
-      className="relative min-h-screen flex flex-col overflow-hidden"
-      style={{ background: "#f7f9fd" }}
+      className="relative min-h-screen flex flex-col overflow-hidden brutalist-border-b"
+      style={{ background: colors.bg.canvas }}
     >
-      {/* Background decorative gradient */}
+      {/* Background Grid Pattern */}
       <div
-        className="absolute inset-0 pointer-events-none animate-gradient"
+        className="absolute inset-0 pointer-events-none opacity-20"
         style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% -20%, rgba(53,95,229,0.08) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 80% 80%, rgba(60,115,255,0.05) 0%, transparent 60%)",
+          backgroundImage: `linear-gradient(${colors.text.muted} 1px, transparent 1px), linear-gradient(90deg, ${colors.text.muted} 1px, transparent 1px)`,
+          backgroundSize: '40px 40px'
         }}
       />
 
-      <div className="relative z-10 flex-1 flex flex-col justify-center px-6 pt-32 pb-12 max-w-7xl mx-auto w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <div className="relative z-10 flex-1 flex flex-col justify-center px-6 pt-32 pb-16 max-w-screen-2xl mx-auto w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           {/* Left: text */}
           <div className="animate-fade-in-up">
             {/* Live status badge */}
             <div
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium mb-6"
-              style={{
-                background: "rgba(34,197,94,0.08)",
-                border: "1px solid rgba(34,197,94,0.2)",
-              }}
+              className="inline-flex items-center gap-3 px-4 py-2 brutalist-border bg-white mb-8"
             >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full bg-black opacity-75" />
+                <span className="relative inline-flex h-3 w-3 bg-black" />
               </span>
-              <span style={{ color: "#16a34a" }}>{HERO.badge}</span>
-              <span style={{ color: "#94a3b8" }}>·</span>
-              <span style={{ color: "#475569" }}>{HERO.badgeStatus}</span>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: colors.text.primary }}>{HERO.badge}</span>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: colors.text.muted }}>//</span>
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: colors.text.primary }}>{HERO.badgeStatus}</span>
             </div>
 
             {/* Headline */}
             <h1
-              className="text-4xl md:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight mb-5"
-              style={{ color: "#0f172a" }}
+              className="text-5xl md:text-7xl lg:text-8xl font-black leading-[0.9] tracking-tighter mb-8 uppercase"
+              style={{ color: colors.text.primary }}
             >
               {HERO.headline.split("\n").map((line, i) => (
-                <span key={i}>
+                <span key={i} className="block">
                   {line}
-                  {i < HERO.headline.split("\n").length - 1 && <br />}
                 </span>
               ))}
             </h1>
 
             {/* Subtitle */}
             <p
-              className="text-base md:text-lg max-w-lg mb-6 leading-relaxed"
-              style={{ color: "#475569" }}
+              className="text-lg md:text-xl max-w-lg mb-10 leading-snug font-medium"
+              style={{ color: colors.text.secondary }}
             >
               {HERO.subtitle}
             </p>
 
-            {/* Live indicator */}
-            <div
-              className="flex items-center gap-2 mb-8 text-xs"
-              style={{ color: "#64748b" }}
-            >
-              <span className="font-mono">
-                <span style={{ color: "#355fe5" }}>●</span>{" "}
-                {HERO.liveLabel}
-              </span>
-            </div>
-
             {/* CTAs */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-start gap-4 mb-12">
               <Link
                 href={HERO.cta.href}
-                className="px-6 py-3 text-sm font-semibold rounded-xl no-underline transition-all"
-                style={{
-                  background: "linear-gradient(135deg, #355fe5, #3c73ff)",
-                  color: "#ffffff",
-                  boxShadow: "0 4px 16px rgba(53,95,229,0.25)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 24px rgba(53,95,229,0.4)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 16px rgba(53,95,229,0.25)";
-                  e.currentTarget.style.transform = "none";
-                }}
+                className="btn-brutalist px-8 py-4 text-base w-full sm:w-auto"
               >
-                {HERO.cta.label} →
+                {HERO.cta.label}
               </Link>
               <Link
                 href={HERO.secondaryCta.href}
-                className="px-6 py-3 text-sm font-semibold rounded-xl no-underline transition-all"
-                style={{
-                  color: "#355fe5",
-                  background: "#ffffff",
-                  border: "1px solid #c9d6ff",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#f1f5f9";
-                  e.currentTarget.style.borderColor = "#355fe5";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#ffffff";
-                  e.currentTarget.style.borderColor = "#c9d6ff";
-                }}
+                className="btn-brutalist-outline px-8 py-4 text-base w-full sm:w-auto bg-white"
               >
                 {HERO.secondaryCta.label}
               </Link>
@@ -140,19 +99,19 @@ export function LandingHero() {
 
             {/* Trust strip */}
             <div
-              className="flex items-center gap-4 mt-8 pt-6 border-t border-slate-200/60 text-[11px]"
-              style={{ color: "#94a3b8" }}
+              className="flex flex-wrap items-center gap-6 pt-6 brutalist-border-t text-xs font-bold uppercase tracking-widest"
+              style={{ color: colors.text.primary }}
             >
-              <span className="flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-black"></span>
                 MIT licensed
               </span>
-              <span className="flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-black"></span>
                 Runs on your hardware
               </span>
-              <span className="flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-black"></span>
                 No vendor lock-in
               </span>
             </div>
@@ -160,33 +119,26 @@ export function LandingHero() {
 
           {/* Right: 3D viewer */}
           <div
-            className="relative animate-fade-in-up delay-2"
-            style={{ minHeight: "400px" }}
+            className="relative animate-fade-in-up delay-2 h-full"
+            style={{ minHeight: "500px" }}
           >
             <div
-              className="rounded-2xl overflow-hidden"
+              className="w-full h-full brutalist-border bg-white p-2"
               style={{
-                border: "1px solid rgba(201,214,255,0.5)",
-                boxShadow: "0 8px 32px rgba(15,23,42,0.08)",
+                boxShadow: "12px 12px 0px #111111",
               }}
             >
-              <div className="aspect-[4/3] w-full">
+              <div className="w-full h-full brutalist-border relative" style={{ minHeight: "500px" }}>
                 {/* Showcase mode: bare building, auto-rotate, no overlays */}
                 <Viewer mode="showcase" showMarkers={false} autoRotate={true} />
-              </div>
-            </div>
 
-            {/* Floating label */}
-            <div
-              className="absolute -bottom-3 -right-3 px-4 py-2 rounded-xl text-xs font-medium animate-float"
-              style={{
-                background: "#ffffff",
-                border: "1px solid #c9d6ff",
-                color: "#475569",
-                boxShadow: "0 4px 12px rgba(15,23,42,0.06)",
-              }}
-            >
-              🏢 Interactive 3D Building
+                {/* Floating label */}
+                <div
+                  className="absolute bottom-4 right-4 px-4 py-2 brutalist-border bg-white text-xs font-bold uppercase tracking-widest z-10"
+                >
+                  Interactive 3D
+                </div>
+              </div>
             </div>
           </div>
         </div>
