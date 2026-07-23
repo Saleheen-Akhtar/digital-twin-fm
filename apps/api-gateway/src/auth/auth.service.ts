@@ -9,12 +9,14 @@ interface MvpUser {
   email: string;
   passwordHash: string;
   role: 'admin' | 'facility_manager' | 'technician' | 'viewer';
+  displayName: string;
 }
 
 interface AccessTokenPayload {
   sub: string;
   email: string;
   role: MvpUser['role'];
+  displayName: string;
 }
 interface RefreshTokenPayload {
   sub: string;
@@ -49,6 +51,7 @@ async function loadMvpAdmin(config: ConfigService): Promise<MvpUser> {
     email,
     passwordHash,
     role: 'admin',
+    displayName: 'Admin',
   };
 }
 
@@ -106,6 +109,7 @@ export class AuthService implements OnModuleInit {
       sub: this.mvpUser.id,
       email: this.mvpUser.email,
       role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
     });
   }
 
@@ -139,14 +143,36 @@ export class AuthService implements OnModuleInit {
       sub: this.mvpUser.id,
       email: this.mvpUser.email,
       role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
     });
     const newRefreshToken = await this.signRefreshToken();
 
     return { accessToken, refreshToken: newRefreshToken };
   }
 
+  /**
+   * Update the current user's profile (MVP: updates in-memory).
+   */
+  async updateProfile(body: { displayName?: string }): Promise<{
+    id: string;
+    email: string;
+    role: string;
+    displayName: string;
+  }> {
+    if (body.displayName !== undefined) {
+      this.mvpUser.displayName = body.displayName;
+    }
+    return {
+      id: this.mvpUser.id,
+      email: this.mvpUser.email,
+      role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
+    };
+  }
+
   private signAccessToken(payload: AccessTokenPayload): Promise<string> {
-    return this.jwt.signAsync(payload, {
+    return this.jwt.signAsync(
+      { sub: payload.sub, email: payload.email, role: payload.role, displayName: payload.displayName },
       expiresIn: this.config.get<string>('jwt.accessTtl') || '15m',
       audience: 'digital-twin-fm.web',
       issuer: 'digital-twin-fm.api-gateway',
