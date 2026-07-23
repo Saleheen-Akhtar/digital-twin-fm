@@ -9,12 +9,14 @@ interface MvpUser {
   email: string;
   passwordHash: string;
   role: 'admin' | 'facility_manager' | 'technician' | 'viewer';
+  displayName: string;
 }
 
 interface AccessTokenPayload {
   sub: string;
   email: string;
   role: MvpUser['role'];
+  displayName: string;
 }
 interface RefreshTokenPayload {
   sub: string;
@@ -49,6 +51,7 @@ async function loadMvpAdmin(config: ConfigService): Promise<MvpUser> {
     email,
     passwordHash,
     role: 'admin',
+    displayName: 'Admin',
   };
 }
 
@@ -106,6 +109,7 @@ export class AuthService implements OnModuleInit {
       sub: this.mvpUser.id,
       email: this.mvpUser.email,
       role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
     });
   }
 
@@ -139,18 +143,64 @@ export class AuthService implements OnModuleInit {
       sub: this.mvpUser.id,
       email: this.mvpUser.email,
       role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
     });
     const newRefreshToken = await this.signRefreshToken();
 
     return { accessToken, refreshToken: newRefreshToken };
   }
 
-  private signAccessToken(payload: AccessTokenPayload): Promise<string> {
-    return this.jwt.signAsync(payload, {
-      expiresIn: this.config.get<string>('jwt.accessTtl') || '15m',
-      audience: 'digital-twin-fm.web',
-      issuer: 'digital-twin-fm.api-gateway',
+  /**
+   * Update the current user's display name.
+   *
+   * Security hardening:
+   * - Strips leading/trailing whitespace (applied AFTER DTO validation catches control chars).
+   * - Collapses internal whitespace runs into single spaces (normalisation).
+   * - Rejects null/undefined (no change).
+   * - On change, re-issues the JWT so the session token carries the fresh displayName.
+   *
+   * Returns the full profile + a new accessToken the caller can use to refresh the cookie.
+   */
+  async updateProfile(displayName: string | undefined): Promise<{
+    id: string;
+    email: string;
+    role: string;
+    displayName: string;
+    accessToken: string;
+  }> {
+    if (displayName !== undefined) {
+      // Normalise: strip leading/trailing whitespace, collapse internal whitespace runs.
+      const sanitised = displayName.trim().replace(/\s{2,}/g, ' ');
+      if (sanitised.length > 0) {
+        this.mvpUser.displayName = sanitised;
+      }
+    }
+
+    const accessToken = await this.signAccessToken({
+      sub: this.mvpUser.id,
+      email: this.mvpUser.email,
+      role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
     });
+
+    return {
+      id: this.mvpUser.id,
+      email: this.mvpUser.email,
+      role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
+      accessToken,
+    };
+  }
+
+  private signAccessToken(payload: AccessTokenPayload): Promise<string> {
+    return this.jwt.signAsync(
+      { sub: payload.sub, email: payload.email, role: payload.role, displayName: payload.displayName },
+      {
+        expiresIn: this.config.get<string>('jwt.accessTtl') || '15m',
+        audience: 'digital-twin-fm.web',
+        issuer: 'digital-twin-fm.api-gateway',
+      },
+    );
   }
 
   private signRefreshToken(): Promise<string> {
