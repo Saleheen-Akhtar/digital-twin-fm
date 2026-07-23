@@ -27,6 +27,7 @@ export interface Session {
   userId: string;
   email: string;
   role: AppRole;
+  displayName: string;
   /**
    * The raw JWT that was in the cookie. Use this to call the api-gateway
    * (the api-gateway verifies the same signature/aud/iss independently).
@@ -54,6 +55,7 @@ interface TokenPayload extends JWTPayload {
   sub: string;
   email: string;
   role: AppRole;
+  displayName: string;
 }
 
 export async function getSession(): Promise<Session | null> {
@@ -70,6 +72,7 @@ export async function getSession(): Promise<Session | null> {
       userId: String(payload.sub),
       email: payload.email,
       role: payload.role,
+      displayName: payload.displayName ?? 'User',
       accessToken: token,
     };
   } catch {

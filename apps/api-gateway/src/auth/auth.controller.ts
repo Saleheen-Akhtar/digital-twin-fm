@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { Public } from './jwt-auth.guard';
@@ -49,5 +49,26 @@ export class AuthController {
   async refresh(@Body() body: RefreshDto) {
     const { accessToken, refreshToken } = await this.auth.refresh(body.refreshToken);
     return { accessToken, refreshToken };
+  }
+
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  async getProfile(@Req() req: { user: { id: string; email: string; role: string; displayName: string } }) {
+    return {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role,
+      displayName: req.user.displayName,
+    };
+  }
+
+  @Patch('me')
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(
+    @Req() req: { user: { id: string; email: string; role: string; displayName: string } },
+    @Body() body: { displayName?: string },
+  ) {
+    const updated = await this.auth.updateProfile(body);
+    return updated;
   }
 }

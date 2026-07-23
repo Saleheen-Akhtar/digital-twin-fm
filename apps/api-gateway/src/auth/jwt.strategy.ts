@@ -19,6 +19,7 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   role: AppRole;
+  displayName: string;
 }
 
 /**
@@ -59,6 +60,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       id: payload.sub,
       email: payload.email,
       role: payload.role,
+      displayName: payload.displayName ?? 'User',
     };
   }
 }
