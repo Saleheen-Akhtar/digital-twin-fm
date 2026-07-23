@@ -151,32 +151,56 @@ export class AuthService implements OnModuleInit {
   }
 
   /**
-   * Update the current user's profile (MVP: updates in-memory).
+   * Update the current user's display name.
+   *
+   * Security hardening:
+   * - Strips leading/trailing whitespace (applied AFTER DTO validation catches control chars).
+   * - Collapses internal whitespace runs into single spaces (normalisation).
+   * - Rejects null/undefined (no change).
+   * - On change, re-issues the JWT so the session token carries the fresh displayName.
+   *
+   * Returns the full profile + a new accessToken the caller can use to refresh the cookie.
    */
-  async updateProfile(body: { displayName?: string }): Promise<{
+  async updateProfile(displayName: string | undefined): Promise<{
     id: string;
     email: string;
     role: string;
     displayName: string;
+    accessToken: string;
   }> {
-    if (body.displayName !== undefined) {
-      this.mvpUser.displayName = body.displayName;
+    if (displayName !== undefined) {
+      // Normalise: strip leading/trailing whitespace, collapse internal whitespace runs.
+      const sanitised = displayName.trim().replace(/\s{2,}/g, ' ');
+      if (sanitised.length > 0) {
+        this.mvpUser.displayName = sanitised;
+      }
     }
+
+    const accessToken = await this.signAccessToken({
+      sub: this.mvpUser.id,
+      email: this.mvpUser.email,
+      role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
+    });
+
     return {
       id: this.mvpUser.id,
       email: this.mvpUser.email,
       role: this.mvpUser.role,
       displayName: this.mvpUser.displayName,
+      accessToken,
     };
   }
 
   private signAccessToken(payload: AccessTokenPayload): Promise<string> {
     return this.jwt.signAsync(
       { sub: payload.sub, email: payload.email, role: payload.role, displayName: payload.displayName },
-      expiresIn: this.config.get<string>('jwt.accessTtl') || '15m',
-      audience: 'digital-twin-fm.web',
-      issuer: 'digital-twin-fm.api-gateway',
-    });
+      {
+        expiresIn: this.config.get<string>('jwt.accessTtl') || '15m',
+        audience: 'digital-twin-fm.web',
+        issuer: 'digital-twin-fm.api-gateway',
+      },
+    );
   }
 
   private signRefreshToken(): Promise<string> {

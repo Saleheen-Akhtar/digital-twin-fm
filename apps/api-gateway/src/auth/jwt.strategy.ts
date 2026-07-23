@@ -9,6 +9,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: AppRole;
+  displayName: string;
   iat: number;
   exp: number;
   iss: string;

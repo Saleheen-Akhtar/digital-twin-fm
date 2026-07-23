@@ -10,6 +10,12 @@ interface UserProfile {
   displayName: string;
 }
 
+interface UpdateProfileResponse extends UserProfile {
+  accessToken: string;
+}
+
+const MAX_DISPLAY_NAME = 64;
+
 export function AdminProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [editing, setEditing] = useState(false);
@@ -17,6 +23,7 @@ export function AdminProfile() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ── Fetch profile on mount ──────────────────────────────────────
   useEffect(() => {
     createBrowserApiClient()
       .get<UserProfile>('/auth/me')
@@ -24,16 +31,30 @@ export function AdminProfile() {
         setProfile(data);
         setDraftName(data.displayName ?? '');
       })
-      .catch(() => {});
+      .catch(() => {
+        setError('Could not load profile');
+      });
   }, []);
 
+  // ── Client-side validation ─────────────────────────────────────
+  const validationError =
+    draftName.length > MAX_DISPLAY_NAME
+      ? `Max ${MAX_DISPLAY_NAME} characters`
+      : /[<>{}\\]/.test(draftName)
+        ? 'Angle brackets and braces not allowed'
+        : null;
+
+  // ── Save handler ────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!profile) return;
+    if (validationError) return;
     setSaving(true);
     setError(null);
     try {
       const api = createBrowserApiClient();
-      const updated = await api.patch<UserProfile>('/auth/me', { displayName: draftName.trim() || profile.email.split('@')[0] });
+      const updated = await api.patch<UpdateProfileResponse>('/auth/me', {
+        displayName: draftName.trim() || profile.email.split('@')[0],
+      });
       setProfile(updated);
       setDraftName(updated.displayName);
       setEditing(false);
@@ -42,8 +63,9 @@ export function AdminProfile() {
     } finally {
       setSaving(false);
     }
-  }, [profile, draftName]);
+  }, [profile, draftName, validationError]);
 
+  // ── Helpers ─────────────────────────────────────────────────────
   const initials = profile
     ? (profile.displayName || profile.email)
         .split(' ')
@@ -55,10 +77,12 @@ export function AdminProfile() {
 
   const roleLabel = profile?.role === 'admin' ? 'Admin' : profile?.role ?? '';
 
+  // ── Render ──────────────────────────────────────────────────────
   return (
     <div className="group relative px-2 py-2.5">
+      {/* Error toast */}
       {error && (
-        <div className="absolute -top-1 left-2 right-2 rounded bg-red-50 px-2 py-1 text-xs text-red-600 shadow-sm">
+        <div className="absolute -top-1 left-2 right-2 z-10 rounded bg-red-50 px-2 py-1 text-xs text-red-600 shadow-sm">
           {error}
         </div>
       )}
@@ -94,10 +118,18 @@ export function AdminProfile() {
               <input
                 value={draftName}
                 onChange={(e) => setDraftName(e.target.value)}
-                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-semibold text-slate-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
+                maxLength={MAX_DISPLAY_NAME + 16}
+                className={`w-full rounded-md border px-2 py-1 text-sm font-semibold text-slate-800 outline-none transition-all focus:ring-1 ${
+                  validationError
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-300'
+                    : 'border-slate-300 focus:border-blue-400 focus:ring-blue-300'
+                }`}
                 placeholder="Display name"
                 autoFocus
               />
+              {validationError && (
+                <p className="mt-0.5 text-[10px] text-red-500">{validationError}</p>
+              )}
             </div>
           </div>
 
@@ -113,7 +145,7 @@ export function AdminProfile() {
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !!validationError}
               className="flex-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50 transition-all"
             >
               {saving ? 'Saving…' : 'Save'}
