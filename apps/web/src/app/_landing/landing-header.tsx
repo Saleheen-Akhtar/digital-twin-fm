@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { NAV } from "./data";
 import { usePathname } from "next/navigation";
+import { colors } from "@/design-system/tokens";
 
 export function LandingHeader() {
   const pathname = usePathname();
@@ -11,64 +12,43 @@ export function LandingHeader() {
   if (!isHome) return null;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50">
-      <div
-        className="mx-auto max-w-7xl mt-4 px-4"
-        style={{ animation: "fade-in 0.6s ease-out" }}
-      >
-        <nav
-          className="flex items-center justify-between px-5 py-3"
-          style={{
-            background: "rgba(255,255,255,0.85)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid rgba(201,214,255,0.5)",
-            borderRadius: "16px",
-            boxShadow: "0 4px 24px rgba(15,23,42,0.06)",
-          }}
-        >
+    <header className="fixed top-0 left-0 right-0 z-50 brutalist-border-b" style={{ background: colors.bg.canvas }}>
+      <div className="mx-auto max-w-screen-2xl px-6" style={{ animation: "fade-in 0.4s ease-out" }}>
+        <nav className="flex items-center justify-between py-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 no-underline">
+          <Link href="/" className="flex items-center gap-4 no-underline">
             <div
-              className="h-9 w-9 rounded-xl flex items-center justify-center font-bold text-sm"
+              className="h-10 w-10 flex items-center justify-center font-black text-lg brutalist-border"
               style={{
-                background: "linear-gradient(135deg, #355fe5, #3c73ff)",
-                color: "#ffffff",
+                background: colors.bg.surface,
+                color: colors.text.primary,
               }}
             >
-              {NAV.logo}
+              DT
             </div>
             <div>
               <div
-                className="text-sm font-semibold leading-tight"
-                style={{ color: "#0f172a" }}
+                className="text-lg font-black uppercase tracking-widest leading-none"
+                style={{ color: colors.text.primary }}
               >
                 {NAV.title}
-              </div>
-              <div
-                className="text-[10px] leading-tight"
-                style={{ color: "#94a3b8" }}
-              >
-                {NAV.subtitle}
               </div>
             </div>
           </Link>
 
           {/* Nav links */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-6">
             {NAV.links.map((link) => (
               <Link
                 key={link.label}
                 href={link.href}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors no-underline"
-                style={{ color: "#475569" }}
+                className="text-sm font-bold uppercase tracking-widest no-underline transition-colors"
+                style={{ color: colors.text.primary }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#f1f5f9";
-                  e.currentTarget.style.color = "#0f172a";
+                  e.currentTarget.style.color = colors.text.accent;
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#475569";
+                  e.currentTarget.style.color = colors.text.primary;
                 }}
               >
                 {link.label}
@@ -79,20 +59,7 @@ export function LandingHeader() {
           {/* Sign In button */}
           <Link
             href="/login"
-            className="px-4 py-2 text-xs font-semibold rounded-xl no-underline transition-all"
-            style={{
-              background: "linear-gradient(135deg, #355fe5, #3c73ff)",
-              color: "#ffffff",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow =
-                "0 4px 12px rgba(53,95,229,0.35)";
-              e.currentTarget.style.transform = "translateY(-1px)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = "none";
-              e.currentTarget.style.transform = "none";
-            }}
+            className="btn-brutalist px-6 py-3 text-sm"
           >
             Sign In
           </Link>

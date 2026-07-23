@@ -2,92 +2,50 @@
 
 import { useState } from "react";
 import { FAQ } from "./data";
+import { colors } from "@/design-system/tokens";
 
-/**
- * FAQ — uses native <details> for expand/collapse so it works without
- * JS and is fully accessible. Tracks open state to apply rotate
- * animation to the chevron.
- */
 export function LandingFaq() {
-  const [openIdx, setOpenIdx] = useState<number | null>(0);
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section
-      id="faq"
-      className="py-20 px-6"
-      style={{ background: "#ffffff" }}
-    >
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-10 animate-fade-in">
-          <h2
-            className="text-2xl md:text-3xl font-bold mb-2"
-            style={{ color: "#0f172a" }}
-          >
+    <section className="py-24 px-6 brutalist-border-b" style={{ background: colors.bg.canvas }}>
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-16 animate-fade-in text-left">
+          <h2 className="text-4xl md:text-5xl lg:text-7xl font-black uppercase tracking-tighter mb-6 text-black">
             {FAQ.title}
           </h2>
-          <p
-            className="text-sm"
-            style={{ color: "#475569" }}
-          >
+          <p className="text-base font-bold uppercase tracking-widest text-gray-700">
             {FAQ.subtitle}
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-6">
           {FAQ.items.map((item, i) => {
-            const open = openIdx === i;
+            const isOpen = openIndex === i;
             return (
               <div
                 key={item.q}
-                className={`rounded-2xl border transition-colors animate-fade-in-up delay-${(i % 4) + 1}`}
-                style={{
-                  background: "#f7f9fd",
-                  borderColor: open
-                    ? "rgba(53,95,229,0.4)"
-                    : "rgba(201,214,255,0.4)",
-                }}
+                className={`bg-white brutalist-border animate-fade-in-up delay-${i + 1} overflow-hidden transition-all duration-200`}
+                style={{ boxShadow: isOpen ? "4px 4px 0px #111" : "2px 2px 0px #111" }}
               >
                 <button
-                  type="button"
-                  onClick={() => setOpenIdx(open ? null : i)}
-                  className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
-                  aria-expanded={open}
+                  className="w-full text-left p-6 flex justify-between items-center focus:outline-none focus:bg-gray-50 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => setOpenIndex(isOpen ? null : i)}
                 >
-                  <span
-                    className="text-sm font-semibold"
-                    style={{ color: "#0f172a" }}
-                  >
+                  <h3 className="text-lg md:text-xl font-black uppercase tracking-wide text-black flex gap-4">
+                    <span className="text-red-600">Q.</span>
                     {item.q}
+                  </h3>
+                  <span className="text-2xl font-black text-black ml-4">
+                    {isOpen ? "−" : "+"}
                   </span>
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#355fe5"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{
-                      transform: open ? "rotate(180deg)" : "rotate(0deg)",
-                      transition: "transform 0.2s ease",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
                 </button>
                 <div
-                  style={{
-                    maxHeight: open ? "200px" : "0",
-                    overflow: "hidden",
-                    transition: "max-height 0.25s ease",
-                  }}
+                  className={`px-6 overflow-hidden transition-all duration-300 ease-in-out ${
+                    isOpen ? "max-h-96 pb-6 opacity-100" : "max-h-0 pb-0 opacity-0"
+                  }`}
                 >
-                  <p
-                    className="text-xs leading-relaxed px-5 pb-4"
-                    style={{ color: "#475569" }}
-                  >
+                  <p className="text-base font-medium leading-relaxed text-gray-700 ml-8 border-l-4 border-black pl-4 pt-4 mt-2 border-t border-gray-100">
                     {item.a}
                   </p>
                 </div>

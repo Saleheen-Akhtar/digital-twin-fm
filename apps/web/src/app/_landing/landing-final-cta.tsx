@@ -2,109 +2,68 @@
 
 import Link from "next/link";
 import { FINAL_CTA } from "./data";
+import { colors } from "@/design-system/tokens";
 
 export function LandingFinalCta() {
   return (
     <section
-      className="py-20 px-6"
+      className="py-32 px-6 brutalist-border-b"
       style={{
-        background:
-          "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
+        background: colors.bg.dark,
       }}
     >
-      <div className="max-w-4xl mx-auto text-center">
+      <div className="max-w-5xl mx-auto text-center">
         <div className="animate-fade-in-up">
-          {/* Decorative glow */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(ellipse 50% 50% at 50% 50%, rgba(53,95,229,0.15) 0%, transparent 70%)",
-            }}
-          />
 
           <div className="relative">
             <div
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-5"
-              style={{
-                background: "rgba(53,95,229,0.12)",
-                border: "1px solid rgba(53,95,229,0.3)",
-              }}
+              className="inline-flex items-center gap-3 px-4 py-2 brutalist-border bg-white mb-8"
             >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500" />
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full bg-red-600 opacity-75" />
+                <span className="relative inline-flex h-3 w-3 bg-red-600" />
               </span>
               <span
-                className="text-[10px] font-bold uppercase tracking-widest"
-                style={{ color: "#93c5fd" }}
+                className="text-xs font-black uppercase tracking-widest text-black"
               >
                 Demo is live now
               </span>
             </div>
 
             <h2
-              className="text-3xl md:text-4xl font-bold mb-4 tracking-tight"
-              style={{ color: "#f8fafc" }}
+              className="text-5xl md:text-7xl font-black mb-8 tracking-tighter uppercase"
+              style={{ color: colors.text.onDark }}
             >
               {FINAL_CTA.headline}
             </h2>
             <p
-              className="text-sm md:text-base max-w-2xl mx-auto mb-8 leading-relaxed"
-              style={{ color: "#94a3b8" }}
+              className="text-lg md:text-xl max-w-3xl mx-auto mb-12 font-medium"
+              style={{ color: "#aaaaaa" }}
             >
               {FINAL_CTA.subtitle}
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <Link
                 href={FINAL_CTA.primary.href}
-                className="px-6 py-3 text-sm font-semibold rounded-xl no-underline transition-all"
-                style={{
-                  background:
-                    "linear-gradient(135deg, #355fe5, #3c73ff)",
-                  color: "#ffffff",
-                  boxShadow: "0 4px 16px rgba(53,95,229,0.3)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow =
-                    "0 8px 24px rgba(53,95,229,0.45)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow =
-                    "0 4px 16px rgba(53,95,229,0.3)";
-                  e.currentTarget.style.transform = "none";
-                }}
+                className="btn-brutalist px-8 py-4 text-base bg-white !text-black hover:!bg-gray-200"
               >
-                {FINAL_CTA.primary.label} →
+                {FINAL_CTA.primary.label}
               </Link>
               <Link
                 href={FINAL_CTA.secondary.href}
-                className="px-6 py-3 text-sm font-semibold rounded-xl no-underline transition-all"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  color: "#e2e8f0",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-                }}
+                className="btn-brutalist px-8 py-4 text-base !border-white !bg-transparent hover:!bg-white hover:!text-black"
+                style={{ color: colors.text.onDark }}
               >
                 {FINAL_CTA.secondary.label}
               </Link>
             </div>
 
             <p
-              className="text-[11px] mt-6"
-              style={{ color: "#64748b" }}
+              className="text-xs font-bold uppercase tracking-widest mt-12"
+              style={{ color: "#666666" }}
             >
-              No signup required for the demo · MIT-licensed · Runs locally
+              No signup required for the demo // MIT-licensed // Runs locally
             </p>
           </div>
         </div>
