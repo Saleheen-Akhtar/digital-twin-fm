@@ -19,10 +19,18 @@ export function LandingLiveKpi() {
     let active = true;
     async function fetchLatest() {
       try {
-        const res = await fetch("/api/proxy/building/snapshot");
+        // Original codebase used /api/proxy/buildings/1/kpis
+        const res = await fetch("/api/proxy/buildings/1/kpis");
         if (res.ok && active) {
           const json = await res.json();
-          setData(json);
+          // Transform backend schema to frontend component keys
+          setData({
+            energy: json.avgEnergyKw ?? json.energyKwh,
+            power: json.avgPowerKw ?? json.powerKw,
+            temperature: json.avgTempC,
+            occupancy: json.occupancyCount ?? json.occupancy,
+            alerts: json.activeAlerts ?? json.alerts,
+          });
           setActiveFlash(true);
           setTimeout(() => {
             if (active) setActiveFlash(false);

@@ -15,6 +15,7 @@ import * as THREE from "three";
 import type { Asset } from "./viewer-data";
 import { BUILDING_FLOORS, FLOOR_H } from "./building-floors";
 import { useViewerStore } from "./viewer-store";
+import { EquipmentModel3D } from "./equipment-models-3d";
 
 const STATUS_COLORS: Record<string, string> = {
   ok: "#22c55e",
@@ -185,9 +186,12 @@ export function AssetMarker3D({ asset, selected = false, onClick }: AssetMarker3
       onPointerOver={(e) => { e.stopPropagation(); setHoveredAsset(asset); document.body.style.cursor = 'pointer'; }}
       onPointerOut={(e) => { e.stopPropagation(); setHoveredAsset(null); document.body.style.cursor = 'auto'; }}
     >
-      {/* Status sphere — the main visible indicator */}
-      <mesh position={[0, 0.5, 0]} castShadow>
-        <sphereGeometry args={[0.25, 16, 16]} />
+      {/* Realistic 3D Equipment Model */}
+      <EquipmentModel3D asset={asset} />
+
+      {/* Floating status sphere above the model */}
+      <mesh position={[0, 1.5, 0]} castShadow>
+        <sphereGeometry args={[0.15, 16, 16]} />
         <meshStandardMaterial
           color={color}
           emissive={color}
@@ -195,14 +199,8 @@ export function AssetMarker3D({ asset, selected = false, onClick }: AssetMarker3
           roughness={0.3}
           metalness={0.4}
           transparent
-          opacity={isFaded ? 0.5 : 1}
+          opacity={isFaded ? 0.2 : 0.8}
         />
-      </mesh>
-
-      {/* Vertical post connecting sphere to ground */}
-      <mesh position={[0, 0.25, 0]}>
-        <cylinderGeometry args={[0.03, 0.03, 0.5, 8]} />
-        <meshStandardMaterial color="#78909c" roughness={0.3} metalness={0.5} transparent opacity={isFaded ? 0.3 : 1} />
       </mesh>
 
       {/* Pulsing ground ring */}

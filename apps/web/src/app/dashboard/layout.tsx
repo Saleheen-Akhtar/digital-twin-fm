@@ -51,14 +51,14 @@ function Sidebar({
 
   const inner = (
     <>
-      <div className="px-2 pb-6">
+      <div className="px-2 pb-6 brutalist-border-b mb-6">
         <Link href="/dashboard" onClick={onClose} className="flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white shadow-[0_8px_20px_rgba(35,95,255,0.12)] ring-1 ring-slate-200">
+          <div className="grid h-11 w-11 place-items-center brutalist-border bg-black text-white">
             <BrandMark />
           </div>
           <div>
-            <div className="text-[23px] font-semibold tracking-[-0.04em] text-slate-950">Digital Twin FM</div>
-            <div className="text-[13px] text-blue-600">{buildingSubtitle}</div>
+            <div className="text-xl font-black uppercase tracking-widest text-black">Digital Twin FM</div>
+            <div className="text-xs font-bold uppercase tracking-widest text-gray-500">{buildingSubtitle}</div>
           </div>
         </Link>
       </div>
@@ -85,8 +85,8 @@ function Sidebar({
             <Link key={item.label} href={item.href ?? '#'} onClick={onClose}
               className={`group flex items-center gap-3 rounded-2xl px-4 py-4 text-[15px] font-medium transition ${
                 isActive
-                  ? 'bg-gradient-to-r from-[#355fe5] to-[#3c73ff] text-white shadow-[0_12px_30px_rgba(50,92,255,0.28)]'
-                  : 'text-slate-700 hover:bg-slate-100'}`}>
+                  ? 'bg-black text-white font-black uppercase tracking-widest text-xs brutalist-border shadow-[4px_4px_0px_#111]'
+                  : 'text-black hover:bg-black hover:text-white font-bold uppercase tracking-widest text-xs'}`}>
               <Icon className="h-5 w-5" />
               <span className="flex-1">{item.label}</span>
               {item.label === 'Alerts' && alertBadge !== null ? (
@@ -104,7 +104,7 @@ function Sidebar({
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden w-[236px] shrink-0 border-r border-slate-200 bg-white/90 px-3 py-5 shadow-[0_1px_0_rgba(15,23,42,0.02)] lg:flex lg:flex-col">
+      <aside className="hidden w-[236px] shrink-0 brutalist-border-r bg-white px-3 py-5 lg:flex lg:flex-col">
         {inner}
       </aside>
 
@@ -178,7 +178,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#f7f9fd] text-slate-900">
+    <main className="min-h-screen bg-[#f4f4f0] text-black">
       <div className="flex min-h-screen">
         <Sidebar
           open={sidebarOpen}
@@ -189,7 +189,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         />
         <div className="flex min-h-screen flex-1 flex-col">
           {/* Mobile header bar */}
-          <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+          <div className="flex items-center justify-between brutalist-border-b bg-white px-4 py-3 lg:hidden">
             <button
               onClick={() => setSidebarOpen(true)}
               className="rounded-xl p-2 text-slate-600 hover:bg-slate-100"
@@ -200,7 +200,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </button>
             <div className="flex items-center gap-2">
               <BrandMark />
-              <span className="text-[15px] font-semibold text-slate-900">Digital Twin FM</span>
+              <span className="text-[15px] font-black uppercase tracking-widest text-black">Digital Twin FM</span>
             </div>
             {/* Spacer to keep hamburger and brand balanced */}
             <div className="w-10" />
