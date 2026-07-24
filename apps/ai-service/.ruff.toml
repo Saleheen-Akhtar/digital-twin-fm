@@ -1,0 +1,28 @@
+# Ruff configuration for the ai-service.
+#
+# Rules are explicitly selected so CI results are reproducible regardless
+# of which ruff version pip resolves from the loose `ruff>=0.6.0` pin.
+#
+# Rule groups selected (aligned with ruff's recommended defaults):
+#   F  - pyflakes (errors)
+#   E  - pycodestyle (errors)
+#   W  - pycodestyle (warnings)
+#   I  - isort (import ordering)
+#   N  - pep8-naming
+#   UP - pyupgrade
+target-version = "py311"
+
+[lint]
+# Explicit select — avoids breakage when new ruff releases enable new rules
+# by default.
+select = ["F", "E", "W", "I", "N", "UP"]
+# Rules known to be noisy; suppressed to keep CI green.
+ignore = [
+  "E501",  # line too long — not enforced; long strings are acceptable
+  "N815",  # mixedCase variable names — Pydantic models use camelCase for JSON API
+]
+
+[lint.per-file-ignores]
+# Tests and __init__.py often need import * or longer lines
+"tests/**" = ["N"]
+"**/__init__.py" = ["N"]

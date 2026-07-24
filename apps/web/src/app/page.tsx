@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "./_landing/landing.css";
+
 import {
   LandingHeader,
   LandingHero,

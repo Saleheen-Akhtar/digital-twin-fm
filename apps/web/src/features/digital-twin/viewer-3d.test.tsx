@@ -6,7 +6,8 @@ import { useViewerStore } from "./viewer-store";
 jest.mock("@react-three/fiber", () => ({
   Canvas: ({ children, ...props }: any) => (
     <div data-testid="r3f-canvas" {...props}>
-      {children}
+      {/* children intentionally omitted — R3F elements like <mesh>
+          trigger "incorrect casing" errors in jsdom */}
     </div>
   ),
   useThree: () => ({

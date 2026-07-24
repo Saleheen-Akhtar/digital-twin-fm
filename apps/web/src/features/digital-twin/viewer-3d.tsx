@@ -286,47 +286,25 @@ function SceneContent({
   // ── Lighting / Environment ──
   return (
     <>
-      <ambientLight intensity={0.45} />
-      {/* Main directional (sun) light — high quality shadows */}
+      <Environment preset="city" background blur={0.8} />
+      <ambientLight intensity={0.4} />
       <directionalLight
         position={[25, 40, 20]}
-        intensity={1.4}
+        intensity={2.0}
         castShadow
         shadow-mapSize-width={4096}
         shadow-mapSize-height={4096}
-        shadow-bias={-0.0003}
-        shadow-normalBias={0.02}
-        shadow-radius={4}
-        shadow-camera-far={120}
-        shadow-camera-left={-40}
-        shadow-camera-right={40}
-        shadow-camera-top={40}
-        shadow-camera-bottom={-40}
+        shadow-camera-left={-30}
+        shadow-camera-right={30}
+        shadow-camera-top={30}
+        shadow-camera-bottom={-30}
+        shadow-camera-near={0.5}
+        shadow-camera-far={100}
+        shadow-bias={-0.0005}
       />
-      {/* Warm rim backlight for dramatic silhouette */}
-      <directionalLight
-        position={[-20, 15, -30]}
-        intensity={0.6}
-        color="#ffd4a0"
-      />
-      {/* Cool fill from the opposite side */}
-      <directionalLight
-        position={[-15, 10, 20]}
-        intensity={0.3}
-        color="#b4d4ff"
-      />
-      <hemisphereLight args={["#f0f4ff", "#c0cfe0", 0.55]} />
-
-      {/* Soft clean environment — flat gradient for glass transmission */}
-      <Environment resolution={128}>
-        <mesh position={[0, 25, 0]}>
-          <sphereGeometry args={[14, 16, 16]} />
-          <meshBasicMaterial color="#dce4ed" toneMapped={false} />
-        </mesh>
-      </Environment>
-
-      {/* Fog — push far so building details aren't washed out */}
-      <fog attach="fog" args={[0xf0f4fb, 100, 220]} />
+      <directionalLight position={[-15, 20, -15]} intensity={0.6} color="#cce0ff" />
+      <ContactShadows resolution={1024} scale={60} position={[0, -0.05, 0]} blur={2} opacity={0.5} far={10} color="#111111" />
+      <fog attach="fog" args={["#f4f4f0", 80, 200]} />
 
       {/* Soft contact shadow — tight under the building, not a full-site wash */}
       <ContactShadows

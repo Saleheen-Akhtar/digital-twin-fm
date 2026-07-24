@@ -294,7 +294,7 @@ function FloorShell({ level, dimmed }: { level: number; dimmed: boolean }) {
       {/* Floor slab */}
       <mesh position={[0, y, 0]} receiveShadow>
         <boxGeometry args={[WIDTH + 0.6, 0.35, DEPTH + 0.6]} />
-        <meshStandardMaterial color="#d0d4d8" roughness={0.8} metalness={0.02} transparent opacity={slabOpacity} />
+        <meshStandardMaterial color="#d0d4d8" roughness={0.8} metalness={0.02} transparent opacity={slabOpacity} envMapIntensity={1} />
       </mesh>
       {/* Floor finish line */}
       {!dimmed && (
@@ -341,7 +341,7 @@ function GlassPanel({ position, size, opacity, rotationY = 0 }: {
   return (
     <mesh position={position} rotation={[0, rotationY, 0]}>
       <planeGeometry args={size} />
-      <meshPhysicalMaterial
+      <meshPhysicalMaterial envMapIntensity={2}
         color="#cce5f2"
         transparent
         opacity={opacity}
@@ -364,7 +364,7 @@ function Mullion({ position, height }: { position: [number, number, number]; hei
   return (
     <mesh position={position} castShadow>
       <boxGeometry args={[0.08, height, 0.08]} />
-      <meshPhysicalMaterial color="#a8b8c8" metalness={0.55} roughness={0.3} clearcoat={0.12} />
+      <meshPhysicalMaterial envMapIntensity={2} color="#a8b8c8" metalness={0.55} roughness={0.3} clearcoat={0.12} />
     </mesh>
   );
 }
@@ -418,7 +418,7 @@ function EntryCanopy() {
       {/* Glass panel */}
       <mesh position={[0, 1.2, 0.3]}>
         <planeGeometry args={[12, 2]} />
-        <meshPhysicalMaterial color="#cce5f2" transparent opacity={0.4} transmission={0.7} roughness={0.05} metalness={0.1} ior={1.5} side={THREE.DoubleSide} />
+        <meshPhysicalMaterial envMapIntensity={2} color="#cce5f2" transparent opacity={0.4} transmission={0.7} roughness={0.05} metalness={0.1} ior={1.5} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
