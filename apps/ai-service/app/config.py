@@ -4,6 +4,7 @@ All values come from environment variables. No secrets in code.
 """
 
 from functools import lru_cache
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

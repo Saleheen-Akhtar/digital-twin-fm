@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from litellm import acompletion, RateLimitError
+from litellm import RateLimitError, acompletion
 
 from .config import get_settings
 

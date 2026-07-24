@@ -20,12 +20,13 @@ the result in the response.
 
 import json
 import logging
+
 import httpx
-from pydantic import BaseModel, Field
+import litellm
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-import litellm
 from litellm import acompletion
+from pydantic import BaseModel, Field
 
 from ..config import get_settings
 

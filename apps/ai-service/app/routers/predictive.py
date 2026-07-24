@@ -11,10 +11,11 @@ No ML model — uses rule-based heuristics suitable for the simulated demo.
 import logging
 import statistics
 from datetime import datetime, timezone
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from httpx import AsyncClient
 from pydantic import BaseModel
-from typing import Any
 
 from ..config import get_settings
 

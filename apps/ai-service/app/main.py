@@ -8,11 +8,12 @@ Endpoints:
 
 import os
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import health, copilot, predictive
+from .routers import copilot, health, predictive
 
 settings = get_settings()
 
