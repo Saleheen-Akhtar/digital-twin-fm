@@ -9,39 +9,45 @@ export function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, initial);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 max-w-sm w-full">
+    <form action={formAction} className="flex flex-col gap-6 w-full">
       {state.error && (
-        <div role="alert" className="text-red-400 text-sm">
+        <div role="alert" className="text-white bg-red-600 brutalist-border p-3 text-sm font-bold uppercase tracking-widest text-center shadow-[4px_4px_0px_#111]">
           {state.error}
         </div>
       )}
-      <label className="flex flex-col gap-1">
-        <span className="text-sm">Email</span>
+      <label className="flex flex-col gap-2">
+        <span className="text-sm font-black uppercase tracking-widest text-black">Email</span>
         <input
           name="email"
           type="email"
           required
           autoComplete="username"
-          className="border border-neutral-700 rounded px-3 py-2 bg-neutral-900"
+          className="brutalist-border px-4 py-3 bg-white text-black focus:outline-none focus:ring-4 focus:ring-gray-200 transition-all font-medium"
         />
       </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-sm">Password</span>
+      <label className="flex flex-col gap-2">
+        <span className="text-sm font-black uppercase tracking-widest text-black">Password</span>
         <input
           name="password"
           type="password"
           required
           autoComplete="current-password"
-          className="border border-neutral-700 rounded px-3 py-2 bg-neutral-900"
+          className="brutalist-border px-4 py-3 bg-white text-black focus:outline-none focus:ring-4 focus:ring-gray-200 transition-all font-medium"
         />
       </label>
       <button
         type="submit"
         disabled={pending}
-        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded px-3 py-2 font-medium"
+        className="btn-brutalist w-full py-4 text-base mt-2"
       >
         {pending ? 'Signing in…' : 'Sign in'}
       </button>
+
+      {/* Demo helper */}
+      <div className="mt-4 pt-6 brutalist-border-t border-dashed text-center">
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">Demo Credentials</p>
+        <p className="text-sm font-mono font-medium text-black">admin@demo.com / admin</p>
+      </div>
     </form>
   );
 }

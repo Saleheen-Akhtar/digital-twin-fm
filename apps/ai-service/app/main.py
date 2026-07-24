@@ -5,13 +5,15 @@ Endpoints:
   GET  /health                      liveness
   POST /ai/copilot/query            chat over live facility data
 """
+
 import os
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import health, copilot, predictive
+from .routers import copilot, health, predictive
 
 settings = get_settings()
 
@@ -80,6 +82,7 @@ app.include_router(predictive.router, tags=["predictive"])
 
 if __name__ == "__main__":
     import uvicorn
+
     # Per Finding 13: bind to 127.0.0.1 by default. The api-gateway
     # reaches this service over the Docker network / a private VPC.
     host = os.getenv("AI_HOST") or "127.0.0.1"

@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from litellm import acompletion, RateLimitError
+from litellm import RateLimitError, acompletion
 
 from .config import get_settings
 
@@ -50,8 +50,12 @@ async def ask_llm(
     try:
         response = await acompletion(**kwargs)
         text = response.choices[0].message.content or ""
-        logger.info("LLM response received (model=%s, input_len=%d, output_len=%d)",
-                     settings.litellm_model, len(user_prompt), len(text))
+        logger.info(
+            "LLM response received (model=%s, input_len=%d, output_len=%d)",
+            settings.litellm_model,
+            len(user_prompt),
+            len(text),
+        )
         return text
     except RateLimitError:
         logger.warning("LLM rate limited (model=%s)", settings.litellm_model)
@@ -66,12 +70,12 @@ def _fallback_response(question: str, reason: str) -> str:
     if reason == "rate_limited":
         return (
             f"I received too many requests in a short time and couldn't process: "
-            f"\"{question[:100]}{'...' if len(question) > 100 else ''}\". "
+            f'"{question[:100]}{"..." if len(question) > 100 else ""}". '
             "Please wait a moment and try again. The free-tier rate limit resets quickly."
         )
     return (
         f"I'm currently unable to connect to the AI provider to answer: "
-        f"\"{question[:100]}{'...' if len(question) > 100 else ''}\". "
+        f'"{question[:100]}{"..." if len(question) > 100 else ""}". '
         "The service will be available once the LLM endpoint is reachable. "
         "Please check the API key / network connectivity."
     )

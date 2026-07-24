@@ -1,3 +1,4 @@
+import "@/app/_landing/landing.css";
 import type { ReactNode } from 'react';
 import './globals.css';
 
