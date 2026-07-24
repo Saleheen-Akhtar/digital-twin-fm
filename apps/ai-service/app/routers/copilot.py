@@ -79,7 +79,9 @@ def _format_context_for_prompt(ctx: dict | None) -> str | None:
 
     building_name = ctx.get("buildingName")
     if building_name:
-        parts.append(f"BUILDING: {building_name} (id: {ctx.get('buildingId', 'unknown')})")
+        parts.append(
+            f"BUILDING: {building_name} (id: {ctx.get('buildingId', 'unknown')})"
+        )
 
     snapshot = ctx.get("snapshot")
     if snapshot and isinstance(snapshot, dict):
@@ -101,8 +103,7 @@ def _format_context_for_prompt(ctx: dict | None) -> str | None:
 
     assets = ctx.get("assets", [])
     attention = [
-        a for a in assets
-        if a.get("status") in ("warning", "critical", "offline")
+        a for a in assets if a.get("status") in ("warning", "critical", "offline")
     ]
     if attention:
         asset_lines = []
@@ -228,9 +229,7 @@ CREATE_WORK_ORDER_TOOL = {
 }
 
 
-async def _execute_create_work_order(
-    settings, arguments: dict
-) -> dict:
+async def _execute_create_work_order(settings, arguments: dict) -> dict:
     """Call the api-gateway to create a work order and return the result."""
     base = settings.api_gateway_url.rstrip("/")
     url = f"{base}/work-orders"
@@ -268,9 +267,7 @@ async def _execute_create_work_order(
             return {"error": f"API returned {resp.status_code}"}
 
 
-async def _handle_tool_calls(
-    settings, tool_calls: list
-) -> str:
+async def _handle_tool_calls(settings, tool_calls: list) -> str:
     """Execute tool calls and return a human-readable result block."""
     results = []
     for tc in tool_calls:
@@ -287,9 +284,7 @@ async def _handle_tool_calls(
         if name == "create_work_order":
             result = await _execute_create_work_order(settings, arguments)
             if "error" in result:
-                results.append(
-                    f"❌ Failed to create work order: {result['error']}"
-                )
+                results.append(f"❌ Failed to create work order: {result['error']}")
             else:
                 results.append(
                     f"✅ **Work Order Created**\n"
@@ -431,11 +426,11 @@ async def query_stream(req: CopilotQueryRequest):
             async for chunk in response:
                 delta = chunk.choices[0].delta if chunk.choices else None
                 if delta:
-                    content = getattr(delta, 'content', None)
-                    reasoning = getattr(delta, 'reasoning_content', None)
+                    content = getattr(delta, "content", None)
+                    reasoning = getattr(delta, "reasoning_content", None)
 
                     # Accumulate tool calls
-                    tc = getattr(delta, 'tool_calls', None)
+                    tc = getattr(delta, "tool_calls", None)
                     if tc:
                         for t in tc:
                             tool_calls_accumulator.append(t)
@@ -444,7 +439,7 @@ async def query_stream(req: CopilotQueryRequest):
                         yield f"data: {json.dumps({'token': content})}\n\n"
                     if reasoning:
                         yield f"data: {json.dumps({'reasoning': reasoning})}\n\n"
-                    if getattr(delta, 'model', None):
+                    if getattr(delta, "model", None):
                         model_used = delta.model
 
             # If tool calls were accumulated, execute them

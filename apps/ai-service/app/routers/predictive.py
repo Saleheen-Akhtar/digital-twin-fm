@@ -108,7 +108,9 @@ async def _fetch_sensor_readings(asset_id: str, hours: int = 2) -> list[dict] | 
     """Fetch sensor readings for an asset from the api-gateway public endpoint."""
     settings = get_settings()
     base = settings.api_gateway_url.rstrip("/")
-    return await _fetch_json(f"{base}/predictive/sensor-readings/{asset_id}?hours={hours}")
+    return await _fetch_json(
+        f"{base}/predictive/sensor-readings/{asset_id}?hours={hours}"
+    )
 
 
 # ── Health scoring logic ─────────────────────────────────────────────
@@ -157,7 +159,11 @@ def _compute_health_score(
             continue
 
         baseline = data.get("baseline", 0) or 1
-        current_avg = statistics.mean(values[-5:]) if len(values) >= 5 else statistics.mean(values)
+        current_avg = (
+            statistics.mean(values[-5:])
+            if len(values) >= 5
+            else statistics.mean(values)
+        )
         slope = data.get("slope", 0)
 
         risk_label, max_penalty = SENSOR_RISK_MAP.get(sensor_type, ("Unknown risk", 10))
@@ -196,7 +202,7 @@ def _compute_health_score(
             )
         elif deviation > 0.20:
             risks.append(
-                f"{risk_label} — {current_avg:.1f} ({deviation*100:.0f}% off "
+                f"{risk_label} — {current_avg:.1f} ({deviation * 100:.0f}% off "
                 f"{baseline:.1f} baseline)"
             )
 
@@ -236,16 +242,18 @@ async def get_health_scores():
         readings = await _fetch_sensor_readings(asset_id)
         if not readings:
             # No data yet → healthy by default
-            scores.append(HealthScore(
-                assetId=asset_id,
-                assetName=asset.get("name", "Unknown"),
-                assetType=asset.get("type", "unknown"),
-                floorLevel=asset.get("floorLevel"),
-                score=85,
-                trend="stable",
-                topRisks=["Insufficient data"],
-                lastUpdated=now,
-            ))
+            scores.append(
+                HealthScore(
+                    assetId=asset_id,
+                    assetName=asset.get("name", "Unknown"),
+                    assetType=asset.get("type", "unknown"),
+                    floorLevel=asset.get("floorLevel"),
+                    score=85,
+                    trend="stable",
+                    topRisks=["Insufficient data"],
+                    lastUpdated=now,
+                )
+            )
             continue
 
         # Group readings by sensor type
@@ -266,22 +274,32 @@ async def get_health_scores():
         for stype, data in type_groups.items():
             vals = data["values"]
             if vals:
-                data["baseline"] = statistics.mean(vals[:10]) if len(vals) >= 10 else statistics.mean(vals)
+                data["baseline"] = (
+                    statistics.mean(vals[:10])
+                    if len(vals) >= 10
+                    else statistics.mean(vals)
+                )
                 data["slope"] = _compute_trend_slope(vals)
-                data["currentAvg"] = statistics.mean(vals[-5:]) if len(vals) >= 5 else statistics.mean(vals)
+                data["currentAvg"] = (
+                    statistics.mean(vals[-5:])
+                    if len(vals) >= 5
+                    else statistics.mean(vals)
+                )
 
         score_val, trend, risks = _compute_health_score(type_groups)
 
-        scores.append(HealthScore(
-            assetId=asset_id,
-            assetName=asset.get("name", "Unknown"),
-            assetType=asset.get("type", "unknown"),
-            floorLevel=asset.get("floorLevel"),
-            score=score_val,
-            trend=trend,
-            topRisks=risks[:3],
-            lastUpdated=now,
-        ))
+        scores.append(
+            HealthScore(
+                assetId=asset_id,
+                assetName=asset.get("name", "Unknown"),
+                assetType=asset.get("type", "unknown"),
+                floorLevel=asset.get("floorLevel"),
+                score=score_val,
+                trend=trend,
+                topRisks=risks[:3],
+                lastUpdated=now,
+            )
+        )
 
     return HealthScoresResponse(scores=scores, generatedAt=now)
 
@@ -305,7 +323,13 @@ async def get_asset_health_detail(asset_id: str):
     for r in readings:
         stype = r.get("type", "unknown")
         if stype not in type_groups:
-            type_groups[stype] = {"values": [], "baseline": 0, "slope": 0, "unit": r.get("unit", ""), "timestamps": []}
+            type_groups[stype] = {
+                "values": [],
+                "baseline": 0,
+                "slope": 0,
+                "unit": r.get("unit", ""),
+                "timestamps": [],
+            }
         val = r.get("value")
         ts = r.get("timestamp")
         if val is not None:
@@ -318,9 +342,13 @@ async def get_asset_health_detail(asset_id: str):
         vals = data["values"]
         if len(vals) < 3:
             continue
-        baseline = statistics.mean(vals[:10]) if len(vals) >= 10 else statistics.mean(vals)
+        baseline = (
+            statistics.mean(vals[:10]) if len(vals) >= 10 else statistics.mean(vals)
+        )
         slope = _compute_trend_slope(vals)
-        cur_avg = statistics.mean(vals[-5:]) if len(vals) >= 5 else statistics.mean(vals)
+        cur_avg = (
+            statistics.mean(vals[-5:]) if len(vals) >= 5 else statistics.mean(vals)
+        )
         timestamps = data.get("timestamps", [])
         if not timestamps:
             timestamps = [""] * len(vals)
@@ -330,16 +358,22 @@ async def get_asset_health_detail(asset_id: str):
         data["slope"] = slope
         data["currentAvg"] = cur_avg
 
-        trends_list.append(AssetTrendDetail(
-            sensorType=stype,
-            unit=data.get("unit", ""),
-            values=[AssetTrendPoint(timestamp=timestamps[i] if i < len(timestamps) else "", value=v)
-                    for i, v in enumerate(vals)],
-            baseline=baseline,
-            currentAvg=cur_avg,
-            slope=slope,
-            healthy=abs(slope) < 0.5,
-        ))
+        trends_list.append(
+            AssetTrendDetail(
+                sensorType=stype,
+                unit=data.get("unit", ""),
+                values=[
+                    AssetTrendPoint(
+                        timestamp=timestamps[i] if i < len(timestamps) else "", value=v
+                    )
+                    for i, v in enumerate(vals)
+                ],
+                baseline=baseline,
+                currentAvg=cur_avg,
+                slope=slope,
+                healthy=abs(slope) < 0.5,
+            )
+        )
 
     score_val, trend, risks = _compute_health_score(type_groups)
     now = datetime.now(timezone.utc).isoformat()
