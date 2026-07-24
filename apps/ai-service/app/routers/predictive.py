@@ -10,7 +10,7 @@ No ML model — uses rule-based heuristics suitable for the simulated demo.
 
 import logging
 import statistics
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -236,7 +236,7 @@ async def get_health_scores():
         raise HTTPException(500, "Failed to fetch assets from api-gateway")
 
     scores: list[HealthScore] = []
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     for asset in assets[:]:  # process all
         asset_id = asset["id"]
@@ -377,7 +377,7 @@ async def get_asset_health_detail(asset_id: str):
         )
 
     score_val, trend, risks = _compute_health_score(type_groups)
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     return AssetHealthDetail(
         assetId=asset_id,
