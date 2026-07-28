@@ -15,7 +15,13 @@ type ScenarioId = (typeof SCENARIOS)[number]['id'];
 export function DemoControls() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const api = createBrowserApiClient();
+
+  function showStatus(text: string, ok: boolean) {
+    setStatus({ text, ok });
+    setTimeout(() => setStatus(null), 3000);
+  }
 
   async function handleScenario(scenario: ScenarioId) {
     setActive(`scenario:${scenario}`);
@@ -25,9 +31,10 @@ export function DemoControls() {
         { scenario },
       );
       if (res.success) {
-        console.log(`[Demo] Scenario switched to ${res.scenario}`);
+        showStatus(`✓ ${res.scenario}`, true);
       }
     } catch (err) {
+      showStatus('✗ Scenario failed', false);
       console.error('[Demo] Scenario failed:', err);
     } finally {
       setActive(null);
@@ -50,9 +57,10 @@ export function DemoControls() {
         },
       );
       if (res.success) {
-        console.log(`[Demo] Anomaly reading injected`);
+        showStatus('✓ 48°C anomaly injected', true);
       }
     } catch (err) {
+      showStatus('✗ Inject failed', false);
       console.error('[Demo] Inject failed:', err);
     } finally {
       setActive(null);
@@ -79,6 +87,17 @@ export function DemoControls() {
           <p className="mb-3 text-[11px] text-slate-400">
             Trigger scenarios and anomalies for live demos.
           </p>
+
+          {/* Status feedback */}
+          {status && (
+            <div className={`mb-3 rounded-lg px-3 py-2 text-[12px] font-medium ${
+              status.ok
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              {status.text}
+            </div>
+          )}
 
           {/* Scenario buttons */}
           <div className="mb-3 space-y-1.5">
@@ -124,6 +143,9 @@ export function DemoControls() {
                   message: 'Simulated 23rd Critical Alert from Demo Controls',
                   severity: 'critical'
                 });
+                showStatus('✓ Critical alert injected', true);
+              } catch {
+                showStatus('✗ Alert injection failed', false);
               } finally {
                 setActive(null);
               }
