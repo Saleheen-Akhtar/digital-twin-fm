@@ -114,6 +114,27 @@ export function DemoControls() {
             <span className="ml-1">Inject Anomaly Reading (48°C)</span>
           </button>
 
+          <button
+            onClick={async () => {
+              setActive('alert');
+              try {
+                // Find a random asset to attach to the simulated alert, or use a dummy ID
+                await api.post('/demo/inject-alert', {
+                  assetId: 'demo-asset-001',
+                  message: 'Simulated 23rd Critical Alert from Demo Controls',
+                  severity: 'critical'
+                });
+              } finally {
+                setActive(null);
+              }
+            }}
+            disabled={active === 'alert'}
+            className="mt-1.5 w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-left text-[13px] text-rose-800 transition-all hover:bg-rose-100 disabled:opacity-50"
+          >
+            {active === 'alert' ? '⏳' : '🔔'}{' '}
+            <span className="ml-1">Simulate 23rd Alert</span>
+          </button>
+
           <p className="mt-3 text-[10px] text-slate-400 leading-tight">
             Scenarios require the simulator to be running. Injected readings
             flow through the full pipeline (Redis → WebSocket → dashboard).

@@ -404,7 +404,9 @@ export function FireAlarm3D({ position = [0, 0, 0] }: { position?: [number, numb
 // ─── Dispatch Component ───────────────────────────────────────────
 
 export function EquipmentModel3D({ asset }: { asset: Asset }) {
-  const pos: [number, number, number] = [asset.x, asset.y ?? 0, asset.z];
+  // Use [0, 0, 0] relative to the parent group so we don't float incorrectly.
+  // The AssetMarker3D already positions the group at the exact [x, y, z].
+  const pos: [number, number, number] = [0, 0, 0];
 
   switch (asset.type) {
     case "Chiller":

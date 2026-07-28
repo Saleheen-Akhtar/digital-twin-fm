@@ -176,7 +176,9 @@ export function AssetMarker3D({ asset, selected = false, onClick }: AssetMarker3
   // Calculate Y position based on which floor the asset is on
   const floorDef = BUILDING_FLOORS.find((f) => f.level === asset.floor + 1);
   const yBase = floorDef ? floorDef.yBase : 0;
-  const y = yBase + 0.3; // slightly above the floor slab
+  // Ensure the model sits flush on the floor by not adding a floating offset.
+  // The database seed provides asset.y, but if missing we fallback to yBase.
+  const y = asset.y ?? yBase;
 
   return (
     <group

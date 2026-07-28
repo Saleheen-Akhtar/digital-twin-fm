@@ -23,7 +23,7 @@ export function BuildingModel({
   visibleObjects,
   onObjectsFound,
 }: BuildingModelProps) {
-  const { scene } = useGLTF(modelUrl);
+  const { scene } = useGLTF(modelUrl, true);
 
   // Report distinct named objects from the GLB so the parent can show layer toggles
   useEffect(() => {
