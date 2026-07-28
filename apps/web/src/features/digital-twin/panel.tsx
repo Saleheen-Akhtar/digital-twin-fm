@@ -56,7 +56,7 @@ export function DigitalTwinPanel({
   const { notify } = useBrowserNotifications();
 
   // When a new alert asset appears, show a browser notification
-  const prevAlertCount = useRef(0);
+  const prevAlertCount = useRef(activeAlertAssets.size);
   useEffect(() => {
     const currentCount = activeAlertAssets.size;
     if (currentCount > prevAlertCount.current) {

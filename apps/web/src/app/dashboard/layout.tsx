@@ -6,6 +6,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createBrowserApiClient } from '@/lib/browser-api-client';
 import type { Alert, WorkOrder } from '@/lib/api-client';
+import {
+  LayoutDashboard,
+  MessageSquare,
+  Box,
+  Activity,
+  LineChart,
+  Bell,
+  ClipboardList,
+  Server,
+  Building
+} from 'lucide-react';
+import { AdminProfile } from './admin-profile';
 
 function BrandMark() {
   return (
@@ -21,15 +33,15 @@ function BrandMark() {
 }
 
 const navItems: Array<{ label: string; icon: (p: any) => React.ReactNode; href: string; badge?: string }> = [
-  { label: 'Dashboard', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>, href: '/dashboard' },
-  { label: 'AI Copilot', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16.08c0 .74-.6 1.34-1.34 1.34H8.34c-.74 0-1.34-.6-1.34-1.34V5.34c0-.74.6-1.34 1.34-1.34h11.32c.74 0 1.34.6 1.34 1.34v10.74z"/><path d="M7 8.5h12"/><path d="M7 12h12"/><path d="M4 8H2v10c0 1.1.9 2 2 2h13v-2H4V8z"/></svg>, href: '/dashboard/copilot' },
-  { label: "Digital Twin", icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>, href: "/dashboard/twin" },
-  { label: "Monitoring", icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>, href: "/dashboard/monitoring" },
-  { label: "Predictive", icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>, href: "/dashboard/predictive" },
-  { label: 'Alerts', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>, href: '/dashboard/alerts' },
-  { label: 'Work Orders', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>, href: '/dashboard/work-orders' },
-  { label: 'Assets', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/></svg>, href: '/dashboard/assets' },
-  { label: 'Building', icon: (p: any) => <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/></svg>, href: '/dashboard/building' },
+  { label: 'Dashboard', icon: (p: any) => <LayoutDashboard {...p} />, href: '/dashboard' },
+  { label: 'AI Copilot', icon: (p: any) => <MessageSquare {...p} />, href: '/dashboard/copilot' },
+  { label: "Digital Twin", icon: (p: any) => <Box {...p} />, href: "/dashboard/twin" },
+  { label: "Monitoring", icon: (p: any) => <Activity {...p} />, href: "/dashboard/monitoring" },
+  { label: "Predictive", icon: (p: any) => <LineChart {...p} />, href: "/dashboard/predictive" },
+  { label: 'Alerts', icon: (p: any) => <Bell {...p} />, href: '/dashboard/alerts' },
+  { label: 'Work Orders', icon: (p: any) => <ClipboardList {...p} />, href: '/dashboard/work-orders' },
+  { label: 'Assets', icon: (p: any) => <Server {...p} />, href: '/dashboard/assets' },
+  { label: 'Building', icon: (p: any) => <Building {...p} />, href: '/dashboard/building' },
 ];
 
 // ─── Sidebar (desktop + mobile overlay) ────────────────────────────
@@ -98,6 +110,10 @@ function Sidebar({
           );
         })}
       </nav>
+
+      <div className="mt-auto pt-4 brutalist-border-t">
+        <AdminProfile />
+      </div>
     </>
   );
 

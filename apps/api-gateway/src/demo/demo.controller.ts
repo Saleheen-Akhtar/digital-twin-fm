@@ -112,6 +112,46 @@ export class DemoController {
    * Rate limiting: the global ThrottlerBehindAuthGuard (20 req/s burst,
    * 300 req/min sustained) applies — prevents accidental button mashing.
    */
+  /**
+   * POST /demo/inject-alert
+   *
+   * Publishes a fake alert directly to the `alert.created` Redis channel.
+   * This allows presenters to simulate a new alert popping up on the
+   * frontend instantly via WebSocket, without waiting for the ingestion
+   * pipeline's threshold evaluations.
+   */
+  @Post('inject-alert')
+  async injectAlert(
+    @Body()
+    body: {
+      assetId: string;
+      message: string;
+      severity: 'low' | 'medium' | 'high' | 'critical';
+    },
+  ): Promise<{ success: true; alertId: string }> {
+    if (!body.assetId || !body.message) {
+      throw new BadRequestException('assetId and message are required');
+    }
+
+    const alert = {
+      id: `alert-demo-${Date.now()}`,
+      assetId: body.assetId,
+      severity: body.severity || 'critical',
+      status: 'open',
+      message: body.message,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await this.redis.publish('alert.created', JSON.stringify(alert));
+      this.logger.log(`Demo injected alert for asset=${alert.assetId}`);
+      return { success: true, alertId: alert.id };
+    } catch (err) {
+      this.logger.error('Failed to publish alert to Redis', err);
+      throw new InternalServerErrorException('Failed to inject alert');
+    }
+  }
+
   @Post('inject-reading')
   async injectReading(
     @Body()
