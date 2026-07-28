@@ -70,6 +70,8 @@ export default function AlertsPage() {
   const [error, setError] = useState<string | null>(null);
   const [ackMsg, setAckMsg] = useState<string | null>(null);
   const [highlightAssetId, setHighlightAssetId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(7);
+  const PAGE_SIZE = 7;
   const [woForm, setWoForm] = useState<WOFormState>({
     open: false, alertId: "", assetId: "", title: "",
     priority: "medium", submitting: false, success: false,
@@ -194,6 +196,9 @@ export default function AlertsPage() {
   const criticalCount = mergedAlerts.filter((a) => a.severity === "critical" || a.severity === "high").length;
   const mediumCount = mergedAlerts.filter((a) => a.severity === "medium").length;
   const lowCount = mergedAlerts.filter((a) => a.severity === "low").length;
+  const totalCount = mergedAlerts.length;
+  const showShowMore = totalCount > visibleCount;
+  const displayedAlerts = mergedAlerts.slice(0, visibleCount);
 
   return (
     <div className="flex-1 px-3 pb-4 pt-5 sm:px-5 lg:px-6">
@@ -256,7 +261,7 @@ export default function AlertsPage() {
           <>
             {/* Alert Cards */}
             <div className="grid gap-3 px-2 sm:px-1">
-              {mergedAlerts.map((alert) => {
+              {displayedAlerts.map((alert) => {
                 const style = SEVERITY_STYLES[alert.severity] ?? SEVERITY_STYLES.low;
                 const badge = STATUS_BADGE[alert.status] ?? STATUS_BADGE.open;
                 const isOpen = alert.status === "open";
@@ -330,10 +335,22 @@ export default function AlertsPage() {
                         )}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                </div>
+              );
+            })}
             </div>
+
+            {/* Show More */}
+            {showShowMore && (
+              <div className="flex justify-center px-2 sm:px-1">
+                <button
+                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-[13px] font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                >
+                  Show More ({totalCount - visibleCount} remaining)
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
