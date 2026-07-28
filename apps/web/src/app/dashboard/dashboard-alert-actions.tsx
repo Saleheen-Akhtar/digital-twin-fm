@@ -91,7 +91,7 @@ export function DashboardAlertActions({ initialAlerts, initialWorkOrders }: Prop
   const handleDismiss = useCallback(async (alert: Alert) => {
     setDismissing(alert.id);
     try {
-      await api.patch('/alerts/' + alert.id, { status: 'acknowledged' });
+      await api.patch('/alerts/' + alert.id, { status: 'resolved' });
       setActionMsg({ id: alert.id, text: '✅ Dismissed' });
       setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
     } catch (err) {
