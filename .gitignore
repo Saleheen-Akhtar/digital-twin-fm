@@ -54,6 +54,8 @@ __pycache__/
 *.pyc
 
 # Local dev utility scripts (hardcoded paths/passwords — not for public repo)
+add_env_vars.py
+check_env.py
 update_env.py
 update_passwords.py
 write_env.py
