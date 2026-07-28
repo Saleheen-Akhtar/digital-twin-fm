@@ -981,19 +981,26 @@ function getPoleStyle(type: string): { length: number; sphereOffset: number } {
   }
 }
 
-export function AssetMarker3D({ asset, selected, onClick, layoutOverride, floorY }: {
+export function AssetMarker3D({ asset, selected, onClick, layoutOverride, floorY, onGroupRef }: {
   asset: Asset;
   selected: boolean;
   onClick: (id: string) => void;
   layoutOverride?: { x: number; z: number } | null;
   /** World Y of the asset's floor slab (for ceiling-mounted leader disc). */
   floorY?: number;
+  /** Called with the Three.js group ref when the marker mounts. */
+  onGroupRef?: (group: THREE.Group) => void;
 }) {
   const hexColor = STATUS_COLORS_HEX[asset.status] ?? 0x22c55e;
   const [hovered, setHovered] = useState(false);
   const groupRef = useRef<THREE.Group>(null);
   const alertRingRef = useRef<THREE.Mesh>(null);
   const hasAlert = useViewerStore((s) => s.activeAlertAssets.has(asset.id));
+
+  // Expose the group ref to the parent (for TransformControls)
+  useEffect(() => {
+    if (groupRef.current) onGroupRef?.(groupRef.current);
+  }, [onGroupRef]);
   // Pole geometry keyed by mounted type (floor stub / ceiling hang / full-height).
   const pole = getPoleStyle(asset.type);
 

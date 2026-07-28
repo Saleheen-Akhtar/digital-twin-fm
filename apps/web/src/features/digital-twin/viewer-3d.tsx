@@ -35,10 +35,11 @@ import {
   CameraControls,
   ContactShadows,
   Environment,
+  TransformControls,
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
-import { BarChart3, Bell, Building2, Footprints, HeartPulse, Layers, Thermometer, Users, Zap } from "lucide-react";
+import { BarChart3, Bell, Building2, Footprints, HeartPulse, Layers, Move, Thermometer, Users, Zap } from "lucide-react";
 import { useViewerStore } from "./viewer-store";
 import {
   camera as CAM,
@@ -279,6 +280,10 @@ function SceneContent({
   const orbitControlsRef = useRef<OrbitControlsImpl>(null!);
   const cameraControlsRef = useRef<CameraControls>(null!);
   const selectedAsset = useViewerStore((state) => state.selectedAsset);
+  const editMode = useViewerStore((state) => state.editMode);
+  const setSelectedAsset = useViewerStore((state) => state.setSelectedAsset);
+  const [dragging, setDragging] = useState(false);
+  const markerRefs = useRef<Record<string, THREE.Group>>({});
 
   // A3 — min-distance resampling so markers never overlap/clump.
   // Computed once per asset set; the marker applies the {x,z} override
@@ -364,8 +369,22 @@ function SceneContent({
                 selected={selectedAsset?.id === asset.id}
                 onClick={() => onAssetClick(asset)}
                 layoutOverride={floorLayout.get(asset.id) ?? null}
+                onGroupRef={(g) => { markerRefs.current[asset.id] = g; }}
               />
             ))}
+
+        {/* ── Transform Controls (edit mode) ── */}
+        {editMode && selectedAsset && markerRefs.current[selectedAsset.id] && (
+          <TransformControls
+            mode="translate"
+            object={markerRefs.current[selectedAsset.id]}
+            onChange={(e) => {
+              // Disable orbit controls while dragging
+              if (e) setDragging(true);
+            }}
+            onObjectChange={() => setDragging(false)}
+          />
+        )}
       </Suspense>
 
       {/* Camera animation driver */}
@@ -396,6 +415,7 @@ function SceneContent({
           autoRotate={autoRotate}
           autoRotateSpeed={2.0}
           target={CAM.defaultTarget}
+          enabled={!dragging}
         />
       )}
 
@@ -606,6 +626,8 @@ export function DigitalTwinViewer3D({
   modelUrl,
 }: DigitalTwinViewer3DProps) {
   const { selectedFloor, setSelectedFloor } = useViewerStore();
+  const editMode = useViewerStore((s) => s.editMode);
+  const setEditMode = useViewerStore((s) => s.setEditMode);
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [walkMode, setWalkMode] = useState(false);
 
@@ -886,6 +908,8 @@ export function DigitalTwinViewer3D({
             onToggle={toggleOverlay}
             walkMode={walkMode}
             onToggleWalk={() => setWalkMode((w) => !w)}
+            editMode={editMode}
+            onToggleEdit={() => setEditMode(!editMode)}
           />
 
           {/* ── Walk-mode hint ── */}
@@ -921,9 +945,11 @@ interface IconRailProps {
   onToggle: (k: OverlayKey) => void;
   walkMode: boolean;
   onToggleWalk: () => void;
+  editMode: boolean;
+  onToggleEdit: () => void;
 }
 
-function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailProps) {
+function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk, editMode, onToggleEdit }: IconRailProps) {
   const buttons: { key: OverlayKey; label: string; title: string }[] = [
     { key: "kpis", label: "KPIs", title: "Live KPIs" },
     { key: "health", label: "Health", title: "Building Health" },
@@ -931,7 +957,7 @@ function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailPr
     { key: "events", label: "Events", title: "Live Event Feed" },
     { key: "layers", label: "Layers", title: "Layers panel" },
   ];
-  const icons = { KPIs: BarChart3, Health: HeartPulse, Floors: Building2, Events: Bell, Layers } as const;
+  const icons = { KPIs: BarChart3, Health: HeartPulse, Floors: Building2, Events: Bell, Layers, Move: Move } as const;
 
   return (
     <div
@@ -958,8 +984,8 @@ function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailPr
           </button>
         );
       })}
-      {/* Walk toggle sits at the end of the rail as a separator group */}
       <div className="w-px h-6 bg-slate-200 mx-0.5" />
+      {/* Walk toggle */}
       <button
         onClick={onToggleWalk}
         title={walkMode ? "Exit walkthrough" : "Walk inside the building"}
@@ -972,6 +998,21 @@ function IconRail({ openOverlays, onToggle, walkMode, onToggleWalk }: IconRailPr
         }`}
       >
         <Footprints size={16} strokeWidth={2.2} /> <span className="hidden sm:inline">{walkMode ? "Exit" : "Walk"}</span>
+      </button>
+      <div className="w-px h-6 bg-slate-200 mx-0.5" />
+      {/* Edit Mode toggle */}
+      <button
+        onClick={onToggleEdit}
+        title={editMode ? "Exit edit mode" : "Move assets — click to select, drag to reposition"}
+        aria-pressed={editMode}
+        data-rail-button="edit"
+        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-all ${
+          editMode
+            ? "bg-amber-500 text-white shadow-sm"
+            : "text-slate-600 hover:bg-slate-100"
+        }`}
+      >
+        <Move size={18} strokeWidth={2.2} />
       </button>
     </div>
   );
