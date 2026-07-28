@@ -19,8 +19,9 @@ export function DemoControls() {
   const api = createBrowserApiClient();
 
   function showStatus(text: string, ok: boolean) {
+    console.log('[Demo]', text);
     setStatus({ text, ok });
-    setTimeout(() => setStatus(null), 3000);
+    setTimeout(() => setStatus(null), 4000);
   }
 
   async function handleScenario(scenario: ScenarioId) {
@@ -69,6 +70,17 @@ export function DemoControls() {
 
   return (
     <>
+      {/* Floating toast — visible even if panel is scrolled/closed */}
+      {status && (
+        <div className={`fixed bottom-32 left-1/2 z-[60] -translate-x-1/2 rounded-xl px-4 py-2.5 text-[14px] font-semibold shadow-xl transition-all duration-200 ${
+          status.ok
+            ? 'bg-emerald-600 text-white'
+            : 'bg-red-600 text-white'
+        }`}>
+          {status.text}
+        </div>
+      )}
+
       {/* Floating toggle button */}
       <button
         onClick={() => setOpen(!open)}
