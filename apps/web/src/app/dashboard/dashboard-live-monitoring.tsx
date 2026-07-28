@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createBrowserApiClient } from "@/lib/browser-api-client";
 import { useSensorRealtime } from "@/hooks/useSensorRealtime";
 import type { Sensor } from "@/lib/api-client";
@@ -26,6 +26,7 @@ export type LiveChartData = {
   value: string;
   toneClass: LiveToneClass;
   line: LiveChartTone;
+  unit: string;
   points: number[];
 };
 
@@ -50,11 +51,13 @@ function chartFromSensor(chart: LiveChartData, sensors: Sensor[]): LiveChartData
   const allowedTypes = SENSOR_BY_METRIC[chart.metric];
   const sensor = sensors.find((item) => allowedTypes.includes(item.type));
   if (!sensor || sensor.lastValue == null) return chart;
+
   const newPoint = Math.max(0, Number(sensor.lastValue.toFixed(1)));
   const updated = [...chart.points.slice(-19), newPoint];
   return {
     ...chart,
     value: valueForSensor(sensor, chart.metric) ?? chart.value,
+    unit: sensor.unit ?? "",
     points: updated.length >= 2 ? updated : [newPoint, newPoint],
   };
 }
@@ -83,6 +86,7 @@ function chartFromLiveReading(
   return {
     ...chart,
     value,
+    unit,
     points: updated.length >= 2 ? updated : [newPoint, newPoint],
   };
 }
@@ -100,6 +104,8 @@ export function DashboardLiveMonitoring({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { readings: liveReadings, connected: wsConnected, error: wsError } = useSensorRealtime();
+  const wsConnectedRef = useRef(wsConnected);
+  wsConnectedRef.current = wsConnected;
 
   useEffect(() => {
     setCharts(initialCharts);
@@ -114,13 +120,17 @@ export function DashboardLiveMonitoring({
         const nextSensors = await api.get<Sensor[]>("/sensors");
         if (cancelled) return;
         setSensors(Array.isArray(nextSensors) ? nextSensors : []);
-        startTransition(() => {
-          setCharts((current) =>
-            current.map((chart) => chartFromSensor(chart, nextSensors)),
-          );
-          setLastUpdated(new Date());
-          setError(null);
-        });
+        // When WS is connected, let the liveReadings effect drive chart
+        // updates — REST poll would overwrite fresher WS data.
+        if (!wsConnectedRef.current) {
+          startTransition(() => {
+            setCharts((current) =>
+              current.map((chart) => chartFromSensor(chart, nextSensors)),
+            );
+            setLastUpdated(new Date());
+            setError(null);
+          });
+        }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Live monitoring unavailable");
@@ -217,7 +227,7 @@ export function DashboardLiveMonitoring({
               </div>
             </div>
             <div className="h-[126px] w-full">
-              <MiniChart points={chart.points} line={chart.line} />
+              <MiniChart points={chart.points} line={chart.line} unit={chart.unit} />
             </div>
           </div>
         ))}
@@ -236,7 +246,7 @@ function MetricDot({ tone }: { tone: LiveChartTone }) {
   return <span className={`size-2.5 rounded-full ${color}`} />;
 }
 
-function MiniChart({ points, line }: { points: number[]; line: LiveChartTone }) {
+function MiniChart({ points, line, unit }: { points: number[]; line: LiveChartTone; unit: string }) {
   const [hovered, setHovered] = useState<{ x: number; y: number; val: number } | null>(null);
 
   const width = 340;
@@ -261,13 +271,6 @@ function MiniChart({ points, line }: { points: number[]; line: LiveChartTone }) 
     green: "#22c55e",
     blue: "#3b82f6",
     violet: "#8b5cf6",
-  }[line];
-
-  const unit = {
-    red: "°C",
-    green: " kW",
-    blue: "%",
-    violet: " ppm",
   }[line];
 
   return (
