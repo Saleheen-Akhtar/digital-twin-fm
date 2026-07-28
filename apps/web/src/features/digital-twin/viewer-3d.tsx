@@ -286,7 +286,7 @@ function SceneContent({
   // ── Lighting / Environment ──
   return (
     <>
-      <Environment preset="city" background blur={0.8} />
+      <Environment files="/environment/potsdamer_platz_1k.hdr" background blur={0.8} />
       <ambientLight intensity={0.4} />
       <directionalLight
         position={[25, 40, 20]}
