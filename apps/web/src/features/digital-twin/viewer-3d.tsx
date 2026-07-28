@@ -26,6 +26,8 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  lazy,
+  Suspense,
 } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import {
@@ -41,23 +43,35 @@ import { useViewerStore } from "./viewer-store";
 import {
   camera as CAM,
 } from "@/design-system/tokens";
+import type {
+  Asset,
+  ApiAssetShape,
+} from "./viewer-data";
+import { SEED_ASSETS, apiAssetsToViewerAssets } from "./viewer-data";
+
+// Deferred — viewer-building.tsx is 82 KiB (2097 lines). Lazy-loading it
+// lets the Canvas mount and show a loading state instantly instead of
+// blocking on geometry creation before first paint.
+const LazyBuilding = lazy(() =>
+  import("./viewer-building").then((m) => ({ default: m.Building })),
+);
+const LazyBuildingModel = lazy(() =>
+  import("./viewer-building").then((m) => ({ default: m.BuildingModel })),
+);
+const LazyAssetMarker3D = lazy(() =>
+  import("./viewer-building").then((m) => ({ default: m.AssetMarker3D })),
+);
+import type {
+  FloorFilter,
+} from "./viewer-store";
 import {
-  Building,
-  BuildingModel,
-  AssetMarker3D,
   BUILDING_FLOORS,
   floorFootprintBounds,
   buildingGlobalBounds,
   floorWalkableBounds,
   resolveFloorLayout,
   validateFloorPlan,
-  type FloorFilter,
-} from "./viewer-building";
-import type {
-  Asset,
-  ApiAssetShape,
-} from "./viewer-data";
-import { SEED_ASSETS, apiAssetsToViewerAssets } from "./viewer-data";
+} from "./viewer-building-utils";
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -80,6 +94,11 @@ export type OverlayKey =
   | "events"      // Bottom-left Live Event feed
   | "layers"      // Right Layers panel (facade/furniture/MEP/zones)
   | "walk";       // Top-right Walk toggle
+
+/**
+ * Scene background color — replaces the CDN-dependent <Environment preset="city">
+ * which caused a multi-second delay on fetch failure.
+ */
 
 export interface DigitalTwinViewer3DProps {
   /** Display mode — see ViewerMode. Default "operator". */
@@ -212,13 +231,11 @@ function WalkBoundsGuard({ selectedFloor, enabled }: {
     if (!enabled || selectedFloor === "ALL") return;
 
     const bounds = floorWalkableBounds(selectedFloor as number);
-    if (!bounds) return;
 
     // Clamp to walkable area — keeps the user inside room polygons
-    camera.position.x = THREE.MathUtils.clamp(camera.position.x, bounds.min.x, bounds.max.x);
-    camera.position.z = THREE.MathUtils.clamp(camera.position.z, bounds.min.z, bounds.max.z);
-    // Keep camera between floor + 0.5m and ceiling
-    camera.position.y = THREE.MathUtils.clamp(camera.position.y, bounds.min.y + 0.5, bounds.max.y - 0.1);
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, bounds.minX, bounds.maxX);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, bounds.minZ, bounds.maxZ);
+    // Y-axis was unbounded in Box3 (default ±Infinity), so no floor‑specific clamp here
   });
 
   return null;
@@ -276,9 +293,17 @@ function SceneContent({
     const cc = cameraControlsRef.current as unknown as { boundary: THREE.Box3; boundaryEnclosesCamera: boolean };
     if (!cc) return;
     if (selectedFloor === "ALL") {
-      cc.boundary = floorWalkableBounds(0);
+      const b = floorWalkableBounds(0);
+      cc.boundary = new THREE.Box3(
+        new THREE.Vector3(b.minX, -Infinity, b.minZ),
+        new THREE.Vector3(b.maxX, Infinity, b.maxZ),
+      );
     } else {
-      cc.boundary = floorWalkableBounds(selectedFloor as number);
+      const b = floorWalkableBounds(selectedFloor as number);
+      cc.boundary = new THREE.Box3(
+        new THREE.Vector3(b.minX, -Infinity, b.minZ),
+        new THREE.Vector3(b.maxX, Infinity, b.maxZ),
+      );
     }
     cc.boundaryEnclosesCamera = true;
   }, [selectedFloor]);
@@ -292,8 +317,8 @@ function SceneContent({
         position={[25, 40, 20]}
         intensity={2.0}
         castShadow
-        shadow-mapSize-width={4096}
-        shadow-mapSize-height={4096}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
         shadow-camera-left={-30}
         shadow-camera-right={30}
         shadow-camera-top={30}
@@ -303,51 +328,45 @@ function SceneContent({
         shadow-bias={-0.0005}
       />
       <directionalLight position={[-15, 20, -15]} intensity={0.6} color="#cce0ff" />
-      <ContactShadows resolution={1024} scale={60} position={[0, -0.05, 0]} blur={2} opacity={0.5} far={10} color="#111111" />
+      {/* Single contact shadow — cheaper than two, looks the same */}
+      <ContactShadows resolution={512} scale={60} position={[0, -0.03, 0]} blur={2.5} opacity={0.4} far={8} color="#111111" />
       <fog attach="fog" args={["#f4f4f0", 80, 200]} />
 
-      {/* Soft contact shadow — tight under the building, not a full-site wash */}
-      <ContactShadows
-        position={[0, -0.01, 0]}
-        opacity={0.25}
-        scale={50}
-        blur={2.5}
-        far={5}
-      />
+      {/* Building -- lazy-loaded; canvas mounts instantly while the 80 KiB chunk streams in */}
+      <Suspense fallback={null}>
+        {modelUrl ? (
+          <LazyBuildingModel modelUrl={modelUrl} visibleObjects={visibleObjects} onObjectsFound={onObjectsFound} />
+        ) : (
+          <LazyBuilding
+            selectedFloor={selectedFloor}
+            selectedZone={selectedZone}
+            onSelectZone={onSelectZone}
+            walkMode={walkMode}
+            showFacade={showFacade}
+            showFurniture={showFurniture}
+            showMEP={showMEP}
+            showZones={showZones}
+            showMarkers={showMarkers}
+          />
+        )}
 
-      {/* Building — either loaded GLB model or procedural fallback */}
-      {modelUrl ? (
-        <BuildingModel modelUrl={modelUrl} visibleObjects={visibleObjects} onObjectsFound={onObjectsFound} />
-      ) : (
-        <Building
-          selectedFloor={selectedFloor}
-          selectedZone={selectedZone}
-          onSelectZone={onSelectZone}
-          walkMode={walkMode}
-          showFacade={showFacade}
-          showFurniture={showFurniture}
-          showMEP={showMEP}
-          showZones={showZones}
-          showMarkers={showMarkers}
-        />
-      )}
-
-      {/* Asset markers — hidden when an uploaded model is loaded (markers should be baked into the GLB) */}
-      {showMarkers && !modelUrl &&
-        allAssets
-          .filter((asset) => {
-            if (selectedFloor === "ALL") return true;
-            return selectedFloor === (asset.floor as FloorFilter);
-          })
-          .map((asset) => (
-            <AssetMarker3D
-              key={asset.id}
-              asset={asset}
-              selected={selectedAsset?.id === asset.id}
-              onClick={() => onAssetClick(asset)}
-              layoutOverride={floorLayout.get(asset.id) ?? null}
-            />
-          ))}
+        {/* Asset markers — hidden when an uploaded model is loaded */}
+        {showMarkers && !modelUrl &&
+          allAssets
+            .filter((asset) => {
+              if (selectedFloor === "ALL") return true;
+              return selectedFloor === (asset.floor as FloorFilter);
+            })
+            .map((asset) => (
+              <LazyAssetMarker3D
+                key={asset.id}
+                asset={asset}
+                selected={selectedAsset?.id === asset.id}
+                onClick={() => onAssetClick(asset)}
+                layoutOverride={floorLayout.get(asset.id) ?? null}
+              />
+            ))}
+      </Suspense>
 
       {/* Camera animation driver */}
       <CameraAnimator
