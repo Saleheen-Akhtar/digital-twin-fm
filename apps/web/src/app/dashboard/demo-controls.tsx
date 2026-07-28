@@ -137,14 +137,22 @@ export function DemoControls() {
             onClick={async () => {
               setActive('alert');
               try {
-                // Find a random asset to attach to the simulated alert, or use a dummy ID
-                await api.post('/demo/inject-alert', {
-                  assetId: 'demo-asset-001',
-                  message: 'Simulated 23rd Critical Alert from Demo Controls',
-                  severity: 'critical'
-                });
-                showStatus('✓ Critical alert injected', true);
-              } catch {
+                const res = await api.post<{ success: boolean }>(
+                  '/demo/inject-alert',
+                  {
+                    assetId: 'demo-asset-001',
+                    message: 'Simulated 23rd Critical Alert from Demo Controls',
+                    severity: 'critical',
+                  },
+                );
+                showStatus(
+                  res?.success
+                    ? '✓ Critical alert injected'
+                    : '✗ Alert injection returned error',
+                  !!res?.success,
+                );
+              } catch (e) {
+                console.error('[Demo] Alert inject failed:', e);
                 showStatus('✗ Alert injection failed', false);
               } finally {
                 setActive(null);
