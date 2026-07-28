@@ -151,6 +151,24 @@ export class AuthService implements OnModuleInit {
   }
 
   /**
+   * Return the current user's profile from the in-memory store.
+   * This always returns the latest data (unlike the JWT which may be stale).
+   */
+  getProfile(): {
+    id: string;
+    email: string;
+    role: string;
+    displayName: string;
+  } {
+    return {
+      id: this.mvpUser.id,
+      email: this.mvpUser.email,
+      role: this.mvpUser.role,
+      displayName: this.mvpUser.displayName,
+    };
+  }
+
+  /**
    * Update the current user's display name.
    *
    * Security hardening:
