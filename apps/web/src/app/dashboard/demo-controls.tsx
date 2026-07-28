@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { createBrowserApiClient } from '@/lib/browser-api-client';
+import { notifyBrowser } from '@/lib/browser-notification';
 
 const SCENARIOS = [
   { id: 'normal', label: 'Normal', icon: '✅' },
@@ -18,11 +19,27 @@ export function DemoControls() {
   const [active, setActive] = useState<string | null>(null);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | 'unavailable'>('default');
   const api = createBrowserApiClient();
 
   useEffect(() => {
     setMounted(true);
+    // Read current notification permission on mount
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotifPerm(Notification.permission);
+    } else {
+      setNotifPerm('unavailable');
+    }
   }, []);
+
+  async function requestNotificationPermission() {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setNotifPerm('unavailable');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    setNotifPerm(perm);
+  }
 
   function showStatus(text: string, ok: boolean) {
     console.log('[Demo]', text);
@@ -119,6 +136,21 @@ export function DemoControls() {
             </div>
           )}
 
+          {/* Notification permission */}
+          {notifPerm !== 'granted' && notifPerm !== 'unavailable' && (
+            <button
+              onClick={requestNotificationPermission}
+              className="mb-3 w-full rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] font-medium text-sky-700 transition-all hover:bg-sky-100"
+            >
+              🔔 Enable Chrome Notifications
+            </button>
+          )}
+          {notifPerm === 'granted' && (
+            <p className="mb-3 text-[11px] font-medium text-emerald-600">
+              🔔 Notifications enabled
+            </p>
+          )}
+
           {/* Scenario buttons */}
           <div className="mb-3 space-y-1.5">
             <p className="text-[11px] font-medium text-slate-400">Simulator Scenarios</p>
@@ -171,6 +203,12 @@ export function DemoControls() {
                     : '✗ Alert injection returned error',
                   !!res?.success,
                 );
+                if (res?.success) {
+                  notifyBrowser('🚨 Critical Alert — Digital Twin FM', {
+                    body: 'Simulated 23rd Critical Alert from Demo Controls',
+                    tag: 'demo-alert',
+                  });
+                }
               } catch (e) {
                 console.error('[Demo] Alert inject failed:', e);
                 showStatus('✗ Alert injection failed', false);
