@@ -2,7 +2,7 @@
 
 import { createBrowserApiClient } from '@/lib/browser-api-client';
 import type { Alert, WorkOrder } from '@digital-twin-fm/types';
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 
 
 
@@ -55,6 +55,32 @@ export function DashboardAlertActions({ initialAlerts, initialWorkOrders }: Prop
         && !woAlertIds.has(a.id)
     );
   }, [alerts, workOrders]);
+
+  // Auto-refresh alerts every 30s so newly injected alerts show up
+  const refreshCancelled = useRef(false);
+  useEffect(() => {
+    refreshCancelled.current = false;
+    async function refresh() {
+      try {
+        const [freshAlerts, freshWOs] = await Promise.all([
+          api.get<Alert[]>('/alerts'),
+          api.get<WorkOrder[]>('/work-orders'),
+        ]);
+        if (refreshCancelled.current) return;
+        setAlerts(Array.isArray(freshAlerts)
+          ? freshAlerts.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed')
+          : []);
+        setWorkOrders(Array.isArray(freshWOs) ? freshWOs : []);
+      } catch {
+        // Silent — keep showing existing data
+      }
+    }
+    const timer = setInterval(refresh, 30_000);
+    return () => {
+      refreshCancelled.current = true;
+      clearInterval(timer);
+    };
+  }, [api]);
 
   const handleApprove = useCallback(async (alert: Alert) => {
     setLoadingWO(alert.id);
