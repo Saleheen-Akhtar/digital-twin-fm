@@ -205,8 +205,9 @@ export function DemoControls() {
                 );
                 if (res?.success) {
                   notifyBrowser('🚨 Critical Alert — Digital Twin FM', {
-                    body: 'Simulated 23rd Critical Alert from Demo Controls',
+                    body: 'Asset: demo-asset-001\nSeverity: critical\nSimulated 23rd Critical Alert from Demo Controls',
                     tag: 'demo-alert',
+                    onClickUrl: '/dashboard/alerts',
                   });
                 }
               } catch (e) {
