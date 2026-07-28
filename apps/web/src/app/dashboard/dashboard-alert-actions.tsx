@@ -1,6 +1,7 @@
 'use client';
 
 import { createBrowserApiClient } from '@/lib/browser-api-client';
+import { notifyBrowser } from '@/lib/browser-notification';
 import type { Alert, WorkOrder } from '@digital-twin-fm/types';
 import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 
@@ -58,8 +59,10 @@ export function DashboardAlertActions({ initialAlerts, initialWorkOrders }: Prop
 
   // Auto-refresh alerts every 30s so newly injected alerts show up
   const refreshCancelled = useRef(false);
+  const prevCountRef = useRef(initialAlerts.length);
   useEffect(() => {
     refreshCancelled.current = false;
+    prevCountRef.current = initialAlerts.length;
     async function refresh() {
       try {
         const [freshAlerts, freshWOs] = await Promise.all([
@@ -67,9 +70,26 @@ export function DashboardAlertActions({ initialAlerts, initialWorkOrders }: Prop
           api.get<WorkOrder[]>('/work-orders'),
         ]);
         if (refreshCancelled.current) return;
-        setAlerts(Array.isArray(freshAlerts)
+        const filtered = Array.isArray(freshAlerts)
           ? freshAlerts.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed')
-          : []);
+          : [];
+        if (filtered.length > prevCountRef.current) {
+          // One or more new alerts appeared — fire a browser notification
+          const newCount = filtered.length - prevCountRef.current;
+          const newest = filtered.slice(0, newCount);
+          const critical = newest.find((a) => a.severity === 'critical');
+          notifyBrowser(
+            critical ? '🚨 Critical Alert — Digital Twin FM' : '⚠️ New Alert — Digital Twin FM',
+            {
+              body: critical
+                ? critical.message
+                : `${newCount} new alert${newCount > 1 ? 's' : ''} require attention`,
+              tag: 'dtfm-alert-poll',
+            },
+          );
+        }
+        prevCountRef.current = filtered.length;
+        setAlerts(filtered);
         setWorkOrders(Array.isArray(freshWOs) ? freshWOs : []);
       } catch {
         // Silent — keep showing existing data
@@ -80,7 +100,7 @@ export function DashboardAlertActions({ initialAlerts, initialWorkOrders }: Prop
       refreshCancelled.current = true;
       clearInterval(timer);
     };
-  }, [api]);
+  }, [api, initialAlerts.length]);
 
   const handleApprove = useCallback(async (alert: Alert) => {
     setLoadingWO(alert.id);
