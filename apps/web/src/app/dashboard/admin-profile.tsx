@@ -64,6 +64,8 @@ export function AdminProfile() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessToken: updated.accessToken }),
       }).catch(() => {/* non-critical */});
+      // Notify the greeting to update immediately without refresh
+      window.dispatchEvent(new CustomEvent('profile-updated'));
     } catch {
       setError('Network error');
     } finally {
