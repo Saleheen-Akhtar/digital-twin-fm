@@ -78,13 +78,15 @@ export function DashboardAlertActions({ initialAlerts, initialWorkOrders }: Prop
           const newCount = filtered.length - prevCountRef.current;
           const newest = filtered.slice(0, newCount);
           const critical = newest.find((a) => a.severity === 'critical');
+          const top = newest[0];
           notifyBrowser(
             critical ? '🚨 Critical Alert — Digital Twin FM' : '⚠️ New Alert — Digital Twin FM',
             {
-              body: critical
-                ? critical.message
+              body: top
+                ? `Asset: ${top.assetId ?? 'unknown'}\nSeverity: ${top.severity}\n${friendlyAlertMessage(top.message)}`
                 : `${newCount} new alert${newCount > 1 ? 's' : ''} require attention`,
               tag: 'dtfm-alert-poll',
+              onClickUrl: '/dashboard/alerts',
             },
           );
         }
