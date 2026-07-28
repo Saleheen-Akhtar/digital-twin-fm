@@ -538,11 +538,11 @@ async function main() {
   }
   await db.insert(sensorReadings).values(readings);
 
-  // 5 alerts
+  // 22 alerts
   const alertRows = await db
     .insert(alerts)
     .values(
-      Array.from({ length: 5 }, () => {
+      Array.from({ length: 22 }, () => {
         const sensor = faker.helpers.arrayElement(sensorRows);
         return {
           sensorId: sensor.id,

@@ -225,6 +225,7 @@ export function buildLiveCharts(
       value: sensor ? formatSensorValue(sensor, def.metric) : '--',
       toneClass: def.toneClass,
       line: def.line,
+      unit: sensor?.unit ?? '',
       points: points.length >= 2 ? points.slice(-20) : fallbackPoint,
     };
   });

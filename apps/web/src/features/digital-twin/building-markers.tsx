@@ -10,7 +10,7 @@
 
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
+import { Html as DreiHtml } from "@react-three/drei";
 import * as THREE from "three";
 import type { Asset } from "./viewer-data";
 import { BUILDING_FLOORS, FLOOR_H } from "./building-floors";
@@ -101,7 +101,7 @@ function NameBadge({ asset, showDetails }: { asset: Asset; showDetails: boolean 
   const primaryMetric = Object.entries(asset.metrics)[0];
 
   return (
-    <Html position={[0, 1.8, 0]} center distanceFactor={12} style={{ pointerEvents: "none" }}>
+    <DreiHtml position={[0, 1.8, 0]} center distanceFactor={12} style={{ pointerEvents: "none" }}>
       <div style={{
         background: "rgba(255,255,255,0.92)",
         backdropFilter: "blur(8px)",
@@ -137,7 +137,7 @@ function NameBadge({ asset, showDetails }: { asset: Asset; showDetails: boolean 
           </>
         )}
       </div>
-    </Html>
+    </DreiHtml>
   );
 }
 
@@ -176,7 +176,9 @@ export function AssetMarker3D({ asset, selected = false, onClick }: AssetMarker3
   // Calculate Y position based on which floor the asset is on
   const floorDef = BUILDING_FLOORS.find((f) => f.level === asset.floor + 1);
   const yBase = floorDef ? floorDef.yBase : 0;
-  const y = yBase + 0.3; // slightly above the floor slab
+  // Ensure the model sits flush on the floor by not adding a floating offset.
+  // The database seed provides asset.y, but if missing we fallback to yBase.
+  const y = asset.y ?? yBase;
 
   return (
     <group

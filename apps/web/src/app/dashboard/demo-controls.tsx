@@ -15,7 +15,13 @@ type ScenarioId = (typeof SCENARIOS)[number]['id'];
 export function DemoControls() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const api = createBrowserApiClient();
+
+  function showStatus(text: string, ok: boolean) {
+    setStatus({ text, ok });
+    setTimeout(() => setStatus(null), 3000);
+  }
 
   async function handleScenario(scenario: ScenarioId) {
     setActive(`scenario:${scenario}`);
@@ -25,9 +31,10 @@ export function DemoControls() {
         { scenario },
       );
       if (res.success) {
-        console.log(`[Demo] Scenario switched to ${res.scenario}`);
+        showStatus(`✓ ${res.scenario}`, true);
       }
     } catch (err) {
+      showStatus('✗ Scenario failed', false);
       console.error('[Demo] Scenario failed:', err);
     } finally {
       setActive(null);
@@ -50,9 +57,10 @@ export function DemoControls() {
         },
       );
       if (res.success) {
-        console.log(`[Demo] Anomaly reading injected`);
+        showStatus('✓ 48°C anomaly injected', true);
       }
     } catch (err) {
+      showStatus('✗ Inject failed', false);
       console.error('[Demo] Inject failed:', err);
     } finally {
       setActive(null);
@@ -79,6 +87,17 @@ export function DemoControls() {
           <p className="mb-3 text-[11px] text-slate-400">
             Trigger scenarios and anomalies for live demos.
           </p>
+
+          {/* Status feedback */}
+          {status && (
+            <div className={`mb-3 rounded-lg px-3 py-2 text-[12px] font-medium ${
+              status.ok
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              {status.text}
+            </div>
+          )}
 
           {/* Scenario buttons */}
           <div className="mb-3 space-y-1.5">
@@ -112,6 +131,27 @@ export function DemoControls() {
           >
             {active === 'inject' ? '⏳' : '🚨'}{' '}
             <span className="ml-1">Inject Anomaly Reading (48°C)</span>
+          </button>
+
+          <button
+            onClick={async () => {
+              setActive('alert');
+              try {
+                // Find a random asset to attach to the simulated alert, or use a dummy ID
+                await api.post('/demo/inject-alert', {
+                  assetId: 'demo-asset-001',
+                  message: 'Simulated 23rd Critical Alert from Demo Controls',
+                  severity: 'critical'
+                });
+              } finally {
+                setActive(null);
+              }
+            }}
+            disabled={active === 'alert'}
+            className="mt-1.5 w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-left text-[13px] text-rose-800 transition-all hover:bg-rose-100 disabled:opacity-50"
+          >
+            {active === 'alert' ? '⏳' : '🔔'}{' '}
+            <span className="ml-1">Simulate 23rd Alert</span>
           </button>
 
           <p className="mt-3 text-[10px] text-slate-400 leading-tight">

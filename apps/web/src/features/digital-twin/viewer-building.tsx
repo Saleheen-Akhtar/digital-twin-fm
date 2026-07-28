@@ -15,7 +15,8 @@ import { useRef, useState, useMemo, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { useViewerStore } from "./viewer-store";
-import { Html, Edges, Grid, useGLTF } from "@react-three/drei";
+import { Edges, Grid, useGLTF } from "@react-three/drei";
+import { Html as DreiHtml } from "@react-three/drei";
 import {
   colors,
   building as B,
@@ -645,7 +646,7 @@ function ZoneBox({ zone, floorY, floorHeight: _floorHeight, selected, onSelect }
 
       {/* Zone label — only visible on hover or selection */}
       {(hovered || selected) && (
-        <Html position={[zone.cx, floorY + 0.5, zone.cz]} center>
+        <DreiHtml position={[zone.cx, floorY + 0.5, zone.cz]} center>
           <div className="relative flex flex-col items-center pointer-events-none">
             {/* small leader tick pointing down to the zone edge */}
             <div className="w-px h-3 bg-slate-300/80" />
@@ -653,7 +654,7 @@ function ZoneBox({ zone, floorY, floorHeight: _floorHeight, selected, onSelect }
               {zone.name}
             </div>
           </div>
-        </Html>
+        </DreiHtml>
       )}
     </group>
   );
@@ -1066,7 +1067,7 @@ function Floor({
 
       {/* Floor name label (shown at the front-left corner) */}
       {showMarkers && (
-        <Html position={[-HALF_W - 2.5, yBase + 0.4, HALF_D - 2]} center>
+        <DreiHtml position={[-HALF_W - 2.5, yBase + 0.4, HALF_D - 2]} center>
           <div
           className="px-2.5 py-1 rounded-lg text-[10px] font-semibold tracking-wide whitespace-nowrap shadow-sm border transition-all"
           style={{
@@ -1078,7 +1079,7 @@ function Floor({
         >
           {data.name}
         </div>
-      </Html>
+      </DreiHtml>
       )}
     </group>
   );
@@ -1307,7 +1308,7 @@ function EntranceCanopy({ yBase, showMarkers }: { yBase: number; showMarkers: bo
 
       {/* Building signage */}
       {showMarkers && (
-        <Html position={[0, 4.0, 4.2]} center transform>
+        <DreiHtml position={[0, 4.0, 4.2]} center transform>
           <div
             className="pointer-events-none whitespace-nowrap"
             style={{
@@ -1321,7 +1322,7 @@ function EntranceCanopy({ yBase, showMarkers }: { yBase: number; showMarkers: bo
           >
             DIGITAL TWIN FM
           </div>
-        </Html>
+        </DreiHtml>
       )}
     </group>
   );
@@ -1761,7 +1762,7 @@ export function AssetMarker3D({ asset, selected, onClick, layoutOverride, floorY
       )}
       {/* ── Hover label with real SVG icon (hidden until hover) ── */}
       {hovered && (
-        <Html distanceFactor={6} position={[0, pole.sphereOffset + 0.6, 0]} center>
+        <DreiHtml distanceFactor={6} position={[0, pole.sphereOffset + 0.6, 0]} center>
           <div
             className="flex items-center gap-1.5 px-2 py-1 rounded-lg whitespace-nowrap pointer-events-none shadow-lg"
             style={{
@@ -1781,7 +1782,7 @@ export function AssetMarker3D({ asset, selected, onClick, layoutOverride, floorY
               ●
             </span>
           </div>
-        </Html>
+        </DreiHtml>
       )}
     </group>
     </>
@@ -2043,7 +2044,7 @@ export function BuildingModel({
   visibleObjects?: Set<string>;
   onObjectsFound?: (names: string[]) => void;
 }) {
-  const { scene } = useGLTF(modelUrl);
+  const { scene } = useGLTF(modelUrl, true);
 
   // Report distinct named objects from the GLB so the parent can show layer toggles
   useEffect(() => {

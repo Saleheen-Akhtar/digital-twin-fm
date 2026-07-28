@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { ThreeEvent } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
+import { Html as DreiHtml } from "@react-three/drei";
 import * as THREE from "three";
 import type { Asset } from "./viewer-data";
 import type { FloorFilter } from "./viewer-store";
@@ -112,7 +112,7 @@ export function ReferenceConventionCentre({
         if (!isActive) return null;
         const yPos = floorData.yBase + floorData.height - 0.6;
         return floorData.zones.map((zone) => (
-          <Html
+          <DreiHtml
             key={`label-${zone.id}`}
             position={[zone.cx, yPos, zone.cz]}
             center
@@ -134,7 +134,7 @@ export function ReferenceConventionCentre({
             >
               {zone.name}
             </div>
-          </Html>
+          </DreiHtml>
         ));
       })}
 

@@ -23,7 +23,7 @@ jest.mock("@react-three/fiber", () => ({
 jest.mock("@react-three/drei", () => ({
   OrbitControls: () => <div data-testid="orbit-controls" />,
   CameraControls: () => <div data-testid="camera-controls" />,
-  Html: ({ children }: any) => <div data-testid="html-label">{children}</div>,
+  DreiHtml: ({ children }: any) => <div data-testid="html-label">{children}</div>,
   Grid: () => <div data-testid="grid" />,
   Edges: ({ children, visible }: any) => (
     <div data-testid="edges" data-visible={visible}>
