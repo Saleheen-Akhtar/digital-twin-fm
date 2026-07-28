@@ -42,7 +42,9 @@ export function LandingLiveKpi() {
 
   const getValue = (key: string, fallback: string) => {
     if (!data) return fallback;
-    const val = data[key as keyof MetricData];
+    // Map 'alerts' key from the UI structure to 'activeAlerts' in the snapshot payload
+    const dataKey = key === 'alerts' ? 'activeAlerts' : key;
+    const val = data[dataKey as keyof typeof data];
     if (val === undefined || val === null) return fallback;
     return val.toLocaleString();
   };

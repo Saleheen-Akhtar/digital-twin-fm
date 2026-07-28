@@ -1,8 +1,9 @@
 'use client';
 
 import { createBrowserApiClient } from '@/lib/browser-api-client';
+import { notifyBrowser } from '@/lib/browser-notification';
 import type { Alert, WorkOrder } from '@digital-twin-fm/types';
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 
 
 
@@ -56,6 +57,53 @@ export function DashboardAlertActions({ initialAlerts, initialWorkOrders }: Prop
     );
   }, [alerts, workOrders]);
 
+  // Auto-refresh alerts every 30s so newly injected alerts show up
+  const refreshCancelled = useRef(false);
+  const prevCountRef = useRef(initialAlerts.length);
+  useEffect(() => {
+    refreshCancelled.current = false;
+    prevCountRef.current = initialAlerts.length;
+    async function refresh() {
+      try {
+        const [freshAlerts, freshWOs] = await Promise.all([
+          api.get<Alert[]>('/alerts'),
+          api.get<WorkOrder[]>('/work-orders'),
+        ]);
+        if (refreshCancelled.current) return;
+        const filtered = Array.isArray(freshAlerts)
+          ? freshAlerts.filter((a) => a.status !== 'cancelled' && a.status !== 'resolved' && a.status !== 'closed')
+          : [];
+        if (filtered.length > prevCountRef.current) {
+          // One or more new alerts appeared — fire a browser notification
+          const newCount = filtered.length - prevCountRef.current;
+          const newest = filtered.slice(0, newCount);
+          const critical = newest.find((a) => a.severity === 'critical');
+          const top = newest[0];
+          notifyBrowser(
+            critical ? '🚨 Critical Alert — Digital Twin FM' : '⚠️ New Alert — Digital Twin FM',
+            {
+              body: top
+                ? `Asset: ${top.assetId ?? 'unknown'}\nSeverity: ${top.severity}\n${friendlyAlertMessage(top.message)}`
+                : `${newCount} new alert${newCount > 1 ? 's' : ''} require attention`,
+              tag: 'dtfm-alert-poll',
+              onClickUrl: '/dashboard/alerts',
+            },
+          );
+        }
+        prevCountRef.current = filtered.length;
+        setAlerts(filtered);
+        setWorkOrders(Array.isArray(freshWOs) ? freshWOs : []);
+      } catch {
+        // Silent — keep showing existing data
+      }
+    }
+    const timer = setInterval(refresh, 30_000);
+    return () => {
+      refreshCancelled.current = true;
+      clearInterval(timer);
+    };
+  }, [api, initialAlerts.length]);
+
   const handleApprove = useCallback(async (alert: Alert) => {
     setLoadingWO(alert.id);
     try {
@@ -91,7 +139,7 @@ export function DashboardAlertActions({ initialAlerts, initialWorkOrders }: Prop
   const handleDismiss = useCallback(async (alert: Alert) => {
     setDismissing(alert.id);
     try {
-      await api.patch('/alerts/' + alert.id, { status: 'acknowledged' });
+      await api.patch('/alerts/' + alert.id, { status: 'resolved' });
       setActionMsg({ id: alert.id, text: '✅ Dismissed' });
       setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
     } catch (err) {

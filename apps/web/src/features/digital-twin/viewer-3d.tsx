@@ -34,6 +34,7 @@ import {
   OrbitControls,
   CameraControls,
   ContactShadows,
+  Environment,
 } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
@@ -98,15 +99,6 @@ export type OverlayKey =
  * Scene background color — replaces the CDN-dependent <Environment preset="city">
  * which caused a multi-second delay on fetch failure.
  */
-function SceneBackground() {
-  return (
-    <>
-      <color attach="background" args={["#e8eef7"]} />
-      {/* Simple hemisphere for ambient reflections */}
-      <hemisphereLight args={["#ffffff", "#c8d8e8", 0.6]} />
-    </>
-  );
-}
 
 export interface DigitalTwinViewer3DProps {
   /** Display mode — see ViewerMode. Default "operator". */
@@ -319,7 +311,7 @@ function SceneContent({
   // ── Lighting / Environment ──
   return (
     <>
-      <SceneBackground />
+      <Environment files="/environment/potsdamer_platz_1k.hdr" background blur={0.8} />
       <ambientLight intensity={0.4} />
       <directionalLight
         position={[25, 40, 20]}

@@ -5,7 +5,6 @@ import { Public } from './jwt-auth.guard';
 import { LoginDto, RefreshDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
-@Public()
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
@@ -17,6 +16,7 @@ export class AuthController {
    * stuffing target. Override both global buckets with tight per-route
    * limits: 5 requests / 60 seconds / user (OWASP brute-force floor).
    */
+  @Public()
   @Throttle({ burst: { limit: 5, ttl: 60_000 }, sustained: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -25,6 +25,7 @@ export class AuthController {
     return { accessToken };
   }
 
+  @Public()
   @Throttle({ burst: { limit: 30, ttl: 60_000 }, sustained: { limit: 30, ttl: 60_000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
@@ -46,13 +47,8 @@ export class AuthController {
   @Header('Expires', '0')
   @Header('Surrogate-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
-  async getProfile(@Req() req: { user: { id: string; email: string; role: string; displayName: string } }) {
-    return {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role,
-      displayName: req.user.displayName,
-    };
+  async getProfile() {
+    return this.auth.getProfile();
   }
 
   /**

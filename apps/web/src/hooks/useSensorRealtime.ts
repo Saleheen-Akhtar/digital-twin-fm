@@ -4,6 +4,9 @@
  * Connects to the api-gateway's Socket.IO WebSocket gateway and listens
  * for `sensor:reading` events pushed by the ingestion pipeline via Redis.
  *
+ * Also listens for `alert:created` events and fires a browser notification
+ * so real-time alerts pop up immediately (not just on 30s polling).
+ *
  * Provides live sensor reading updates to the monitoring dashboard.
  * Falls back gracefully when the WS is not available (returns connected=false).
  *
@@ -26,6 +29,15 @@ export interface SensorReading {
   value: number;
   unit: string;
   timestamp: string;
+}
+
+export interface WsAlertEvent {
+  id: string;
+  assetId?: string;
+  message: string;
+  severity: string;
+  status: string;
+  createdAt?: string;
 }
 
 export interface UseSensorRealtimeResult {
@@ -94,6 +106,31 @@ export function useSensorRealtime(): UseSensorRealtimeResult {
           if (cancelled) return;
           readingsRef.current.set(payload.sensorId, payload);
           triggerUpdate();
+        });
+
+        // Listen for real-time alert:created events and fire browser notification
+        socket.on("alert:created", (payload: WsAlertEvent) => {
+          if (cancelled) return;
+          console.log("[useSensorRealtime] alert:created", payload.id);
+          // Fire a browser notification for critical/high alerts
+          try {
+            const isCritical = payload.severity === "critical";
+            // Dynamically import to avoid circular deps
+            import("@/lib/browser-notification").then(({ notifyBrowser }) => {
+              notifyBrowser(
+                isCritical
+                  ? "🚨 Critical Alert — Digital Twin FM"
+                  : "⚠️ New Alert — Digital Twin FM",
+                {
+                  body: `Asset: ${payload.assetId ?? "unknown"}\nSeverity: ${payload.severity}\n${payload.message}`,
+                  tag: `ws-alert-${payload.id}`,
+                  onClickUrl: "/dashboard/alerts",
+                },
+              );
+            });
+          } catch {
+            // Silent — notification is best-effort
+          }
         });
 
         socketRef.current = socket;

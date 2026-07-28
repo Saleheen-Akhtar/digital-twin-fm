@@ -27,6 +27,7 @@ import {
 } from './dashboard-model';
 import { LiveIndicator } from './live-indicator';
 import { DemoControls } from './demo-controls';
+import { DashboardGreeting } from './dashboard-greeting';
 
 export const metadata = { title: 'Dashboard - Digital Twin FM' };
 export const dynamic = 'force-dynamic';
@@ -209,8 +210,9 @@ export default async function DashboardPage() {
   const liveCharts = buildLiveCharts(data.sensors, data.readingsBySensorId);
   const assetReadingsById = buildAssetReadingsMap(data.sensors);
   const buildingId = data.building?.id ?? '';
-  const greeting = greetingForHour(new Date().getHours());
-  const userName = displayNameFromEmail(session.email);
+  const istTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+  const greeting = greetingForHour(istTime.getHours());
+  const userName = session.displayName && session.displayName !== "User" ? session.displayName : displayNameFromEmail(session.email);
 
   const sensorsError =
     sources.sensors.status === 'error'
@@ -221,9 +223,7 @@ export default async function DashboardPage() {
     <div className="flex-1 px-3 pb-4 pt-5 sm:px-5 lg:px-6">
       <div className="mx-auto flex max-w-[1460px] flex-col gap-4">
         <section className="px-2 sm:px-1">
-          <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-slate-950">
-            {greeting}, {userName} <span className="text-[28px]">👋</span>
-          </h1>
+          <DashboardGreeting fallbackName={userName} />
           <p className="mt-1 text-[15px] text-slate-500">
             Here&apos;s what&apos;s happening with {data.building?.name ?? 'your facility'}
           </p>
