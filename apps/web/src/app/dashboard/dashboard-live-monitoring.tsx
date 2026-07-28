@@ -63,7 +63,7 @@ function chartFromLiveReading(
   chart: LiveChartData,
   sensors: Sensor[],
   liveValue: number,
-  liveUnit: string,
+  liveUnit: string | undefined,
 ): LiveChartData {
   const allowedTypes = SENSOR_BY_METRIC[chart.metric];
   const sensor = sensors.find((item) => allowedTypes.includes(item.type));
@@ -72,11 +72,12 @@ function chartFromLiveReading(
   const newPoint = Math.max(0, Number(liveValue.toFixed(1)));
   const updated = [...chart.points.slice(-19), newPoint];
   let value = chart.value;
-  if (chart.metric === "temperature") value = `${liveValue.toFixed(1)}${liveUnit}`;
-  else if (liveUnit === "%" || liveUnit.startsWith("\u00B0")) {
-    value = `${liveValue.toFixed(0)}${liveUnit}`;
+  const unit = liveUnit ?? "";
+  if (chart.metric === "temperature") value = `${liveValue.toFixed(1)}${unit}`;
+  else if (unit === "%" || unit.startsWith("\u00B0")) {
+    value = `${liveValue.toFixed(0)}${unit}`;
   } else {
-    value = `${liveValue.toFixed(0)} ${liveUnit}`.trim();
+    value = `${liveValue.toFixed(0)} ${unit}`.trim();
   }
 
   return {
