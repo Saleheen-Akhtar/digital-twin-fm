@@ -209,8 +209,9 @@ export default async function DashboardPage() {
   const liveCharts = buildLiveCharts(data.sensors, data.readingsBySensorId);
   const assetReadingsById = buildAssetReadingsMap(data.sensors);
   const buildingId = data.building?.id ?? '';
-  const greeting = greetingForHour(new Date().getHours());
-  const userName = displayNameFromEmail(session.email);
+  const istTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+  const greeting = greetingForHour(istTime.getHours());
+  const userName = session.displayName && session.displayName !== "User" ? session.displayName : displayNameFromEmail(session.email);
 
   const sensorsError =
     sources.sensors.status === 'error'

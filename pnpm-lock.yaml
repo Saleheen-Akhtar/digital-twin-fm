@@ -232,6 +232,9 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
+      draco3d:
+        specifier: ^1.5.7
+        version: 1.5.7
       jose:
         specifier: ^5.9.0
         version: 5.10.0

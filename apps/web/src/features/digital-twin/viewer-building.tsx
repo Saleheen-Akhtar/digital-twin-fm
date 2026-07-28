@@ -15,7 +15,8 @@ import { useRef, useState, useMemo, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { useViewerStore } from "./viewer-store";
-import { Html, Edges, Grid, useGLTF } from "@react-three/drei";
+import { Edges, Grid, useGLTF } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 import {
   colors,
   building as B,
@@ -2043,7 +2044,7 @@ export function BuildingModel({
   visibleObjects?: Set<string>;
   onObjectsFound?: (names: string[]) => void;
 }) {
-  const { scene } = useGLTF(modelUrl);
+  const { scene } = useGLTF(modelUrl, true);
 
   // Report distinct named objects from the GLB so the parent can show layer toggles
   useEffect(() => {

@@ -58,6 +58,7 @@ const APACHE_2_0_EXCEPTIONS = new Set([
   "rollup",              // Vite's bundler
   "esbuild",             // Vite's transformer
   "tsx",                 // Node TS executor
+  "draco3d",             // Google Draco 3D geometry compression (GLTF loader)
 ]);
 
 // ─── Banned patterns (case-insensitive substring match) ──────────────────
