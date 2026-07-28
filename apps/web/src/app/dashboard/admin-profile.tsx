@@ -58,6 +58,12 @@ export function AdminProfile() {
       setProfile(updated);
       setDraftName(updated.displayName);
       setEditing(false);
+      // Update the httpOnly cookie so the SSR greeting reflects the new name
+      fetch('/api/auth/update-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken: updated.accessToken }),
+      }).catch(() => {/* non-critical */});
     } catch {
       setError('Network error');
     } finally {
