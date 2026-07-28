@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { createBrowserApiClient } from '@/lib/browser-api-client';
 
 const SCENARIOS = [
@@ -16,7 +17,12 @@ export function DemoControls() {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
+  const [mounted, setMounted] = useState(false);
   const api = createBrowserApiClient();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   function showStatus(text: string, ok: boolean) {
     console.log('[Demo]', text);
@@ -70,15 +76,17 @@ export function DemoControls() {
 
   return (
     <>
-      {/* Floating toast — visible even if panel is scrolled/closed */}
-      {status && (
-        <div className={`fixed bottom-32 left-1/2 z-[60] -translate-x-1/2 rounded-xl px-4 py-2.5 text-[14px] font-semibold shadow-xl transition-all duration-200 ${
+      {/* Portal toast — renders at <body>, immune to parent stacking context */}
+      {mounted && status && createPortal(
+        <div className={`fixed bottom-32 left-1/2 z-[9999] -translate-x-1/2 rounded-xl px-4 py-2.5 text-[14px] font-semibold shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300 ${
           status.ok
             ? 'bg-emerald-600 text-white'
             : 'bg-red-600 text-white'
         }`}>
+          <span className="mr-2">{status.ok ? '✓' : '✗'}</span>
           {status.text}
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Floating toggle button */}
