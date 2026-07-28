@@ -46,13 +46,8 @@ export class AuthController {
   @Header('Expires', '0')
   @Header('Surrogate-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
-  async getProfile(@Req() req: { user: { id: string; email: string; role: string; displayName: string } }) {
-    return {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role,
-      displayName: req.user.displayName,
-    };
+  async getProfile() {
+    return this.auth.getProfile();
   }
 
   /**
