@@ -221,7 +221,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path?: string[]
   //    Skip auth for public endpoints (login, refresh) so the user can
   //    authenticate before a session exists.
   const { path } = await ctx.params;
-  const PUBLIC_PATHS = new Set(['/auth/login', '/auth/refresh']);
+  const PUBLIC_PATHS = new Set(['/auth/login', '/auth/refresh', '/building/snapshot', '/building/snapshot/history']);
   const PUBLIC_PREFIXES = ['/ai/'];
   const requestPath = `/${(path ?? []).join('/')}`;
 
