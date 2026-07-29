@@ -1,8 +1,7 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { DASHBOARD_PREVIEW } from "./data";
-import { colors } from "@/design-system/tokens";
+import Link from "next/link";
 
 const icons: Record<string, (_c: string) => React.ReactNode> = {
   activity: (_c) => (
@@ -24,24 +23,6 @@ const icons: Record<string, (_c: string) => React.ReactNode> = {
     </svg>
   ),
 };
-
-const Viewer = dynamic(
-  () =>
-    import("@/features/digital-twin/viewer-3d").then(
-      (m) => m.DigitalTwinViewer3D,
-    ),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className="w-full h-full min-h-[320px] flex items-center justify-center brutalist-border"
-        style={{ background: colors.bg.subtle }}
-      >
-        <span className="text-sm font-bold uppercase tracking-widest text-black">Loading 3D Preview...</span>
-      </div>
-    ),
-  },
-);
 
 export function LandingDashboardPreview() {
   return (
@@ -66,8 +47,31 @@ export function LandingDashboardPreview() {
           {/* Left: 3D viewer */}
           <div className="xl:col-span-3 animate-fade-in-up delay-1 h-full">
             <div className="h-full bg-black p-2 brutalist-border shadow-[12px_12px_0px_#111]">
-              <div className="h-full min-h-[400px] w-full bg-white brutalist-border relative">
-                <Viewer mode="showcase" showMarkers={false} autoRotate={true} />
+              <div className="h-full min-h-[400px] w-full bg-white brutalist-border relative overflow-hidden flex items-center justify-center">
+                {/* Decorative grid mockup — avoids double WebGL context crash */}
+                <div className="absolute inset-0 opacity-[0.04]"
+                  style={{
+                    backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`,
+                    backgroundSize: '24px 24px',
+                  }}
+                />
+                <div className="text-center px-6">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-black/5 flex items-center justify-center">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-black/40">
+                      <path d="M21 16V8l-9-5-9 5v8l9 5 9-5z" />
+                      <polyline points="3 8 12 13 21 8" />
+                      <line x1="12" y1="22" x2="12" y2="13" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold uppercase tracking-wider text-black/60 mb-1">Interactive 3D Dashboard</p>
+                  <p className="text-xs font-medium text-black/40 mb-6">Live sensors, alerts & AI Copilot</p>
+                  <Link
+                    href="/dashboard"
+                    className="inline-block rounded-xl bg-black px-6 py-3 text-sm font-bold text-white hover:bg-gray-800 transition-colors"
+                  >
+                    Open Live Dashboard →
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
