@@ -31,7 +31,6 @@ export interface DigitalTwinPanelProps {
   onSelectAsset?: (id: string) => void;
   showHeader?: boolean;
   assetReadingsById?: Record<string, string>;
-  modelUrl?: string;
 }
 
 export function DigitalTwinPanel({
@@ -40,7 +39,6 @@ export function DigitalTwinPanel({
   onSelectAsset: _onSelectAsset,
   showHeader = true,
   assetReadingsById: _assetReadingsById,
-  modelUrl,
 }: DigitalTwinPanelProps) {
   // The viewer renders the LIVE `assets` prop (the same source the
   // Predictive tab uses) and only falls back to the static SEED_ASSETS
@@ -119,7 +117,6 @@ export function DigitalTwinPanel({
         mode="operator"
         assets={assets}
         onSelectAsset={_onSelectAsset}
-        modelUrl={modelUrl}
       />
     </section>
   );
