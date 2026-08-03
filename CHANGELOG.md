@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+- **Clean 60-Page Technical Major Project Report** — Generated `Saleheen_Major_project_report.docx` with 100% unique academic technical prose, zero repeated test paragraphs, bottom table/figure captions, top/bottom header/footer border lines (`#808080`), and exact 60-page Microsoft Word rendering.
+
+
 ## [0.1.4] - 2026-06-26
 
 ### Added
