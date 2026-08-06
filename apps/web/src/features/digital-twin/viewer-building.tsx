@@ -16,7 +16,7 @@ import { useRef, useState, useMemo, useEffect } from "react";
 import { useFrame, ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { useViewerStore } from "./viewer-store";
-import { Edges, Grid, useGLTF } from "@react-three/drei";
+import { Edges, Grid } from "@react-three/drei";
 import { Html } from "@react-three/drei";
 import {
   colors,
@@ -1539,73 +1539,6 @@ export function Building({
           <ArchitecturalTree position={[8, 0, -HALF_D - 5]} />
         </group>
       )}
-    </group>
-  );
-}
-
-// ─── GLB / GLTF Model Loader ────────────────────────────────────────
-
-/**
- * Renders an uploaded GLB/GLTF building model in place of the procedural
- * Building component. Named child objects in the GLB are reported via
- * onObjectsFound and can be individually toggled via visibleObjects for
- * layer-panel integration.
- */
-export function BuildingModel({
-  modelUrl,
-  visibleObjects,
-  onObjectsFound,
-}: {
-  modelUrl: string;
-  visibleObjects?: Set<string>;
-  onObjectsFound?: (names: string[]) => void;
-}) {
-  const { scene } = useGLTF(modelUrl, true);
-
-  // Report distinct named objects from the GLB so the parent can show layer toggles
-  useEffect(() => {
-    if (!onObjectsFound) return;
-    const found = new Set<string>();
-    scene.traverse((child) => {
-      if (child.name) found.add(child.name);
-    });
-    const names = Array.from(found).sort();
-    if (names.length > 0) onObjectsFound(names);
-  }, [scene, onObjectsFound]);
-
-  // Apply per-object visibility toggles from the Layers panel
-  useEffect(() => {
-    if (!visibleObjects || visibleObjects.size === 0) {
-      scene.traverse((child) => { child.visible = true; });
-    } else {
-      scene.traverse((child) => {
-        if (child.name) {
-          child.visible = visibleObjects.has(child.name);
-        }
-      });
-    }
-  }, [scene, visibleObjects]);
-
-  // Center the model and floor it on y=0
-  const [position, scale] = useMemo(() => {
-    // Temporarily show all children so the bounding box is correct
-    scene.traverse((child) => { child.visible = true; });
-    const box = new THREE.Box3().setFromObject(scene);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    // Scale so the longest dimension fits within 28 units — a balanced
-    // size that looks good with the default camera (35, 12, 35)
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const s = maxDim > 0 ? 28 / maxDim : 1;
-    return [
-      [-center.x * s, -box.min.y * s, -center.z * s] as [number, number, number],
-      [s, s, s] as [number, number, number],
-    ];
-  }, [scene]);
-
-  return (
-    <group position={position} scale={scale}>
-      <primitive object={scene} />
     </group>
   );
 }

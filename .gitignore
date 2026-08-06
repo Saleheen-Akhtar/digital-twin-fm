@@ -68,3 +68,29 @@ graphify-out/
 
 # TypeScript
 *.tsbuildinfo
+
+# Personal agent tooling & scratch — never commit to company/coordinator repo
+.agent/
+.agents/
+.hermes/
+.claude/
+skills-lock.json
+pr_response.json
+test_auto.docx
+
+# Local dev/debug utilities (hardcoded paths & test credentials — not for repo)
+_check_port8000.ps1
+_port_check.ps1
+check_data.py
+check_pg.py
+check_redis.py
+test_db.js
+test_db2.js
+test_db.sh
+test_api.py
+test_endpoints.py
+test_url.js
+
+# Internal design/planning & security docs — not for company/coordinator repo
+documents/
+docs/

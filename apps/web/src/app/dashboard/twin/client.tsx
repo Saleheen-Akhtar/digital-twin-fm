@@ -9,10 +9,9 @@ import type { Asset } from "@/lib/api-client";
 interface DigitalTwinClientProps {
   initialAssets: Asset[];
   initialError: string | null;
-  modelUrl?: string;
 }
 
-export function DigitalTwinClient({ initialAssets, initialError, modelUrl }: DigitalTwinClientProps) {
+export function DigitalTwinClient({ initialAssets, initialError }: DigitalTwinClientProps) {
   const [assets] = useState<Asset[]>(initialAssets);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -54,7 +53,6 @@ export function DigitalTwinClient({ initialAssets, initialError, modelUrl }: Dig
               selectedId={selectedId}
               onSelectAsset={setSelectedId}
               showHeader={false}
-              modelUrl={modelUrl}
             />
           </div>
         )}

@@ -56,9 +56,6 @@ import { SEED_ASSETS, apiAssetsToViewerAssets } from "./viewer-data";
 const LazyBuilding = lazy(() =>
   import("./viewer-building").then((m) => ({ default: m.Building })),
 );
-const LazyBuildingModel = lazy(() =>
-  import("./viewer-building").then((m) => ({ default: m.BuildingModel })),
-);
 const LazyAssetMarker3D = lazy(() =>
   import("./viewer-building").then((m) => ({ default: m.AssetMarker3D })),
 );
@@ -119,11 +116,6 @@ export interface DigitalTwinViewer3DProps {
   assets?: ApiAssetShape[];
   /** Callback when an asset is selected (opens sidebar detail panel). */
   onSelectAsset?: (id: string) => void;
-  /**
-   * Optional URL to an uploaded GLB/GLTF model. When provided, the
-   * procedural Building component is replaced by the loaded 3D model.
-   */
-  modelUrl?: string;
 }
 
 // ─── Camera animator (driven by useFrame) ──────────────────────────
@@ -257,9 +249,6 @@ function SceneContent({
   showFurniture,
   showMEP,
   showZones,
-  modelUrl,
-  visibleObjects,
-  onObjectsFound,
 }: {
   showMarkers: boolean;
   autoRotate: boolean;
@@ -273,9 +262,6 @@ function SceneContent({
   showFurniture: boolean;
   showMEP: boolean;
   showZones: boolean;
-  modelUrl?: string;
-  visibleObjects: Set<string>;
-  onObjectsFound: (names: string[]) => void;
 }) {
   const orbitControlsRef = useRef<OrbitControlsImpl>(null!);
   const cameraControlsRef = useRef<CameraControls>(null!);
@@ -339,24 +325,20 @@ function SceneContent({
 
       {/* Building -- lazy-loaded; canvas mounts instantly while the 80 KiB chunk streams in */}
       <Suspense fallback={null}>
-        {modelUrl ? (
-          <LazyBuildingModel modelUrl={modelUrl} visibleObjects={visibleObjects} onObjectsFound={onObjectsFound} />
-        ) : (
-          <LazyBuilding
-            selectedFloor={selectedFloor}
-            selectedZone={selectedZone}
-            onSelectZone={onSelectZone}
-            walkMode={walkMode}
-            showFacade={showFacade}
-            showFurniture={showFurniture}
-            showMEP={showMEP}
-            showZones={showZones}
-            showMarkers={showMarkers}
-          />
-        )}
+        <LazyBuilding
+          selectedFloor={selectedFloor}
+          selectedZone={selectedZone}
+          onSelectZone={onSelectZone}
+          walkMode={walkMode}
+          showFacade={showFacade}
+          showFurniture={showFurniture}
+          showMEP={showMEP}
+          showZones={showZones}
+          showMarkers={showMarkers}
+        />
 
-        {/* Asset markers — hidden when an uploaded model is loaded */}
-        {showMarkers && !modelUrl &&
+        {/* Asset markers */}
+        {showMarkers &&
           allAssets
             .filter((asset) => {
               if (selectedFloor === "ALL") return true;
@@ -623,13 +605,24 @@ export function DigitalTwinViewer3D({
   defaultOpenOverlays,
   assets,
   onSelectAsset,
-  modelUrl,
 }: DigitalTwinViewer3DProps) {
   const { selectedFloor, setSelectedFloor } = useViewerStore();
   const editMode = useViewerStore((s) => s.editMode);
   const setEditMode = useViewerStore((s) => s.setEditMode);
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [walkMode, setWalkMode] = useState(false);
+
+  // ── WebGL context-loss recovery ──
+  // Chrome evicts the oldest WebGL context when too many tabs use WebGL
+  // (ChatGPT, Google Maps, etc.). three.js cannot re-create a context on
+  // the SAME canvas element after a loss ("existing context of a different
+  // type"), leaving the renderer permanently dead → transparent canvas.
+  // Bumping `key` remounts <Canvas> with a fresh canvas element.
+  const [glEpoch, setGlEpoch] = useState(0);
+  const handleContextLost = useCallback((e: Event) => {
+    e.preventDefault(); // don't let the browser permanently destroy the canvas
+    setGlEpoch((n) => n + 1);
+  }, []);
 
   // ── Overlay visibility (operator mode only) ──
   // Each overlay is independent so the icon rail can toggle them in any
@@ -655,17 +648,6 @@ export function DigitalTwinViewer3D({
   const [showFurniture, setShowFurniture] = useState(true);
   const [showMEP, setShowMEP] = useState(true);
   const [showZones, setShowZones] = useState(true);
-
-  // Uploaded GLB object layers — named child objects from the model
-  // that can be individually toggled via the Layers panel.
-  const [modelObjectNames, setModelObjectNames] = useState<string[]>([]);
-  const [visibleObjects, setVisibleObjects] = useState<Set<string>>(new Set());
-
-  // Reset object names when modelUrl changes
-  useEffect(() => {
-    setModelObjectNames([]);
-    setVisibleObjects(new Set());
-  }, [modelUrl]);
 
   // Resolve assets
   const allAssets = useMemo(
@@ -708,6 +690,7 @@ export function DigitalTwinViewer3D({
       }}
     >
       <Canvas
+        key={glEpoch}
         camera={{
           position: CAM.defaultPosition,
           fov: CAM.fov,
@@ -719,6 +702,14 @@ export function DigitalTwinViewer3D({
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.1,
+        }}
+        onCreated={({ gl }) => {
+          // One-shot listener: on context loss, remount the Canvas with a
+          // fresh canvas element (key bump) so the scene recovers instead of
+          // staying permanently transparent.
+          gl.domElement.addEventListener("webglcontextlost", handleContextLost, {
+            once: true,
+          });
         }}
         style={{ width: "100%", height: "100%" }}
       >
@@ -735,9 +726,6 @@ export function DigitalTwinViewer3D({
           showFurniture={showFurniture}
           showMEP={showMEP}
           showZones={showZones}
-          modelUrl={modelUrl}
-          visibleObjects={visibleObjects}
-          onObjectsFound={setModelObjectNames}
         />
       </Canvas>
 
@@ -819,76 +807,52 @@ export function DigitalTwinViewer3D({
                 Layers
               </div>
 
-              {/* When an uploaded GLB has named objects, show dynamic toggles */}
-              {modelUrl && modelObjectNames.length > 0
-                ? modelObjectNames.map((name) => {
-                    const active = visibleObjects.size === 0 || visibleObjects.has(name);
-                    return (
-                      <button
-                        key={name}
-                        onClick={() => {
-                          const next = new Set(visibleObjects);
-                          if (next.has(name)) next.delete(name);
-                          else next.add(name);
-                          setVisibleObjects(next);
-                        }}
-                        className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                          active
-                            ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                            : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                        }`}
-                      >
-                        <span>{name}</span>
-                      </button>
-                    );
-                  })
-                : /* Fallback: hardcoded procedural-building layers */
-                  <>
-                    <button
-                      onClick={() => setShowFacade((f) => !f)}
-                      className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                        showFacade
-                          ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                          : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>🏢 Facade</span>
-                    </button>
+              {/* Hardcoded procedural-building layers */}
+              <>
+                <button
+                  onClick={() => setShowFacade((f) => !f)}
+                  className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                    showFacade
+                      ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                      : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>🏢 Facade</span>
+                </button>
 
-                    <button
-                      onClick={() => setShowFurniture((f) => !f)}
-                      className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                        showFurniture
-                          ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                          : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>🛋️ Furniture</span>
-                    </button>
+                <button
+                  onClick={() => setShowFurniture((f) => !f)}
+                  className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                    showFurniture
+                      ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                      : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>🛋️ Furniture</span>
+                </button>
 
-                    <button
-                      onClick={() => setShowMEP((m) => !m)}
-                      className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                        showMEP
-                          ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                          : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>⚙️ Systems</span>
-                    </button>
+                <button
+                  onClick={() => setShowMEP((m) => !m)}
+                  className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                    showMEP
+                      ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                      : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>⚙️ Systems</span>
+                </button>
 
-                    <button
-                      onClick={() => setShowZones((z) => !z)}
-                      className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
-                        showZones
-                          ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
-                          : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>🗺️ Zones</span>
-                    </button>
-                  </>
-              }
+                <button
+                  onClick={() => setShowZones((z) => !z)}
+                  className={`flex items-center justify-between px-2 py-1 text-[11px] font-medium rounded-lg border transition-all ${
+                    showZones
+                      ? "bg-slate-100 text-slate-800 border-slate-200 font-semibold"
+                      : "bg-white text-slate-400 border-slate-100 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>🗺️ Zones</span>
+                </button>
+              </>
             </div>
           )}
 
