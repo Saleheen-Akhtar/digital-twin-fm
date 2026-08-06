@@ -612,6 +612,18 @@ export function DigitalTwinViewer3D({
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [walkMode, setWalkMode] = useState(false);
 
+  // ── WebGL context-loss recovery ──
+  // Chrome evicts the oldest WebGL context when too many tabs use WebGL
+  // (ChatGPT, Google Maps, etc.). three.js cannot re-create a context on
+  // the SAME canvas element after a loss ("existing context of a different
+  // type"), leaving the renderer permanently dead → transparent canvas.
+  // Bumping `key` remounts <Canvas> with a fresh canvas element.
+  const [glEpoch, setGlEpoch] = useState(0);
+  const handleContextLost = useCallback((e: Event) => {
+    e.preventDefault(); // don't let the browser permanently destroy the canvas
+    setGlEpoch((n) => n + 1);
+  }, []);
+
   // ── Overlay visibility (operator mode only) ──
   // Each overlay is independent so the icon rail can toggle them in any
   // combination. KPI strip defaults to open; everything else
@@ -678,6 +690,7 @@ export function DigitalTwinViewer3D({
       }}
     >
       <Canvas
+        key={glEpoch}
         camera={{
           position: CAM.defaultPosition,
           fov: CAM.fov,
@@ -689,6 +702,14 @@ export function DigitalTwinViewer3D({
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.1,
+        }}
+        onCreated={({ gl }) => {
+          // One-shot listener: on context loss, remount the Canvas with a
+          // fresh canvas element (key bump) so the scene recovers instead of
+          // staying permanently transparent.
+          gl.domElement.addEventListener("webglcontextlost", handleContextLost, {
+            once: true,
+          });
         }}
         style={{ width: "100%", height: "100%" }}
       >
